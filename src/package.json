@@ -1,0 +1,19 @@
+{
+  "name": "affiliate",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "db:generate": "pnpm --filter @affiliate/db prisma generate",
+    "db:migrate": "pnpm --filter @affiliate/db prisma migrate dev",
+    "sync:run": "pnpm --filter @affiliate/api ts-node src/sync/deal-sync.service.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}

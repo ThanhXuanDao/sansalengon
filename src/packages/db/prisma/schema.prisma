@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Niches ──────────────────────────────────────────────────────────────────
+model Niche {
+  id       String    @id                    // "fashion", "electronics"
+  name     String
+  status   String    @default("draft")      // "active" | "draft" | "paused"
+  products Product[]
+  deals    Deal[]
+}
+
+// ─── Products (sync từ Shopee/AccessTrade) ───────────────────────────────────
+model Product {
+  id            String     @id @default(cuid())
+  externalId    String                         // itemId từ Shopee hoặc ID từ AccessTrade
+  source        String                         // "shopee" | "accesstrade"
+  nicheId       String
+  name          String
+  imageUrl      String
+  shopUrl       String                         // link gốc trên sàn
+  affiliateUrl  String                         // link affiliate đã generate
+  currentPrice  Int
+  originalPrice Int?
+  commissionRate Float?
+  rating        Float?
+  isSoldOut     Boolean    @default(false)
+  lastSyncedAt  DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+
+  niche         Niche         @relation(fields: [nicheId], references: [id])
+  deals         Deal[]
+  priceHistory  PriceHistory[]
+  clicks        ClickLog[]
+
+  @@unique([source, externalId])
+}
+
+// ─── Price History ────────────────────────────────────────────────────────────
+model PriceHistory {
+  id         String   @id @default(cuid())
+  productId  String
+  price      Int
+  recordedAt DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId, recordedAt])
+}
+
+// ─── Deals (deal tốt được filter ra để phân phối) ───────────────────────────
+model Deal {
+  id           String    @id @default(cuid())
+  productId    String
+  nicheId      String
+  discountPct  Int                            // phần trăm giảm giá
+  originalPrice Int
+  salePrice    Int
+  expiresAt    DateTime?                      // null = không có hạn
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  product      Product   @relation(fields: [productId], references: [id])
+  niche        Niche     @relation(fields: [nicheId], references: [id])
+  postLogs     PostLog[]
+}
+
+// ─── Click Tracking ───────────────────────────────────────────────────────────
+model ClickLog {
+  id        String   @id @default(cuid())
+  productId String
+  source    String   @default("web")          // "web" | "zalo" | "facebook"
+  clickedAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId, clickedAt])
+}
+
+// ─── Post Distribution Log ────────────────────────────────────────────────────
+model PostLog {
+  id         String   @id @default(cuid())
+  dealId     String
+  channel    String                           // "zalo" | "facebook" | "website"
+  channelId  String?                          // group ID, OA ID...
+  status     String   @default("pending")     // "pending" | "sent" | "failed"
+  postedAt   DateTime?
+  createdAt  DateTime @default(now())
+  deal       Deal     @relation(fields: [dealId], references: [id])
+}
+
+// ─── App Settings ─────────────────────────────────────────────────────────────
+model AppSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
