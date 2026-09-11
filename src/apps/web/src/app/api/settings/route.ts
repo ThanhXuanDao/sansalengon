@@ -7,16 +7,33 @@ import { validateSettings } from "@/lib/validate-settings"
 const SETTINGS_KEY = "store_settings"
 
 const defaultSettings = {
-  storeName: "Shopby Affiliate Store",
-  storeUrl: "shopby.io",
-  bio: "Kurator produk affiliate Shopee pilihan — rekomendasi terbaik, harga transparan.",
-  bankName: "BCA",
-  accountNumber: "1234-5678-9012",
-  accountHolder: "JOHN DOE",
-  minPayout: 100000,
-  primaryColor: "red",
-  autoPayout: true,
-  twoFA: false,
+  siteName: "Săn Sale Ngon",
+  siteUrl: "https://sansalengon.vn",
+  tagline: "Tuyển chọn sản phẩm Shopee affiliate — giá tốt, minh bạch, cập nhật tự động.",
+  timezone: "Asia/Ho_Chi_Minh",
+  dateFormat: "DD/MM/YYYY",
+  decimalSeparator: ",",
+  thousandSeparator: ".",
+  currencySymbol: "₫",
+  currencyPosition: "after",
+  logo: "",
+  favicon: "",
+  footerDesc: "",
+  hotline: "",
+  facebookUrl: "",
+  zaloUrl: "",
+  youtubeUrl: "",
+  ga4Id: "",
+  gtmId: "",
+  metaTitle: "",
+  metaDesc: "",
+  metaKeywords: "",
+  ogImage: "",
+  robotsDefault: "index,follow",
+  sitemapEnabled: true,
+  maintenanceMode: false,
+  debugMode: false,
+  showErrors: false,
 }
 
 async function readSettings(): Promise<Record<string, unknown>> {
@@ -29,11 +46,19 @@ async function readSettings(): Promise<Record<string, unknown>> {
   }
 }
 
+const PUBLIC_FIELDS = [
+  "siteName", "siteUrl", "tagline", "logo", "favicon",
+  "footerDesc", "hotline", "facebookUrl", "zaloUrl", "youtubeUrl",
+  "currencySymbol", "currencyPosition", "decimalSeparator", "thousandSeparator",
+] as const
+
 export async function GET(request: NextRequest) {
-  if (!(await checkAuth(request))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
   const settings = await readSettings()
+  const isAdmin = await checkAuth(request)
+  if (!isAdmin) {
+    const pub = Object.fromEntries(PUBLIC_FIELDS.map((k) => [k, settings[k]]))
+    return NextResponse.json(pub)
+  }
   return NextResponse.json(settings)
 }
 

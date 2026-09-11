@@ -1,12 +1,16 @@
 import type { MetadataRoute } from "next"
 
+const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
+
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: ["/admin-shopby/", "/api/"],
-    },
-    sitemap: "https://shopby.io/sitemap.xml",
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/admin/", "/api/"],
+      },
+    ],
+    sitemap: `${BASE_URL}/sitemap.xml`,
   }
 }

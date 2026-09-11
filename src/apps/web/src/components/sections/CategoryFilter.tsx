@@ -16,11 +16,11 @@ interface CategoryFilterProps {
 }
 
 const defaultCategories: Category[] = [
-  { id: "all", name: "Semua", slug: "semua", icon: "LayoutGrid" },
-  { id: "cat1", name: "Elektronik", slug: "elektronik", icon: "Laptop" },
-  { id: "cat2", name: "Fashion", slug: "fashion", icon: "Shirt" },
-  { id: "cat3", name: "Rumah Tangga", slug: "rumah-tangga", icon: "Home" },
-  { id: "cat4", name: "Kecantikan", slug: "kecantikan", icon: "Sparkles" },
+  { id: "all", name: "Tất cả", slug: "semua", icon: "LayoutGrid" },
+  { id: "cat1", name: "Điện tử", slug: "dien-tu", icon: "Laptop" },
+  { id: "cat2", name: "Thời trang", slug: "thoi-trang", icon: "Shirt" },
+  { id: "cat3", name: "Gia dụng", slug: "gia-dung", icon: "Home" },
+  { id: "cat4", name: "Làm đẹp", slug: "lam-dep", icon: "Sparkles" },
 ]
 
 export default function CategoryFilter({
@@ -111,7 +111,7 @@ export default function CategoryFilter({
                   : "bg-white text-ink/60 border-border-color hover:border-ink/30"
               }`}
             >
-              Semua
+              Tất cả
             </button>
             {numberRanges.map((range) => {
               const isActive = activeRange?.from === range.from && activeRange?.to === range.to
@@ -139,8 +139,8 @@ export default function CategoryFilter({
     <aside className="hidden md:block w-64 flex-shrink-0">
       <div className="sticky top-24 bg-white border-r border-dashed border-border-color p-4">
         <div className="mb-6">
-          <h2 className="text-headline-md text-primary font-sans text-pretty">Kategori</h2>
-          <p className="text-caption text-ink/60 font-sans">Filter produk</p>
+          <h2 className="text-headline-md text-primary font-sans text-pretty">Danh mục</h2>
+          <p className="text-caption text-ink/60 font-sans">Lọc sản phẩm</p>
         </div>
         <ul className="space-y-2">
           {categories.map((cat) => {
@@ -165,7 +165,7 @@ export default function CategoryFilter({
 
         {numberRanges !== undefined && (
           <div className="mt-8">
-            <h3 className="font-mono text-xs text-ink/60 uppercase mb-3 tracking-wider">Nomor Produk</h3>
+            <h3 className="font-mono text-xs text-ink/60 uppercase mb-3 tracking-wider">Số thứ tự</h3>
             <ul className="space-y-2">
               <li>
                 <button
@@ -176,7 +176,7 @@ export default function CategoryFilter({
                       : "text-ink/60 hover:bg-[#e8e8e5] border border-transparent hover:border-border-color"
                   }`}
                 >
-                  <span>Semua</span>
+                  <span>Tất cả</span>
                 </button>
               </li>
               {numberRanges.map((range) => {

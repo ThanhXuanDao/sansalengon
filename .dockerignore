@@ -1,0 +1,5 @@
+node_modules
+src/node_modules
+src/apps/api/node_modules
+src/apps/web/node_modules
+src/apps/web/.next

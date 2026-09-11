@@ -1,34 +1,66 @@
 export interface StoreSettings {
-  storeName: string
-  storeUrl: string
-  bio: string
-  bankName: string
-  accountNumber: string
-  accountHolder: string
-  minPayout: number
-  primaryColor: string
-  autoPayout: boolean
-  twoFA: boolean
+  siteName: string
+  siteUrl: string
+  tagline: string
+  timezone: string
+  dateFormat: string
+  decimalSeparator: string
+  thousandSeparator: string
+  currencySymbol: string
+  currencyPosition: string
   logo: string
+  favicon: string
+  footerDesc: string
+  hotline: string
+  facebookUrl: string
+  zaloUrl: string
+  youtubeUrl: string
+  ga4Id: string
+  gtmId: string
+  metaTitle: string
+  metaDesc: string
+  metaKeywords: string
+  ogImage: string
+  robotsDefault: string
+  sitemapEnabled: boolean
+  maintenanceMode: boolean
+  debugMode: boolean
+  showErrors: boolean
 }
 
 const defaults: StoreSettings = {
-  storeName: "Shopby Affiliate Store",
-  storeUrl: "shopby.io",
-  bio: "Kurator produk affiliate Shopee pilihan — rekomendasi terbaik, harga transparan.",
-  bankName: "BCA",
-  accountNumber: "1234-5678-9012",
-  accountHolder: "JOHN DOE",
-  minPayout: 100000,
-  primaryColor: "red",
-  autoPayout: true,
-  twoFA: false,
+  siteName: "Săn Sale Ngon",
+  siteUrl: "https://sansalengon.vn",
+  tagline: "Tuyển chọn sản phẩm Shopee affiliate — giá tốt, minh bạch, cập nhật tự động.",
+  timezone: "Asia/Ho_Chi_Minh",
+  dateFormat: "DD/MM/YYYY",
+  decimalSeparator: ",",
+  thousandSeparator: ".",
+  currencySymbol: "₫",
+  currencyPosition: "after",
   logo: "",
+  favicon: "",
+  footerDesc: "",
+  hotline: "",
+  facebookUrl: "",
+  zaloUrl: "",
+  youtubeUrl: "",
+  ga4Id: "",
+  gtmId: "",
+  metaTitle: "",
+  metaDesc: "",
+  metaKeywords: "",
+  ogImage: "",
+  robotsDefault: "index,follow",
+  sitemapEnabled: true,
+  maintenanceMode: false,
+  debugMode: false,
+  showErrors: false,
 }
 
 export async function fetchSettings(): Promise<StoreSettings> {
   try {
-    const token = typeof document !== "undefined" ? document.cookie.match(/(?:^|;\s*)shopby_csrf=([^;]*)/)?.[1] || "" : ""
+    const token = typeof document !== "undefined" ? document.cookie.match(/(?:^|;\s*)sansale_csrf=([^;]*)/)?.[1] || "" : ""
     const res = await fetch("/api/settings", {
       headers: { "x-csrf-token": token },
     })

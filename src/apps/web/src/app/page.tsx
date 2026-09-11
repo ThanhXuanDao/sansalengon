@@ -13,6 +13,9 @@ import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeedbackSection from "@/components/sections/FeedbackSection"
 import { buildNumberRanges } from "@/lib/utils"
 
+const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
+  ssr: false,
+})
 const CategoryFilter = dynamic(() => import("@/components/sections/CategoryFilter"), {
   loading: () => <div className="h-10 skeleton-shimmer" />,
 })
@@ -20,6 +23,7 @@ const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
   loading: () => <div className="h-96 skeleton-shimmer" />,
 })
 const Footer = dynamic(() => import("@/components/layout/Footer"))
+const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNav"), { ssr: false })
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("semua")
@@ -53,13 +57,9 @@ export default function Home() {
   const numberRanges = useMemo(() => buildNumberRanges(displayTotal), [displayTotal])
 
   const handleBuyProduct = useCallback(
-    async (productId: string, shopeeUrl: string) => {
+    (productId: string, shopeeUrl: string) => {
       window.open(shopeeUrl, "_blank")
-      try {
-        await logClick(productId)
-      } catch {
-        // Click log non-critical
-      }
+      logClick(productId, "website").catch(() => {})
     },
     []
   )
@@ -95,9 +95,10 @@ export default function Home() {
     <>
       <NotificationBanner />
       <Navbar onSearch={handleSearch} searchQuery={searchQuery} />
-      <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.storeName} tagline={settings?.bio} />
+      <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
+      <TrendingWidget onBuyProduct={handleBuyProduct} />
       <div className="w-full bg-white border-t border-dashed border-border-color">
-      <main id="skip-target" className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-8 py-12">
+      <main id="skip-target" className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-8 py-12 pb-24 lg:pb-12">
         <div id="products">
         <div className="flex flex-col md:flex-row gap-8 mt-3 md:mt-0">
           <CategoryFilter
@@ -141,6 +142,7 @@ export default function Home() {
       </div>
       <FeedbackSection />
       <Footer />
+      <MobileBottomNav />
     </>
   )
 }

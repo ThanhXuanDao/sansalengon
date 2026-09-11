@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { checkAuth } from "@/lib/auth"
+import { classifySentiment } from "@/lib/sentiment-classifier"
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pesan harus minimal 5 karakter" }, { status: 400 })
     }
 
-    await prisma.feedback.create({
+    const record = await prisma.feedback.create({
       data: {
         name: name.trim(),
         email: email.trim(),
@@ -39,9 +40,18 @@ export async function POST(request: NextRequest) {
 
     console.info("[Feedback] New feedback from:", email)
 
+    // Fire-and-forget: classify sentiment in background
+    classifySentiment(message.trim()).then((result) => {
+      if (!result) return
+      prisma.feedback.update({
+        where: { id: record.id },
+        data: { sentiment: result.sentiment, sentimentScore: result.score },
+      }).catch(() => {})
+    }).catch(() => {})
+
     return NextResponse.json({
       success: true,
-      message: "Saran/masukan berhasil dikirim. Terima kasih!",
+      message: "Góp ý đã được gửi thành công. Cảm ơn bạn!",
     })
   } catch {
     return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 })

@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { productId } = await request.json()
+    const body = await request.json()
+    const { productId, source } = body
 
     if (!productId || typeof productId !== "string") {
       return NextResponse.json(
@@ -31,6 +32,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const VALID_SOURCES = new Set(["website", "zalo", "facebook", "direct"])
+    const safeSource = typeof source === "string" && VALID_SOURCES.has(source)
+      ? source
+      : "website"
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -45,7 +51,11 @@ export async function POST(request: NextRequest) {
     }
 
     await prisma.clickLog.create({
-      data: { productId: product.id },
+      data: {
+        productId: product.id,
+        source: safeSource,
+        referer: referer ?? null,
+      },
     })
 
     return NextResponse.json({ shopeeUrl: product.shopeeUrl })

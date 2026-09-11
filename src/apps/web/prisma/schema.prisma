@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,32 +9,102 @@ datasource db {
 }
 
 model Product {
-  id           String         @id @default(cuid())
-  name         String
-  price        Int
-  commission   Int            @default(0)
-  rating       Float          @default(0)
-  discountPct  Int?
-  imageUrl     String
-  imageAlt     String
-  shopeeUrl    String
-  categoryId   String
-  isFeatured   Boolean        @default(false)
-  isSoldOut    Boolean        @default(false)
-  createdAt    DateTime       @default(now())
-  clicks       ClickLog[]
-  priceHistory PriceHistory[]
-  category     Category       @relation(fields: [categoryId], references: [id])
+  id               String            @id @default(cuid())
+  name             String
+  price            Int
+  commission       Int               @default(0)
+  rating           Float             @default(0)
+  discountPct      Int?
+  imageUrl         String
+  imageAlt         String
+  shopeeUrl        String
+  affiliateUrl     String?
+  source           String            @default("shopee")
+  externalId       String?
+  lastSyncedAt     DateTime?
+  categoryId       String
+  isFeatured       Boolean           @default(false)
+  isSoldOut        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+
+  @@unique([source, externalId], map: "Product_source_externalId_key")
+  clicks           ClickLog[]
+  priceHistory     PriceHistory[]
+  platformProducts PlatformProduct[]
+  productMatches   ProductMatch[]
+  embedding        ProductEmbedding?
+  category         Category          @relation(fields: [categoryId], references: [id])
 }
 
 model PriceHistory {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   productId  String
   price      Int
-  recordedAt DateTime @default(now())
-  product    Product  @relation(fields: [productId], references: [id])
+  platformId String?
+  recordedAt DateTime  @default(now())
+  product    Product   @relation(fields: [productId], references: [id])
+  platform   Platform? @relation(fields: [platformId], references: [id])
 
   @@index([productId, recordedAt])
+  @@index([productId, platformId, recordedAt])
+}
+
+// ── Multi-platform price comparison ─────────────────────────
+
+model Platform {
+  id               String            @id  // "shopee" | "lazada" | "tiki" | "tiktok"
+  name             String
+  logoUrl          String?
+  baseUrl          String
+  isActive         Boolean           @default(true)
+  platformProducts PlatformProduct[]
+  priceHistory     PriceHistory[]
+}
+
+model PlatformProduct {
+  id                String   @id @default(cuid())
+  productId         String
+  platformId        String
+  platformProductId String
+  platformUrl       String
+  currentPrice      Int
+  originalPrice     Int?
+  inStock           Boolean  @default(true)
+  rating            Float?
+  soldCount         Int?
+  lastChecked       DateTime @updatedAt
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  platform Platform @relation(fields: [platformId], references: [id])
+
+  @@unique([productId, platformId])
+  @@index([productId])
+  @@index([platformId])
+}
+
+model ProductMatch {
+  id             String      @id @default(cuid())
+  productId      String
+  platformId     String
+  candidateUrl   String
+  candidateName  String?
+  candidatePrice Int?
+  confidence     Float
+  status         MatchStatus @default(PENDING)
+  confirmedBy    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, platformId])
+  @@index([status])
+}
+
+enum MatchStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 model Category {
@@ -47,8 +118,13 @@ model Category {
 model ClickLog {
   id        String   @id @default(cuid())
   productId String
+  source    String?  // "website" | "zalo" | "facebook" | "direct"
+  referer   String?
   clickedAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId, clickedAt])
+  @@index([clickedAt])
 }
 
 model AppSetting {
@@ -57,18 +133,32 @@ model AppSetting {
   value String
 }
 
-model Feedback {
+model ProductEmbedding {
   id        String   @id @default(cuid())
-  name      String
-  email     String
-  message   String
-  createdAt DateTime @default(now())
+  productId String   @unique
+  embedding String   // JSON-serialized float array
+  model     String   // e.g. "text-embedding-3-small" or "text-embedding-004"
+  dims      Int      // vector dimensions
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id             String   @id @default(cuid())
+  name           String
+  email          String
+  message        String
+  sentiment      String?  // "positive" | "negative" | "neutral" | "suggestion"
+  sentimentScore Float?   // 0.0–1.0 confidence
+  createdAt      DateTime @default(now())
 }
 
 model Coupon {
   id             String    @id @default(cuid())
-  source         String    @default("accesstrade")  // "accesstrade" | "manual"
-  externalId     String?                             // ID từ AccessTrade nếu có
+  source         String    @default("accesstrade")  // "accesstrade" | "shopee" | "tiki" | "lazada" | "manual"
+  platform       String?                             // "shopee" | "tiki" | "lazada" — sàn áp dụng coupon
+  externalId     String?                             // ID từ nguồn nếu có
   nicheId        String?                             // null = áp dụng mọi ngách
   merchant       String
   merchantLogo   String?
@@ -81,9 +171,23 @@ model Coupon {
   affiliateUrl   String
   expiresAt      DateTime?
   isActive       Boolean   @default(true)
+  clickCount     Int       @default(0)               // lượt click "Lấy Mã"
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([nicheId, isActive, expiresAt])
   @@index([isActive, expiresAt])
+}
+
+model BroadcastLog {
+  id          String   @id @default(cuid())
+  channel     String                          // "zalo"
+  nicheId     String?                         // null = tất cả ngách
+  productIds  String                          // JSON array
+  messageText String
+  status      String                          // "sent" | "failed"
+  error       String?
+  sentAt      DateTime @default(now())
+
+  @@index([channel, sentAt])
 }

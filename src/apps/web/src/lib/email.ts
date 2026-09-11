@@ -13,10 +13,10 @@ export async function sendOtpEmail(to: string, code: string) {
     return
   }
   await resend.emails.send({
-    from: "Shopby Admin <onboarding@resend.dev>",
+    from: "SanSaleNgon <onboarding@resend.dev>",
     to,
-    subject: "Kode Verifikasi Login Shopby",
-    html: `<p>Kode verifikasi login kamu: <strong style="font-size:24px">${code}</strong></p>
-           <p>Kode ini berlaku 5 menit. Kalau bukan kamu yang coba login, abaikan email ini.</p>`,
+    subject: "Mã xác thực đăng nhập SanSaleNgon",
+    html: `<p>Mã xác thực đăng nhập của bạn: <strong style="font-size:24px">${code}</strong></p>
+           <p>Mã này có hiệu lực trong 5 phút. Nếu không phải bạn, hãy bỏ qua email này.</p>`,
   })
 }

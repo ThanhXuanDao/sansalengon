@@ -33,7 +33,7 @@ export async function verifySessionToken(
 }
 
 export async function checkAuth(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get("shopby_admin_session")?.value
+  const token = request.cookies.get("sansale_admin_session")?.value
   if (!token) return false
   const payload = await verifySessionToken(token)
   return !!payload

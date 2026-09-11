@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { X } from "lucide-react"
 
-const BANNER_DISMISSED_KEY = "shopby_banner_dismissed"
+const BANNER_DISMISSED_KEY = "sansale_banner_dismissed"
 
 export default function NotificationBanner() {
   const [visible, setVisible] = useState(false)
@@ -34,12 +34,12 @@ export default function NotificationBanner() {
     >
       <div className="max-w-[1200px] mx-auto flex items-start md:items-center justify-between gap-4">
         <p className="font-mono text-[12px] md:text-[13px] leading-[18px] tracking-[0.05em]">
-          *harga bisa berubah kapan saja admin cuma mengambil harga pas produk di tambahkan ke catalog mimin, selamat berbelanja
+          * Giá có thể thay đổi bất cứ lúc nào. Giá hiển thị là giá tại thời điểm sản phẩm được thêm vào danh mục. Chúc bạn mua sắm vui vẻ!
         </p>
         <button
           onClick={handleDismiss}
           className="shrink-0 p-1 rounded text-[#1a1c1b]/60 hover:text-[#1a1c1b] hover:bg-[#1a1c1b]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
-          aria-label="Tutup pemberitahuan"
+          aria-label="Đóng thông báo"
         >
           <X className="size-4" aria-hidden="true" />
         </button>

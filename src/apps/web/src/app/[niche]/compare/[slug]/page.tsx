@@ -1,0 +1,505 @@
+import { notFound } from "next/navigation"
+import type { Metadata } from "next"
+import dynamic from "next/dynamic"
+import Link from "next/link"
+import { ChevronRight, ExternalLink, TrendingDown, CheckCircle2, ShoppingBag, Tag } from "lucide-react"
+import { prisma } from "@/lib/prisma"
+import { getNiche, NICHES } from "@/lib/niches"
+import { formatPrice } from "@/lib/utils"
+import { getOrGenerateCompareSeo } from "@/lib/seo-generator"
+import PriceCompareChart from "@/components/compare/PriceCompareChart"
+
+const Navbar = dynamic(() => import("@/components/layout/Navbar"))
+const Footer = dynamic(() => import("@/components/layout/Footer"))
+
+const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
+
+export const revalidate = 1800
+
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    select: { id: true, categoryId: true, category: { select: { slug: true } } },
+  }).catch(() => [])
+
+  const params: { niche: string; slug: string }[] = []
+  for (const p of products) {
+    const niche = NICHES.find((n) => n.categorySlug === p.category.slug)
+    if (niche) params.push({ niche: niche.id, slug: p.id })
+  }
+  return params
+}
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ niche: string; slug: string }> },
+): Promise<Metadata> {
+  const { niche: nicheId, slug } = await params
+  const niche = getNiche(nicheId)
+  if (!niche) return {}
+
+  const product = await prisma.product.findUnique({ where: { id: slug }, select: { name: true } }).catch(() => null)
+  if (!product) return {}
+
+  const title = `So sánh giá ${product.name} — Shopee vs Lazada vs Tiki`
+
+  // Lazy AI description: generate once and cache in AppSetting
+  const productFull = await prisma.product.findUnique({
+    where: { id: slug },
+    select: { price: true, discountPct: true },
+  }).catch(() => null)
+
+  const { description } = await getOrGenerateCompareSeo(
+    slug,
+    product.name,
+    niche.name,
+    productFull?.discountPct ?? null,
+    productFull?.price ?? 0,
+  )
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `${BASE_URL}/${nicheId}/compare/${slug}` },
+    openGraph: { title, description, url: `${BASE_URL}/${nicheId}/compare/${slug}`, type: "website" },
+  }
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  shopee: "#ee4d2d",
+  lazada: "#0f146b",
+  tiki:   "#189eff",
+  tiktok: "#010101",
+}
+
+export default async function ComparePage(
+  { params }: { params: Promise<{ niche: string; slug: string }> },
+) {
+  const { niche: nicheId, slug } = await params
+  const niche = getNiche(nicheId)
+  if (!niche) notFound()
+
+  const product = await prisma.product.findUnique({
+    where: { id: slug },
+    include: { category: true, platformProducts: { include: { platform: true } } },
+  }).catch(() => null)
+
+  if (!product) notFound()
+
+  // Build unified platform list: Shopee first (from product.price), then others
+  const platforms = [
+    {
+      platformId: "shopee",
+      platformName: "Shopee",
+      platformUrl: product.shopeeUrl,
+      currentPrice: product.price,
+      originalPrice: product.discountPct
+        ? Math.round(product.price / (1 - product.discountPct / 100))
+        : null,
+      inStock: !product.isSoldOut,
+      rating: product.rating,
+      lastChecked: null as string | null,
+    },
+    ...product.platformProducts.map((pp) => ({
+      platformId: pp.platformId,
+      platformName: pp.platform.name,
+      platformUrl: pp.platformUrl,
+      currentPrice: pp.currentPrice,
+      originalPrice: pp.originalPrice,
+      inStock: pp.inStock,
+      rating: pp.rating,
+      lastChecked: pp.lastChecked.toISOString(),
+    })),
+  ]
+
+  const sorted = [...platforms].sort((a, b) => a.currentPrice - b.currentPrice)
+  const inStockPrices = platforms.filter((p) => p.inStock).map((p) => p.currentPrice)
+  const cheapestPrice = inStockPrices.length ? Math.min(...inStockPrices) : 0
+  const highestPrice = inStockPrices.length ? Math.max(...inStockPrices) : 0
+  const savings = highestPrice - cheapestPrice
+  const cheapestPlatform = platforms.find((p) => p.inStock && p.currentPrice === cheapestPrice)
+
+  // Schema.org Product with Offers
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: product.imageUrl,
+    offers: platforms.map((p) => ({
+      "@type": "Offer",
+      url: p.platformUrl,
+      price: (p.currentPrice / 100).toFixed(2),
+      priceCurrency: "VND",
+      availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: { "@type": "Organization", name: p.platformName },
+    })),
+  }
+
+  const compareUrl = `${BASE_URL}/${nicheId}/compare/${slug}`
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      <Navbar />
+
+      <div className="w-full bg-white">
+
+        {/* ── Hero ─────────────────────────────────────────────────── */}
+        <div
+          className="relative w-full overflow-hidden"
+          style={{ height: "clamp(220px, 38vw, 380px)" }}
+        >
+          {/* Product image as background */}
+          <img
+            src={product.imageUrl}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+
+          {/* Gradient overlay — heavier at bottom for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1c1b]/95 via-[#1a1c1b]/50 to-[#1a1c1b]/20" />
+
+          {/* Hero content overlaid at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 md:px-8 pb-6 md:pb-10">
+            {/* Breadcrumb */}
+            <nav className="hidden sm:flex items-center gap-1.5 font-mono text-[10px] text-white/50 mb-3 flex-wrap">
+              <Link href="/" className="hover:text-white/80 transition-colors">Trang chủ</Link>
+              <ChevronRight className="size-3" />
+              <Link href={`/${niche.id}`} className="hover:text-white/80 transition-colors">{niche.name}</Link>
+              <ChevronRight className="size-3" />
+              <span className="text-white/70">So sánh giá</span>
+            </nav>
+
+            {/* Category tag */}
+            <div className="mb-2">
+              <span className="font-mono text-[9px] md:text-[10px] text-[#fdc73a] border border-[#fdc73a]/50 px-1.5 py-0.5 backdrop-blur-sm uppercase tracking-widest">
+                {product.category.name}
+              </span>
+            </div>
+
+            {/* Product name */}
+            <h1
+              className="font-mono font-bold text-white leading-tight mb-2.5"
+              style={{ fontSize: "clamp(15px, 3.5vw, 26px)" }}
+            >
+              {product.name}
+            </h1>
+
+            {/* Savings badge */}
+            {savings > 0 && (
+              <div className="flex items-center gap-1.5 font-mono text-[11px] md:text-[12px] text-[#6ee7a7]">
+                <TrendingDown className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>Tiết kiệm tới <strong>{formatPrice(savings)}</strong> khi chọn đúng sàn</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile breadcrumb */}
+        <div className="sm:hidden bg-white border-b border-[#1a1c1b]/10 px-4 py-2.5 overflow-x-auto">
+          <nav className="flex items-center gap-1.5 font-mono text-[10px] text-[#1a1c1b]/50 whitespace-nowrap">
+            <Link href={`/${niche.id}`} className="text-[#b51c00] flex items-center gap-1 font-medium">
+              <ChevronRight className="size-3 rotate-180" />
+              Deal {niche.name}
+            </Link>
+          </nav>
+        </div>
+
+        {/* ── Content + Sidebar ─────────────────────────────────────── */}
+        <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10 pb-24 lg:pb-10">
+          <div className="flex gap-10 items-start">
+
+            {/* ── Main article ────────────────────────────────────────── */}
+            <div className="flex-1 min-w-0">
+
+              {/* Price comparison table */}
+              <section className="mb-10" aria-label="Bảng so sánh giá">
+                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[#1a1c1b]/15 pb-3">
+                  <h2 className="font-mono text-[12px] font-bold text-[#1a1c1b] uppercase tracking-wider">
+                    So sánh giá theo sàn
+                  </h2>
+                  <span className="font-mono text-[10px] text-[#1a1c1b]/35">cập nhật mỗi 4 giờ</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {sorted.map((p) => {
+                    const isCheapest = p.inStock && p.currentPrice === cheapestPrice
+                    const discount = p.originalPrice && p.originalPrice > p.currentPrice
+                      ? Math.round((1 - p.currentPrice / p.originalPrice) * 100)
+                      : null
+
+                    return (
+                      <div
+                        key={p.platformId}
+                        className={`flex items-center gap-3 md:gap-4 p-3.5 md:p-4 border transition-colors ${
+                          isCheapest
+                            ? "border-[#1a6e3c] bg-[#edfaf1]"
+                            : "border-[#1a1c1b]/12 bg-white"
+                        }`}
+                      >
+                        {/* Platform dot + name */}
+                        <div className="flex items-center gap-2 w-24 shrink-0">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: PLATFORM_COLORS[p.platformId] ?? "#888" }}
+                            aria-hidden="true"
+                          />
+                          <span className="font-mono text-[12px] font-bold text-[#1a1c1b]">{p.platformName}</span>
+                        </div>
+
+                        {/* Price bar */}
+                        <div className="flex-1 hidden sm:block">
+                          <div className="h-1.5 bg-[#e8e8e5] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: highestPrice > 0
+                                  ? `${(p.currentPrice / highestPrice) * 100}%`
+                                  : "0%",
+                                background: PLATFORM_COLORS[p.platformId] ?? "#888",
+                                opacity: p.inStock ? 1 : 0.25,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Price */}
+                        <div className="text-right shrink-0">
+                          <p
+                            className={`font-mono text-base font-bold ${
+                              isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"
+                            } ${!p.inStock ? "opacity-35" : ""}`}
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {formatPrice(p.currentPrice)}
+                          </p>
+                          {p.originalPrice && p.originalPrice > p.currentPrice && (
+                            <p className="font-mono text-[10px] text-[#1a1c1b]/35 line-through">
+                              {formatPrice(p.originalPrice)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex items-center gap-1.5 shrink-0 w-20 justify-end">
+                          {discount && (
+                            <span className="font-mono text-[10px] font-bold text-white bg-[#ba1a1a] px-1.5 py-0.5">
+                              -{discount}%
+                            </span>
+                          )}
+                          {isCheapest && (
+                            <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-[#1a6e3c]">
+                              <CheckCircle2 className="size-3" aria-hidden="true" />
+                              Rẻ nhất
+                            </span>
+                          )}
+                          {!p.inStock && (
+                            <span className="font-mono text-[10px] text-[#1a1c1b]/35">Hết hàng</span>
+                          )}
+                        </div>
+
+                        {/* CTA */}
+                        <a
+                          href={p.inStock ? p.platformUrl : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-1 px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase border shrink-0 transition-colors ${
+                            !p.inStock
+                              ? "border-[#1a1c1b]/15 text-[#1a1c1b]/25 cursor-default pointer-events-none"
+                              : isCheapest
+                                ? "border-[#1a6e3c] bg-[#1a6e3c] text-white hover:bg-[#145c32]"
+                                : "border-[#1a1c1b] bg-white text-[#1a1c1b] hover:bg-[#1a1c1b] hover:text-white"
+                          }`}
+                          aria-disabled={!p.inStock}
+                        >
+                          Mua
+                          <ExternalLink className="size-3" aria-hidden="true" />
+                        </a>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              {/* Price history chart */}
+              <section className="mb-10" aria-label="Lịch sử giá theo sàn">
+                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[#1a1c1b]/15 pb-3">
+                  <h2 className="font-mono text-[12px] font-bold text-[#1a1c1b] uppercase tracking-wider">
+                    Lịch sử giá 30 ngày
+                  </h2>
+                </div>
+                <PriceCompareChart
+                  productId={product.id}
+                  platforms={platforms.map((p) => ({ platformId: p.platformId, platformName: p.platformName }))}
+                />
+              </section>
+
+              {/* How we compare — editorial note */}
+              <div className="mb-8 border-l-4 border-[#fdc73a] pl-4">
+                <p className="font-mono text-[12px] text-[#1a1c1b]/55 leading-relaxed italic">
+                  Giá được cập nhật tự động từ API chính thức của Shopee, Lazada và Tiki mỗi 4 giờ.
+                  Chúng tôi không nhận phí để ưu tiên bất kỳ sàn nào — kết quả sắp xếp thuần túy theo giá.
+                </p>
+              </div>
+
+              {/* Share row */}
+              <div className="mt-5 flex items-center gap-2.5 flex-wrap">
+                <span className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-wider">Chia sẻ:</span>
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(compareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-2 bg-[#1877f2] text-white hover:bg-[#1877f2]/80 active:scale-95 transition-all"
+                >
+                  <svg className="size-3.5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+                  Facebook
+                </a>
+                <a
+                  href={`https://zalo.me/share/url?url=${encodeURIComponent(compareUrl)}&title=${encodeURIComponent(`So sánh giá ${product.name}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-2 bg-[#006af5] text-white hover:bg-[#006af5]/80 active:scale-95 transition-all"
+                >
+                  <svg className="size-3.5 fill-current shrink-0" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4C13 4 4 13 4 24c0 5.5 2.2 10.5 5.8 14.2L7 44l6.1-1.6C16.5 44.1 20.1 45 24 45c11 0 20-9 20-20S35 4 24 4z" /></svg>
+                  Zalo
+                </a>
+              </div>
+
+              {/* Bottom nav */}
+              <div className="mt-8 md:mt-10 pt-5 border-t border-[#1a1c1b]/10 flex items-center justify-between gap-3">
+                <Link
+                  href={`/${niche.id}`}
+                  className="font-mono text-[12px] text-[#5c403a] hover:text-[#b51c00] transition-colors flex items-center gap-1 py-1"
+                >
+                  <ChevronRight className="size-3.5 rotate-180 shrink-0" />
+                  <span className="hidden sm:inline">Tất cả deal</span>
+                  <span className="sm:hidden">Deal</span>
+                </Link>
+                <Link
+                  href={`/${niche.id}`}
+                  className="flex items-center gap-1.5 bg-[#b51c00] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[#1a1c1b] active:scale-95 transition-all"
+                >
+                  <ShoppingBag className="size-3.5 shrink-0" />
+                  <span>Deal {niche.emoji} {niche.name}</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* ── Sidebar — desktop only ───────────────────────────── */}
+            <aside className="hidden lg:block w-[260px] shrink-0 sticky top-24 space-y-5">
+
+              {/* Best deal CTA */}
+              {cheapestPlatform && (
+                <div
+                  className="bg-[#1a1c1b] p-5 text-white"
+                  style={{ clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)" }}
+                >
+                  <span className="font-mono text-[10px] text-[#fdc73a] uppercase tracking-widest block mb-1.5">
+                    Giá rẻ nhất hôm nay
+                  </span>
+                  <p className="font-mono text-[22px] font-bold text-white leading-none mb-1" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {formatPrice(cheapestPrice)}
+                  </p>
+                  <p className="font-mono text-[11px] text-white/50 mb-4">
+                    tại {cheapestPlatform.platformName}
+                    {savings > 0 && ` · tiết kiệm ${formatPrice(savings)}`}
+                  </p>
+                  <a
+                    href={cheapestPlatform.platformUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 bg-[#b51c00] text-white font-mono text-[12px] px-4 py-2.5 hover:bg-[#fdc73a] hover:text-[#1a1c1b] transition-colors"
+                  >
+                    Mua tại {cheapestPlatform.platformName}
+                    <ExternalLink className="size-3.5" aria-hidden="true" />
+                  </a>
+                </div>
+              )}
+
+              {/* Platform summary */}
+              <div className="bg-white border border-[#1a1c1b]/10 p-4">
+                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2 mb-3 flex items-center gap-1.5">
+                  <Tag className="size-3 text-[#b51c00]" />
+                  Giá trên tất cả sàn
+                </h3>
+                <div className="space-y-2.5">
+                  {sorted.map((p) => {
+                    const isCheapest = p.inStock && p.currentPrice === cheapestPrice
+                    return (
+                      <div key={p.platformId} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: PLATFORM_COLORS[p.platformId] ?? "#888" }}
+                            aria-hidden="true"
+                          />
+                          <span className="font-mono text-[11px] text-[#1a1c1b]/70 truncate">{p.platformName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`font-mono text-[12px] font-bold ${isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"} ${!p.inStock ? "opacity-35" : ""}`}
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {p.inStock ? formatPrice(p.currentPrice) : "Hết hàng"}
+                          </span>
+                          {isCheapest && (
+                            <CheckCircle2 className="size-3 text-[#1a6e3c] shrink-0" aria-hidden="true" />
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Product meta */}
+              <div className="bg-white border border-[#1a1c1b]/10 p-4 space-y-3">
+                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2">
+                  Thông tin sản phẩm
+                </h3>
+                <div className="flex gap-3 items-start">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.imageAlt}
+                    className="w-14 h-14 object-cover border border-[#1a1c1b]/10 shrink-0"
+                  />
+                  <p className="font-mono text-[11px] text-[#1a1c1b]/70 leading-snug line-clamp-4">
+                    {product.name}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="font-mono text-[9px] text-[#5c403a] border border-[#5c403a]/25 px-1.5 py-0.5">
+                    {product.category.name}
+                  </span>
+                  <span className="font-mono text-[9px] text-[#5c403a] border border-[#5c403a]/25 px-1.5 py-0.5">
+                    {niche.emoji} {niche.name}
+                  </span>
+                </div>
+              </div>
+
+              {/* Back to niche */}
+              <div className="bg-white border border-[#1a1c1b]/10 p-4">
+                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2 mb-3">
+                  Xem thêm deal
+                </h3>
+                <Link
+                  href={`/${niche.id}`}
+                  className="block text-center bg-[#1a1c1b] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[#b51c00] transition-colors"
+                >
+                  {niche.emoji} Tất cả deal {niche.name} →
+                </Link>
+                <Link
+                  href={`/${niche.id}/blog`}
+                  className="block text-center mt-2 font-mono text-[11px] text-[#1a1c1b]/50 hover:text-[#b51c00] transition-colors py-1.5 border border-[#1a1c1b]/10 hover:border-[#b51c00]/30"
+                >
+                  Blog {niche.name}
+                </Link>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <Footer />
+    </>
+  )
+}

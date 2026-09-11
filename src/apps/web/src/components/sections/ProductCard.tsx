@@ -3,18 +3,24 @@
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart } from "lucide-react"
+import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, Flame, ArrowLeftRight } from "lucide-react"
+import Link from "next/link"
 import type { Product } from "@/types"
 import { formatPrice } from "@/lib/utils"
+import { getNicheByCategory } from "@/lib/niches"
 
 const PriceHistoryChart = dynamic(() => import("./PriceHistoryChart"), {
   loading: () => <div className="mt-3 pt-3 border-t border-dashed border-border-color h-24 skeleton-shimmer rounded" />,
+})
+const PlatformPriceBar = dynamic(() => import("@/components/compare/PlatformPriceBar"), {
+  loading: () => null,
 })
 
 interface ProductCardProps {
   product: Product
   variant?: "highlight" | "compact"
   onBuy?: (productId: string, shopeeUrl: string) => void
+  viewCount?: number // click count in recent window — shows 🔥 badge if > 0
 }
 
 const MAX_NAME_LENGTH = 60
@@ -27,7 +33,7 @@ function StarRating({ rating }: { rating: number }) {
   const shineClass = rating > 4.5 ? "star-shine-high" : rating > 4 ? "star-shine-mid" : ""
 
   return (
-    <div className="flex items-center gap-0.5 mt-1" aria-label={`Rating ${rating.toFixed(1)} dari 5`}>
+    <div className="flex items-center gap-0.5 mt-1" aria-label={`Đánh giá ${rating.toFixed(1)} trên 5`}>
       {[1, 2, 3, 4, 5].map((s) => {
         if (s <= fullStars) {
           return (
@@ -70,6 +76,7 @@ export default function ProductCard({
   product,
   variant = "compact",
   onBuy,
+  viewCount,
 }: ProductCardProps) {
   const isHighlight = variant === "highlight"
   const isSoldOut = product.isSoldOut
@@ -96,6 +103,12 @@ export default function ProductCard({
           Hot Deal
         </span>
       )}
+      {viewCount && viewCount > 0 && !isSoldOut && (
+        <span className="absolute top-2 left-8 flex items-center gap-1 bg-black/70 text-white font-mono text-[9px] px-1.5 py-0.5 z-30">
+          <Flame className="size-2.5 text-[#fdc73a] fill-[#fdc73a]" aria-hidden="true" />
+          {viewCount >= 100 ? `${Math.floor(viewCount / 10) * 10}+` : viewCount} xem
+        </span>
+      )}
       <div>
         <div
           className="relative w-full border border-border-color mb-3 overflow-hidden aspect-[4/3] cursor-pointer"
@@ -103,7 +116,7 @@ export default function ProductCard({
           onKeyDown={(e) => { if (!isSoldOut && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleBuy(); } }}
           role="link"
           tabIndex={0}
-          aria-label={`Lihat ${product.name} di Shopee`}
+          aria-label={`Xem ${product.name} trên Shopee`}
         >
           {imgError ? (
             <div className="absolute inset-0 flex items-center justify-center bg-[#e2e3e0]">
@@ -128,7 +141,7 @@ export default function ProductCard({
           {isSoldOut && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
               <span className="font-mono text-sm text-white font-bold uppercase tracking-wider bg-ink/60 px-3 py-1 border border-white/30">
-                Stok Habis
+                Hết hàng
               </span>
             </div>
           )}
@@ -147,7 +160,7 @@ export default function ProductCard({
               onKeyDown={(e) => { if (!isSoldOut && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleBuy(); } }}
               role="link"
               tabIndex={0}
-              aria-label={`Lihat ${product.name} di Shopee`}
+              aria-label={`Xem ${product.name} trên Shopee`}
             >
               {nameNeedsTruncation && !nameExpanded
                 ? `${product.name.slice(0, MAX_NAME_LENGTH)}...`
@@ -159,7 +172,7 @@ export default function ProductCard({
                 className="font-mono text-[10px] text-primary/70 hover:text-primary mt-0.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                 aria-expanded={nameExpanded}
               >
-                {nameExpanded ? "Lebih sedikit" : "Lebih banyak"}
+                {nameExpanded ? "Thu gọn" : "Xem thêm"}
               </button>
             )}
           </div>
@@ -210,7 +223,7 @@ export default function ProductCard({
                   : "bg-[#e8e8e5] text-ink hover:bg-primary hover:text-white"
             }`}
           >
-            {isSoldOut ? "Stok Habis" : isHighlight ? "Mua ngay" : "Mua ngay"}
+            {isSoldOut ? "Hết hàng" : isHighlight ? "Mua ngay" : "Mua ngay"}
             {!isSoldOut && <ExternalLink className="size-3" aria-hidden="true" />}
           </button>
 
@@ -229,6 +242,21 @@ export default function ProductCard({
             }
           </button>
         </div>
+
+        {/* So sánh giá đa sàn */}
+        <PlatformPriceBar productId={product.id} className="mt-2" />
+        {(() => {
+          const niche = getNicheByCategory(product.category.slug)
+          return niche ? (
+            <Link
+              href={`/${niche.id}/compare/${product.id}`}
+              className="flex items-center gap-1 font-mono text-[10px] text-ink/30 hover:text-primary mt-1.5 transition-colors w-fit"
+            >
+              <ArrowLeftRight className="size-3" aria-hidden="true" />
+              So sánh giá đa sàn
+            </Link>
+          ) : null
+        })()}
 
         {/* Lịch sử giá — lazy load khi mở */}
         {showPriceHistory && <PriceHistoryChart productId={product.id} />}

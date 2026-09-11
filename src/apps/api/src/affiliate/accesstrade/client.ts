@@ -1,7 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CircuitBreaker, BreakerOpenError } from "./circuit-breaker";
-import { AccessTradeApiError, type AccessTradeApiErrorCode } from "./errors";
+import { AccessTradeApiError } from "./errors";
+import type { AccessTradeApiErrorCode } from "./types";
 import { normalizeAccessTradeCampaign, normalizeAccessTradeTrackingLink } from "./normalize";
 import { AccessTradeRateLimitGuard } from "./rate-limit-guard";
 import { buildAccessTradeHeaders } from "./sign";
@@ -203,22 +204,41 @@ export class AccessTradePublisherClient {
   }
 
   private async sendRequest(url: string, init: RequestInit): Promise<Response> {
-    try {
-      return await this.breaker.exec(async () => {
-        const response = await fetch(url, init);
-        if (response.status === 429) throw new AccessTradeApiError("rate_limit", "AccessTrade rate limit", true);
-        if (response.status >= 500) throw new AccessTradeApiError("service_unavailable", `AccessTrade ${response.status}`, true);
-        return response;
-      });
-    } catch (error) {
-      if (error instanceof BreakerOpenError) {
-        throw new AccessTradeApiError("service_unavailable", "circuit_breaker_open", true);
+    const MAX_RETRIES = 3;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        // Exponential backoff: 2s, 4s với ±25% jitter
+        const base = 2000 * 2 ** (attempt - 1);
+        const jitter = base * 0.25 * (Math.random() * 2 - 1);
+        await new Promise((r) => setTimeout(r, Math.round(base + jitter)));
       }
-      if ((error as { name?: string })?.name === "TimeoutError" || (error as { name?: string })?.name === "AbortError") {
-        throw new AccessTradeApiError("service_unavailable", "timeout", true);
+
+      try {
+        return await this.breaker.exec(async () => {
+          const response = await fetch(url, init);
+          if (response.status === 429) throw new AccessTradeApiError("rate_limit", "AccessTrade rate limit", true);
+          if (response.status >= 500) throw new AccessTradeApiError("service_unavailable", `AccessTrade ${response.status}`, true);
+          return response;
+        });
+      } catch (error) {
+        if (error instanceof BreakerOpenError) {
+          throw new AccessTradeApiError("service_unavailable", "circuit_breaker_open", true);
+        }
+        if ((error as { name?: string })?.name === "TimeoutError" || (error as { name?: string })?.name === "AbortError") {
+          lastError = new AccessTradeApiError("service_unavailable", "timeout", true);
+          continue; // timeout → retry
+        }
+        if (error instanceof AccessTradeApiError && error.retryable && attempt < MAX_RETRIES - 1) {
+          lastError = error;
+          continue; // rate_limit / service_unavailable → retry
+        }
+        throw error;
       }
-      throw error;
     }
+
+    throw lastError;
   }
 
   private async safeJson(response: Response): Promise<unknown> {

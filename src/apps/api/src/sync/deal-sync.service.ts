@@ -38,7 +38,6 @@ interface SyncReport {
   durationMs: number;
 }
 
-// Giữ tối đa 90 ngày lịch sử giá — tránh table bloat
 const PRICE_HISTORY_RETENTION_DAYS = 90;
 
 @Injectable()
@@ -66,19 +65,11 @@ export class DealSyncService {
     }
 
     const total = reports.reduce(
-      (acc, r) => ({
-        fetched: acc.fetched + r.fetched,
-        priceChanges: acc.priceChanges + r.priceChanges,
-        newDeals: acc.newDeals + r.newDeals,
-      }),
+      (acc, r) => ({ fetched: acc.fetched + r.fetched, priceChanges: acc.priceChanges + r.priceChanges, newDeals: acc.newDeals + r.newDeals }),
       { fetched: 0, priceChanges: 0, newDeals: 0 }
     );
 
-    this.log.log(
-      `Sync complete — ${total.fetched} products, ${total.priceChanges} price changes recorded, ${total.newDeals} new deals`
-    );
-
-    // Dọn dẹp lịch sử giá cũ sau mỗi lần sync
+    this.log.log(`Sync complete — ${total.fetched} products, ${total.priceChanges} price changes, ${total.newDeals} new deals`);
     await this.pruneOldPriceHistory();
   }
 
@@ -86,16 +77,14 @@ export class DealSyncService {
     const start = Date.now();
     this.log.log(`Syncing niche: ${niche.name}`);
 
-    await this.prisma.niche.upsert({
+    // Upsert Category so products can reference it
+    await this.prisma.category.upsert({
       where: { id: niche.id },
-      update: { status: niche.status },
-      create: { id: niche.id, name: niche.name, status: niche.status },
+      update: {},
+      create: { id: niche.id, name: niche.name, slug: niche.id },
     });
 
     const fetched = await this.fetchShopeeProducts(niche);
-
-    // Bước 1: Batch lấy giá cuối cùng đã ghi của tất cả sản phẩm trong niche
-    // → 1 query thay vì N queries
     const lastPriceMap = await this.fetchLastRecordedPrices(niche.id);
 
     const priceHistoryBatch: { productId: string; price: number }[] = [];
@@ -103,14 +92,10 @@ export class DealSyncService {
     let skipped = 0;
 
     for (const p of fetched) {
-      if (!this.passesFilter(p, niche.filters)) {
-        skipped++;
-        continue;
-      }
+      if (!this.passesFilter(p, niche.filters)) { skipped++; continue; }
 
       const product = await this.upsertProduct(p, niche.id);
 
-      // Bước 2: Chỉ ghi PriceHistory khi giá thực sự thay đổi
       const lastPrice = lastPriceMap.get(product.id);
       if (lastPrice !== p.currentPrice) {
         priceHistoryBatch.push({ productId: product.id, price: p.currentPrice });
@@ -121,16 +106,14 @@ export class DealSyncService {
         : 0;
 
       if (discountPct >= niche.filters.min_discount_pct) {
-        await this.upsertDeal(product.id, niche.id, {
-          discountPct,
-          originalPrice: p.originalPrice ?? p.currentPrice,
-          salePrice: p.currentPrice,
+        await this.prisma.product.update({
+          where: { id: product.id },
+          data: { discountPct, isFeatured: discountPct >= 40 },
         });
         newDeals++;
       }
     }
 
-    // Bước 3: Batch insert tất cả price history trong 1 query
     if (priceHistoryBatch.length > 0) {
       await this.prisma.priceHistory.createMany({ data: priceHistoryBatch });
     }
@@ -144,32 +127,21 @@ export class DealSyncService {
       durationMs: Date.now() - start,
     };
 
-    this.log.log(
-      `[${niche.name}] fetched=${report.fetched} priceChanges=${report.priceChanges} newDeals=${report.newDeals} skipped=${report.skipped} (${report.durationMs}ms)`
-    );
-
+    this.log.log(`[${niche.name}] fetched=${report.fetched} priceChanges=${report.priceChanges} newDeals=${report.newDeals} skipped=${report.skipped} (${report.durationMs}ms)`);
     return report;
   }
 
-  /**
-   * Lấy giá cuối cùng đã ghi cho mỗi sản phẩm trong niche — 1 query duy nhất.
-   * Dùng DISTINCT ON (PostgreSQL) để lấy row mới nhất mỗi product.
-   */
-  private async fetchLastRecordedPrices(nicheId: string): Promise<Map<string, number>> {
+  private async fetchLastRecordedPrices(categoryId: string): Promise<Map<string, number>> {
     const rows = await this.prisma.$queryRaw<{ productId: string; price: number }[]>`
       SELECT DISTINCT ON (ph."productId") ph."productId", ph.price
       FROM "PriceHistory" ph
       INNER JOIN "Product" p ON p.id = ph."productId"
-      WHERE p."nicheId" = ${nicheId}
+      WHERE p."categoryId" = ${categoryId}
       ORDER BY ph."productId", ph."recordedAt" DESC
     `;
     return new Map(rows.map((r) => [r.productId, r.price]));
   }
 
-  /**
-   * Xóa price history cũ hơn PRICE_HISTORY_RETENTION_DAYS ngày.
-   * Chạy sau mỗi sync để tránh bảng phình to vô hạn.
-   */
   private async pruneOldPriceHistory() {
     const cutoff = new Date(Date.now() - PRICE_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const { count } = await this.prisma.priceHistory.deleteMany({
@@ -186,29 +158,20 @@ export class DealSyncService {
 
     for (const keyword of keywords) {
       try {
-        const { nodes } = await this.shopee.productSearch({
-          keyword,
-          pageSize: 20,
-          sort: "SALES_DESC",
-        });
+        const { nodes } = await this.shopee.productSearch({ keyword, pageSize: 20, sort: "SALES_DESC" });
 
         for (const node of nodes) {
           let affiliateUrl = node.productLink;
           try {
-            const { shortLink } = await this.shopee.generateShortLink({
-              originUrl: node.productLink,
-              subIds: [niche.id, "web"],
-            });
+            const { shortLink } = await this.shopee.generateShortLink({ originUrl: node.productLink, subIds: [niche.id, "web"] });
             affiliateUrl = shortLink;
-          } catch {
-            // Fallback về link gốc nếu generate thất bại
-          }
+          } catch { /* fallback to original link */ }
 
           results.push({
             externalId: String(node.itemId),
             source: "shopee",
             name: node.productName,
-            imageUrl: node.imageUrl,
+            imageUrl: node.imageUrl ?? "",
             shopUrl: node.productLink,
             affiliateUrl,
             currentPrice: Math.round(node.priceMin * 100),
@@ -225,37 +188,32 @@ export class DealSyncService {
     return results;
   }
 
-  private passesFilter(
-    p: Pick<FetchedProduct, "currentPrice">,
-    filters: { min_price: number; max_price: number }
-  ): boolean {
+  private passesFilter(p: Pick<FetchedProduct, "currentPrice">, filters: { min_price: number; max_price: number }): boolean {
     return p.currentPrice >= filters.min_price && p.currentPrice <= filters.max_price;
   }
 
-  private async upsertProduct(p: FetchedProduct, nicheId: string) {
+  private async upsertProduct(p: FetchedProduct, categoryId: string) {
     return this.prisma.product.upsert({
       where: { source_externalId: { source: p.source, externalId: p.externalId } },
       update: {
-        currentPrice: p.currentPrice,
+        price: p.currentPrice,
         affiliateUrl: p.affiliateUrl,
         lastSyncedAt: new Date(),
         isSoldOut: false,
       },
-      create: { ...p, nicheId },
-    });
-  }
-
-  private async upsertDeal(
-    productId: string,
-    nicheId: string,
-    data: { discountPct: number; originalPrice: number; salePrice: number }
-  ) {
-    await this.prisma.deal.updateMany({
-      where: { productId, isActive: true },
-      data: { isActive: false },
-    });
-    await this.prisma.deal.create({
-      data: { productId, nicheId, isActive: true, ...data },
+      create: {
+        source: p.source,
+        externalId: p.externalId,
+        name: p.name,
+        imageUrl: p.imageUrl,
+        imageAlt: p.name,
+        shopeeUrl: p.shopUrl,
+        affiliateUrl: p.affiliateUrl,
+        price: p.currentPrice,
+        commission: Math.round(p.commissionRate),
+        rating: p.rating ?? 0,
+        categoryId,
+      },
     });
   }
 

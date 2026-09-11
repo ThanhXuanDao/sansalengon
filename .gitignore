@@ -1,0 +1,8 @@
+/refs
+/src/apps/api/node_modules
+/src/apps/web/.next
+/src/apps/web/node_modules
+/src/node_modules
+
+# Docker local env — chứa secrets, không commit
+.env.local

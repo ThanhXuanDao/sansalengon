@@ -1,0 +1,34 @@
+FROM node:20-alpine AS builder
+
+# libssl cho Prisma engine trên Alpine
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --ignore-scripts
+RUN npx prisma generate
+
+# DATABASE_URL giả để Next.js có thể init Prisma khi build
+# (không query thật; pages fail gracefully)
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+
+COPY . .
+RUN DOCKER_BUILD=1 npm run build
+
+# ── Runtime image ─────────────────────────────────────────────
+FROM node:20-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+CMD ["node", "server.js"]

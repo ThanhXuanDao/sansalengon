@@ -63,7 +63,7 @@ export class ShopeeAffiliateClient {
     const safeKw = JSON.stringify(input.keyword);
     const query = `query { productSearch(keyword: ${safeKw}, pageNumber: ${pageNumber}, pageSize: ${pageSize}, sort: "${sort}") { nodes { itemId shopId productName priceMin priceMax productLink commissionRate sales imageUrl } } }`;
     const data = await this.call(query);
-    return this.parseSafe(ProductSearchResponse, data).productSearch;
+    return this.parseSafe(ProductSearchResponse, data).productSearch as { nodes: ProductOfferNode[] };
   }
 
   async generateShortLink(input: { originUrl: string; subIds: string[] }): Promise<{ shortLink: string }> {
@@ -71,7 +71,7 @@ export class ShopeeAffiliateClient {
     const originJson = JSON.stringify(input.originUrl);
     const query = `mutation { generateShortLink(input: { originUrl: ${originJson}, subIds: ${subIdsJson} }) { shortLink } }`;
     const data = await this.call(query);
-    return this.parseSafe(ShortLinkResponse, data).generateShortLink;
+    return this.parseSafe(ShortLinkResponse, data).generateShortLink as { shortLink: string };
   }
 
   private parseSafe<T>(schema: { parse: (v: unknown) => T }, data: unknown): T {

@@ -1,10 +1,12 @@
 # Vận hành kênh phân phối
+*Last updated: 2026-09-10*
 
 ## Tổng quan
 
 | Kênh | Tự động hóa | Effort/ngày | Traffic tiềm năng |
 |---|---|---|---|
 | Website (SEO) | 100% tự động | 0 | Cao, chậm (3–6 tháng) |
+| Trang coupon `/ma-giam-gia` | 100% tự động | 0 | Trung bình, intent cao |
 | Zalo OA | Bán tự động | 5 phút | Trung bình, ổn định |
 | Facebook Group | Có hỗ trợ tool | 20–30 phút | Cao, nhanh |
 
@@ -56,6 +58,17 @@
 - **Không dùng tool auto-post** — Facebook phát hiện và khóa tài khoản
 - Mỗi tài khoản chỉ post vào 3–5 group/ngày để tránh bị hạn chế
 - Nếu scale lên cần nhiều tài khoản → thuê cộng tác viên
+
+---
+
+## Trang mã giảm giá `/ma-giam-gia`
+
+- Tổng hợp voucher từ AccessTrade, Shopee, Tiki, Lazada — sync tự động 2 lần/ngày
+- Tabs lọc theo platform và ngách
+- **Flash sale section**: hiển thị coupon hết hạn trong 24h với countdown live
+- **Reveal-on-click**: code bị che cho đến khi người dùng nhấn "Lấy mã" (tăng engagement)
+- **Social proof**: hiển thị "X lượt dùng" theo `clickCount` từ DB
+- Quản lý coupon thủ công tại `/admin/coupons` (thêm/tắt/xóa)
 
 ---
 

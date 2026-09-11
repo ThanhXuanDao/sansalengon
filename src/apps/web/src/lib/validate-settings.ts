@@ -1,24 +1,48 @@
 export interface ValidatedSettings {
-  storeName?: string
-  storeUrl?: string
-  bio?: string
-  bankName?: string
-  accountNumber?: string
-  accountHolder?: string
-  minPayout?: number
-  primaryColor?: string
-  autoPayout?: boolean
-  twoFA?: boolean
+  siteName?: string
+  siteUrl?: string
+  tagline?: string
+  timezone?: string
+  dateFormat?: string
+  decimalSeparator?: string
+  thousandSeparator?: string
+  currencySymbol?: string
+  currencyPosition?: string
   logo?: string
+  favicon?: string
+  footerDesc?: string
+  hotline?: string
+  facebookUrl?: string
+  zaloUrl?: string
+  youtubeUrl?: string
+  ga4Id?: string
+  gtmId?: string
+  metaTitle?: string
+  metaDesc?: string
+  metaKeywords?: string
+  ogImage?: string
+  robotsDefault?: string
+  sitemapEnabled?: boolean
+  maintenanceMode?: boolean
+  debugMode?: boolean
+  showErrors?: boolean
 }
 
-const ALLOWED_KEYS = new Set([
-  "storeName", "storeUrl", "bio",
-  "bankName", "accountNumber", "accountHolder",
-  "minPayout", "primaryColor", "autoPayout", "twoFA", "logo",
+const STRING_FIELDS = new Set([
+  "siteName", "siteUrl", "tagline", "timezone", "dateFormat",
+  "decimalSeparator", "thousandSeparator", "currencySymbol", "currencyPosition",
+  "footerDesc", "hotline", "facebookUrl", "zaloUrl", "youtubeUrl",
+  "ga4Id", "gtmId", "metaTitle", "metaDesc", "metaKeywords",
+  "ogImage", "robotsDefault",
 ])
 
-const VALID_COLORS = new Set(["red", "black", "yellow"])
+const BOOL_FIELDS = new Set([
+  "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors",
+])
+
+const LARGE_STRING_FIELDS = new Set(["logo", "favicon"])
+
+const ALLOWED_KEYS = new Set([...STRING_FIELDS, ...BOOL_FIELDS, ...LARGE_STRING_FIELDS])
 
 export function validateSettings(body: Record<string, unknown>): {
   cleaned: ValidatedSettings
@@ -33,44 +57,17 @@ export function validateSettings(body: Record<string, unknown>): {
       continue
     }
 
-    switch (key) {
-      case "storeName":
-      case "storeUrl":
-      case "bio":
-      case "bankName":
-      case "accountHolder":
-        if (typeof value !== "string") errors.push(`"${key}" must be a string`)
-        else if (value.length > 500) errors.push(`"${key}" is too long (max 500)`)
-        else cleaned[key] = value
-        break
-
-      case "accountNumber":
-        if (typeof value !== "string") errors.push(`"${key}" must be a string`)
-        else if (value.length > 100) errors.push(`"${key}" is too long (max 100)`)
-        else cleaned[key] = value
-        break
-
-      case "minPayout":
-        if (typeof value !== "number" || value < 0) errors.push(`"${key}" must be a non-negative number`)
-        else cleaned[key] = value
-        break
-
-      case "primaryColor":
-        if (!VALID_COLORS.has(value as string)) errors.push(`"${key}" must be one of: ${[...VALID_COLORS].join(", ")}`)
-        else cleaned[key] = value as string
-        break
-
-      case "autoPayout":
-      case "twoFA":
-        if (typeof value !== "boolean") errors.push(`"${key}" must be a boolean`)
-        else cleaned[key] = value
-        break
-
-      case "logo":
-        if (typeof value !== "string") errors.push(`"${key}" must be a string`)
-        else if (value.length > 500_000) errors.push(`"${key}" is too large (max 500KB)`)
-        else cleaned[key] = value
-        break
+    if (STRING_FIELDS.has(key)) {
+      if (typeof value !== "string") { errors.push(`"${key}" must be a string`); continue }
+      if (value.length > 1000) { errors.push(`"${key}" is too long (max 1000)`); continue }
+      ;(cleaned as Record<string, unknown>)[key] = value
+    } else if (BOOL_FIELDS.has(key)) {
+      if (typeof value !== "boolean") { errors.push(`"${key}" must be a boolean`); continue }
+      ;(cleaned as Record<string, unknown>)[key] = value
+    } else if (LARGE_STRING_FIELDS.has(key)) {
+      if (typeof value !== "string") { errors.push(`"${key}" must be a string`); continue }
+      if (value.length > 1_500_000) { errors.push(`"${key}" is too large (max 1MB)`); continue }
+      ;(cleaned as Record<string, unknown>)[key] = value
     }
   }
 

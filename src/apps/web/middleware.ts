@@ -5,37 +5,40 @@ import { verifySessionToken } from "@/lib/auth"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Honeypot: redirect anyone hitting /admin to home
-  if (pathname === "/admin") {
-    return NextResponse.redirect(new URL("/", request.url))
-  }
+  const response = NextResponse.next({
+    request: {
+      headers: new Headers({
+        ...Object.fromEntries(request.headers),
+        "x-pathname": pathname,
+      }),
+    },
+  })
 
-  if (pathname === "/admin-shopby/login") {
-    const token = request.cookies.get("shopby_admin_session")?.value
+  if (pathname === "/admin/login") {
+    const token = request.cookies.get("sansale_admin_session")?.value
     if (token) {
       const payload = await verifySessionToken(token)
       if (payload) {
-        return NextResponse.redirect(new URL("/admin-shopby", request.url))
+        return NextResponse.redirect(new URL("/admin", request.url))
       }
     }
-    return NextResponse.next()
+    return response
   }
 
-  const token = request.cookies.get("shopby_admin_session")?.value
-  if (!token) {
-    const loginUrl = new URL("/admin-shopby/login", request.url)
-    return NextResponse.redirect(loginUrl)
+  if (pathname.startsWith("/admin")) {
+    const token = request.cookies.get("sansale_admin_session")?.value
+    if (!token) {
+      return NextResponse.redirect(new URL("/admin/login", request.url))
+    }
+    const payload = await verifySessionToken(token)
+    if (!payload) {
+      return NextResponse.redirect(new URL("/admin/login", request.url))
+    }
   }
 
-  const payload = await verifySessionToken(token)
-  if (!payload) {
-    const loginUrl = new URL("/admin-shopby/login", request.url)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
-  matcher: ["/admin", "/admin-shopby/:path*", "/api/stats/:path*", "/api/analytics/:path*", "/api/settings/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }

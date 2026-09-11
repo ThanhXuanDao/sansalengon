@@ -1,0 +1,25 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# Install dependencies
+COPY src/apps/api/package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --ignore-scripts
+
+# Generate Prisma client using web app's schema
+COPY src/apps/web/prisma/schema.prisma ./prisma/schema.prisma
+RUN npx prisma generate
+
+# Copy api source (tsconfig.json, src/, etc.)
+COPY src/apps/api/ ./
+
+# Config file
+COPY src/config /config
+
+RUN npm run build
+
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

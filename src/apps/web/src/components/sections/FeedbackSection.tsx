@@ -14,7 +14,7 @@ export default function FeedbackSection() {
     e.preventDefault()
     if (!name.trim() || !email.trim() || !message.trim()) {
       setStatus("error")
-      setErrorText("Semua field harus diisi")
+      setErrorText("Vui lòng điền đầy đủ thông tin")
       return
     }
 
@@ -31,7 +31,7 @@ export default function FeedbackSection() {
 
       if (!res.ok) {
         setStatus("error")
-        setErrorText(json.error || "Terjadi kesalahan")
+        setErrorText(json.error || "Có lỗi xảy ra")
         return
       }
 
@@ -41,7 +41,7 @@ export default function FeedbackSection() {
       setMessage("")
     } catch {
       setStatus("error")
-      setErrorText("Gagal mengirim. Coba lagi.")
+      setErrorText("Gửi thất bại. Vui lòng thử lại.")
     }
   }
 
@@ -51,39 +51,39 @@ export default function FeedbackSection() {
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-10">
             <h2 className="font-sans text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] font-extrabold text-[#1a1c1b] uppercase">
-              Saran & Masukan
+              Góp ý & Phản hồi
             </h2>
             <p className="font-sans text-[14px] leading-[22px] text-[#5c403a] mt-3 max-w-sm mx-auto">
-              Kami senang mendengar pendapat Anda. Kirim saran atau masukan untuk toko ini.
+              Chúng tôi rất vui được nghe ý kiến của bạn. Hãy gửi góp ý để chúng tôi cải thiện.
             </p>
           </div>
 
           {status === "success" ? (
             <div className="bg-white border border-[#4caf50] p-6 text-center" role="alert">
               <CheckCircle className="size-10 mx-auto text-[#4caf50] mb-3" aria-hidden="true" />
-              <p className="font-sans text-[16px] font-bold text-[#1a1c1b]">Terima kasih!</p>
+              <p className="font-sans text-[16px] font-bold text-[#1a1c1b]">Cảm ơn bạn!</p>
               <p className="font-sans text-[13px] text-[#5c403a] mt-1">
-                Saran/masukan Anda telah kami terima.
+                Chúng tôi đã nhận được góp ý của bạn.
               </p>
               <button
                 onClick={() => setStatus("idle")}
                 className="mt-4 font-mono text-[13px] text-[#b51c00] underline hover:no-underline focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
               >
-                Kirim lagi
+                Gửi thêm
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               <div>
                 <label htmlFor="feedback-name" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1.5 font-bold">
-                  Nama
+                  Họ tên
                 </label>
                 <input
                   id="feedback-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nama Anda"
+                  placeholder="Tên của bạn"
                   required
                   className="w-full border border-[#e5e1d8] bg-white px-4 py-3 font-sans text-[14px] text-[#1a1c1b] placeholder:text-[#906f69]/50 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none transition-colors"
                 />
@@ -106,13 +106,13 @@ export default function FeedbackSection() {
 
               <div>
                 <label htmlFor="feedback-message" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1.5 font-bold">
-                  Pesan
+                  Tin nhắn
                 </label>
                 <textarea
                   id="feedback-message"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Tulis saran atau masukan Anda di sini..."
+                  placeholder="Viết góp ý của bạn tại đây..."
                   required
                   rows={4}
                   className="w-full border border-[#e5e1d8] bg-white px-4 py-3 font-sans text-[14px] text-[#1a1c1b] placeholder:text-[#906f69]/50 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none transition-colors resize-y"
@@ -134,12 +134,12 @@ export default function FeedbackSection() {
                 {status === "loading" ? (
                   <>
                     <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
-                    Mengirim...
+                    Đang gửi...
                   </>
                 ) : (
                   <>
                     <Send className="size-4" aria-hidden="true" />
-                    Kirim
+                    Gửi
                   </>
                 )}
               </button>
