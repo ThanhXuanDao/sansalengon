@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 import { generateBlogPost, toSlug } from "@/lib/blog-generator"
 import { NICHES } from "@/lib/niches"
@@ -8,6 +9,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 })

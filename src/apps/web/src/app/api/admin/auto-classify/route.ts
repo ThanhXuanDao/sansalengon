@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { classifyProduct, classifyBatch } from "@/lib/auto-classifier"
 
 // GET /api/admin/auto-classify?id=<productId>   — classify one product
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   const { productId, categoryId } = await request.json() as { productId: string; categoryId: string }
   if (!productId || !categoryId) {

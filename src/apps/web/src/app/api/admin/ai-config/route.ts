@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import {
   TEXT_PROVIDER_CATALOG,
   IMAGE_PROVIDER_CATALOG,
@@ -42,6 +43,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   let body: unknown
   try {

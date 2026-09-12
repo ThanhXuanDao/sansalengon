@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { getProductNumberMap } from "@/lib/products-numbering"
 
 export async function GET(
@@ -26,6 +27,8 @@ export async function PUT(
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
   const { id } = await params
   const body = await request.json()
   const { name, price, commission, rating, discountPct, imageUrl, imageAlt, shopeeUrl, categoryId, isFeatured, isSoldOut } = body
@@ -45,6 +48,8 @@ export async function DELETE(
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
   const { id } = await params
   await prisma.clickLog.deleteMany({ where: { productId: id } })
   await prisma.product.delete({ where: { id } })

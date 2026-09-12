@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import type { Prisma } from "@prisma/client"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { getProductNumberMap, resolveNumberRangeToIds } from "@/lib/products-numbering"
 import { rateLimit } from "@/lib/rate-limit"
 import Fuse from "fuse.js"
@@ -159,6 +160,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
   const { allowed } = rateLimit(`product_create:${ip}`, { max: 20, windowMs: 60_000 })
   if (!allowed) {

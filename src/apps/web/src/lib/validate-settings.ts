@@ -60,6 +60,14 @@ export function validateSettings(body: Record<string, unknown>): {
     if (STRING_FIELDS.has(key)) {
       if (typeof value !== "string") { errors.push(`"${key}" must be a string`); continue }
       if (value.length > 1000) { errors.push(`"${key}" is too long (max 1000)`); continue }
+      if (key === "gtmId" && value && !/^GTM-[A-Z0-9]{4,10}$/.test(value)) {
+        errors.push('"gtmId" phải có định dạng GTM-XXXXXXX')
+        continue
+      }
+      if (key === "ga4Id" && value && !/^G-[A-Z0-9]{4,12}$/.test(value)) {
+        errors.push('"ga4Id" phải có định dạng G-XXXXXXXXXX')
+        continue
+      }
       ;(cleaned as Record<string, unknown>)[key] = value
     } else if (BOOL_FIELDS.has(key)) {
       if (typeof value !== "boolean") { errors.push(`"${key}" must be a boolean`); continue }

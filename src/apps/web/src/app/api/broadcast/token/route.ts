@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 
 const ZALO_OAUTH_URL = "https://oauth.zaloapp.com/v4/oa/access_token"
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   const appId     = process.env.ZALO_OA_APP_ID
   const appSecret = process.env.ZALO_OA_APP_SECRET

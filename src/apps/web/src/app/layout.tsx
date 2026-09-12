@@ -83,7 +83,7 @@ export default async function RootLayout({
           })}
         </script>
         {/* GTM head snippet */}
-        {s.gtmId && !isAdmin && (
+        {s.gtmId && /^GTM-[A-Z0-9]{4,10}$/.test(s.gtmId) && !isAdmin && (
           <script
             dangerouslySetInnerHTML={{
               __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${s.gtmId}');`,
@@ -93,7 +93,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col" translate="no">
         {/* GTM noscript */}
-        {s.gtmId && !isAdmin && (
+        {s.gtmId && /^GTM-[A-Z0-9]{4,10}$/.test(s.gtmId) && !isAdmin && (
           <noscript>
             <iframe
               src={`https://www.googletagmanager.com/ns.html?id=${s.gtmId}`}
@@ -119,7 +119,7 @@ export default async function RootLayout({
         )}
 
         {/* GA4 */}
-        {s.ga4Id && !isAdmin && (
+        {s.ga4Id && /^G-[A-Z0-9]{4,12}$/.test(s.ga4Id) && !isAdmin && (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${s.ga4Id}`}

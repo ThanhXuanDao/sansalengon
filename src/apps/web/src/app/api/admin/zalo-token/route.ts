@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 
 const DB_KEYS = {
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   let body: unknown
   try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 
 const PAGE_SIZE = 50
@@ -63,6 +64,8 @@ export async function DELETE(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
 
   const { searchParams } = request.nextUrl
   const level = searchParams.get("level") || null
