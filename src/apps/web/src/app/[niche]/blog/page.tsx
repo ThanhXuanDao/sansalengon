@@ -34,8 +34,7 @@ function FeaturedPost({ post, nicheId }: { post: BlogPostMeta; nicheId: string }
   return (
     <Link
       href={`/${nicheId}/blog/${post.slug}`}
-      className="group block border border-[#1a1c1b] bg-white hover:bg-[#fffdf5] transition-colors"
-      style={{ clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)" }}
+      className="group block border border-[#1a1c1b] bg-white hover:bg-[#fffdf5] transition-colors clip-bevel-tr-xl"
     >
       <div className="flex flex-col md:flex-row">
         {post.coverImage && (

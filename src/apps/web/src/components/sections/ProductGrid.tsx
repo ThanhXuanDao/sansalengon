@@ -120,7 +120,7 @@ export default function ProductGrid({
         {/* Mobile: horizontal scroll strip */}
         <div className="md:hidden -mx-4">
           {isFeaturedLoading ? (
-            <div className="flex gap-3 px-4 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+            <div className="flex gap-3 px-4 overflow-x-auto pb-2 scrollbar-hide">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={`s-feat-m-${i}`} className="shrink-0 w-44">
                   <ProductCardSkeleton variant="highlight" />
@@ -129,8 +129,7 @@ export default function ProductGrid({
             </div>
           ) : (
             <div
-              className="flex gap-3 px-4 overflow-x-auto pb-2 snap-x snap-mandatory"
-              style={{ scrollbarWidth: "none" }}
+              className="flex gap-3 px-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
             >
               {featuredProducts.map((product) => (
                 <div key={product.id} className="shrink-0 w-44 snap-start">
@@ -185,8 +184,7 @@ export default function ProductGrid({
         {/* Sort row */}
         {onSortChange && (
           <div
-            className="flex gap-1.5 px-4 pt-2 pb-1 overflow-x-auto"
-            style={{ scrollbarWidth: "none" }}
+            className="flex gap-1.5 px-4 pt-2 pb-1 overflow-x-auto scrollbar-hide"
             role="toolbar"
             aria-label="Sắp xếp"
           >
@@ -209,7 +207,7 @@ export default function ProductGrid({
 
         {/* Category chips row */}
         {isCategoriesLoading ? (
-          <div className="flex gap-2 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <div className="flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={`sk-cat-${i}`} className="h-7 skeleton-shimmer rounded-full shrink-0" style={{ width: `${70 + i * 20}px` }} />
             ))}
@@ -218,8 +216,7 @@ export default function ProductGrid({
           <>
             {categories && categories.length > 0 && (
               <div
-                className="flex gap-1.5 px-4 pb-1 overflow-x-auto"
-                style={{ scrollbarWidth: "none" }}
+                className="flex gap-1.5 px-4 pb-1 overflow-x-auto scrollbar-hide"
                 role="tablist"
                 aria-label="Danh mục sản phẩm"
               >
@@ -244,8 +241,7 @@ export default function ProductGrid({
             )}
             {numberRanges !== undefined && (
               <div
-                className="flex gap-1.5 px-4 pb-2 overflow-x-auto"
-                style={{ scrollbarWidth: "none" }}
+                className="flex gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-hide"
               >
                 <button
                   onClick={() => onRangeSelect?.(null)}

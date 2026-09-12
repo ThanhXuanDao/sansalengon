@@ -9,12 +9,8 @@ export default function ProductCardSkeleton({
 
   return (
     <div
-      className="receipt-card p-3"
+      className="receipt-card p-3 clip-bevel-tl-sm"
       aria-hidden="true"
-      style={{
-        clipPath:
-          "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)",
-      }}
     >
       <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-border-color z-20" />
       <div>

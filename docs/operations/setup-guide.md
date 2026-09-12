@@ -38,6 +38,8 @@ Tất cả các biến cần điền (xem chi tiết từng mục bên dưới):
 DATABASE_URL=                       # PostgreSQL connection string
 NEXT_PUBLIC_SITE_URL=               # URL website công khai (không có / ở cuối)
 WEB_URL=                            # URL Next.js dùng từ NestJS (thường giống trên)
+API_URL=http://localhost:4000       # URL NestJS API — Web gọi để trigger sync jobs
+API_INTERNAL_SECRET=                # Bearer token bảo vệ /sync/* endpoints (trống = không auth)
 
 # === DATA SOURCES — DEAL (cần ít nhất 1) ===
 ACCESSTRADE_ACCESS_KEY=             # Deal + coupon AccessTrade
@@ -229,9 +231,13 @@ LAZADA_AFFILIATE_API_KEY=your_bearer_token
 
 ### 5.4 Kiểm tra coupon sync
 
-Sau khi điền key và restart API server:
-1. Chờ cron 6h hoặc 18h chạy, **hoặc**
-2. Vào `/admin/coupons` → nhấn **"Sync ngay"** (deactivate expired + đếm active)
+Sau khi điền key:
+1. Vào **Admin → Sync Jobs** (`/admin/jobs`)
+2. Chọn **Đồng bộ Coupon/Voucher** trong sidebar
+3. (Tùy chọn) Chọn nguồn: `all`, `accesstrade`, hoặc `platforms`
+4. Nhấn **Chạy ngay** — xem kết quả và log ngay bên dưới
+
+Hoặc chờ cron tự chạy (mặc định: 6h và 18h mỗi ngày).
 
 > Coupon từ AccessTrade vẫn sync bình thường mà không cần các key trên.
 
@@ -467,8 +473,10 @@ Thực hiện **theo thứ tự** sau:
        ↓
 5. Kiểm tra admin: http://localhost:3000/admin
        ↓
-6. Chờ cron sync chạy (4h cho deal, 6h/18h cho coupon)
-   — hoặc restart API server để trigger OnModuleInit sync
+6. Chạy sync thủ công (không cần chờ cron):
+   Vào http://localhost:3000/admin/jobs → chọn job → Chạy ngay
+   Thứ tự nên làm: Đồng bộ sản phẩm → Đồng bộ Coupon/Voucher → Khớp nền tảng
+   (Cron tự chạy theo lịch sau: deal mỗi 4h, coupon 6h & 18h, matching 2h hằng đêm)
        ↓
 7. (Có AI key) Vào /admin/ai-config → chọn provider cho từng task
        ↓

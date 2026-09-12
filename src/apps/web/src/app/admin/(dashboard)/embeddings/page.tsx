@@ -142,12 +142,12 @@ export default function EmbeddingsPage() {
 
       {/* Run controls */}
       <div className="bg-white border border-[#e5e1d8] p-5 mb-6">
-        <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase mb-4">
+        <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-4">
           Tạo embedding cho sản phẩm chưa có
         </p>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block font-mono text-[11px] text-[#5c403a] mb-1">Số lượng mỗi lần chạy</label>
+            <label className="block font-mono text-[14px] text-[#5c403a] mb-1">Số lượng mỗi lần chạy</label>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}

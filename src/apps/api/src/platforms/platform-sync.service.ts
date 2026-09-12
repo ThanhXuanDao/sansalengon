@@ -26,17 +26,26 @@ export class PlatformSyncService {
   // ── Matching job: nightly at 2am ─────────────────────────────
   @Cron("0 2 * * *")
   async runMatchingJob() {
-    this.log.log("Starting nightly product matching job")
+    await this.triggerMatch()
+  }
+
+  // Public method called by SyncController (manual / web-scheduled trigger)
+  async triggerMatch(): Promise<{
+    byPlatform: Record<string, { matched: number; autoConfirmed: number; errors: number }>
+    durationMs: number
+  }> {
+    const t0 = Date.now()
+    this.log.log("Starting product matching job")
     const activeAdapters = this.adapters.filter((a) => a.platformId !== "shopee")
     await this.appLog.info("Bắt đầu job matching sản phẩm đa sàn", {
       platforms: activeAdapters.map((a) => a.platformId),
     }, SRC)
 
-    const platformResults: Record<string, { matched: number; autoConfirmed: number; errors: number }> = {}
+    const byPlatform: Record<string, { matched: number; autoConfirmed: number; errors: number }> = {}
 
     for (const adapter of activeAdapters) {
-      platformResults[adapter.platformId] = { matched: 0, autoConfirmed: 0, errors: 0 }
-      await this.matchForPlatform(adapter, platformResults[adapter.platformId]).catch(async (e) => {
+      byPlatform[adapter.platformId] = { matched: 0, autoConfirmed: 0, errors: 0 }
+      await this.matchForPlatform(adapter, byPlatform[adapter.platformId]).catch(async (e) => {
         this.log.error(`Matching failed for ${adapter.platformId}: ${e.message}`)
         await this.appLog.error(`Matching thất bại cho sàn ${adapter.platformId}`, {
           platform: adapter.platformId,
@@ -45,8 +54,10 @@ export class PlatformSyncService {
       })
     }
 
-    this.log.log("Nightly matching job complete")
-    await this.appLog.info("Hoàn tất job matching sản phẩm đa sàn", { byPlatform: platformResults }, SRC)
+    this.log.log("Matching job complete")
+    await this.appLog.info("Hoàn tất job matching sản phẩm đa sàn", { byPlatform }, SRC)
+
+    return { byPlatform, durationMs: Date.now() - t0 }
   }
 
   // ── Price refresh: every 4 hours, after main sync ────────────

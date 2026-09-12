@@ -65,11 +65,11 @@ function TrendingCard({ product, onBuy }: { product: TrendingProduct; onBuy: (p:
 
       {/* Price */}
       <div className="flex items-baseline gap-1.5 flex-wrap">
-        <span className="font-mono text-[13px] font-bold text-ink" style={{ fontVariantNumeric: "tabular-nums" }}>
+        <span className="font-mono text-[13px] font-bold text-ink tabular-nums">
           {formatPrice(salePrice)}
         </span>
         {product.discountPct && product.discountPct > 0 && (
-          <span className="font-mono text-[10px] text-ink/40 line-through" style={{ fontVariantNumeric: "tabular-nums" }}>
+          <span className="font-mono text-[10px] text-ink/40 line-through tabular-nums">
             {formatPrice(product.price)}
           </span>
         )}
@@ -158,8 +158,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
         {/* Scrollable row */}
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto pb-2 scroll-smooth"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex gap-4 overflow-x-auto pb-2 scroll-smooth scrollbar-hide"
         >
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => <TrendingCardSkeleton key={i} />)

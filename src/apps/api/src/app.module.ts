@@ -11,6 +11,7 @@ import { AccessTradeRateLimitGuard } from "./affiliate/accesstrade/rate-limit-gu
 // Core sync services
 import { DealSyncService } from "./sync/deal-sync.service";
 import { CouponSyncService } from "./sync/coupon-sync.service";
+import { SyncController } from "./sync/sync.controller";
 import { PricePredictionService } from "./sync/price-prediction.service";
 import { ContentGeneratorService } from "./distribute/content-generator.service";
 import { ZaloTokenService } from "./distribute/zalo-token.service";
@@ -38,6 +39,7 @@ const ObsStubs = [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
   ],
+  controllers: [SyncController],
   providers: [
     ...ObsStubs,
 

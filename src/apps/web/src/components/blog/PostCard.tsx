@@ -11,8 +11,7 @@ export default function PostCard({ post }: PostCardProps) {
   return (
     <Link
       href={href}
-      className="group block border border-[#1a1c1b] bg-white hover:bg-[#fffdf5] transition-colors"
-      style={{ clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)" }}
+      className="group block border border-[#1a1c1b] bg-white hover:bg-[#fffdf5] transition-colors clip-bevel-tr-md"
     >
       {post.coverImage && (
         <div className="relative aspect-[16/9] overflow-hidden border-b border-[#1a1c1b]">

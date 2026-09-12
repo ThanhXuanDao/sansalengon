@@ -37,19 +37,20 @@ const defaultSettings = {
   maintenanceMode: false,
   debugMode: false,
   showErrors: false,
+  twoFA: false,
 }
 
 type Settings = typeof defaultSettings
 
-const inputCls = "w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[15px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none placeholder:text-[#5c403a]/40"
-const labelCls = "block font-mono text-[12px] tracking-[0.06em] uppercase text-[#5c403a] mb-1.5"
+const inputCls = "w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[13px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none placeholder:text-[#5c403a]/40"
+const labelCls = "block font-mono text-[14px] tracking-[0.06em] text-[#5c403a] mb-1.5"
 const sectionCls = "bg-white border border-[#e5e1d8] p-6"
 const sectionTitleCls = "font-sans text-[16px] font-bold text-[#1a1c1b] mb-5 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3"
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <label className="relative inline-flex items-center cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
+    <label className={`relative inline-flex items-center ${disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
+      <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} className="sr-only peer" />
       <div className="w-11 h-6 bg-[#e2e3e0] rounded-full peer peer-focus:ring-2 peer-focus:ring-[#b51c00] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#b51c00]" />
     </label>
   )
@@ -65,14 +66,14 @@ function FieldRow({ label, hint, children }: { label: string; hint?: string; chi
   )
 }
 
-function ToggleRow({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: () => void }) {
+function ToggleRow({ label, hint, checked, onChange, disabled }: { label: string; hint?: string; checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-dashed border-[#e5e1d8] last:border-0">
       <div>
-        <div className="font-sans text-[14px] font-medium text-[#1a1c1b]">{label}</div>
+        <div className={`font-sans text-[14px] font-medium ${disabled ? "text-[#1a1c1b]/40" : "text-[#1a1c1b]"}`}>{label}</div>
         {hint && <div className="font-mono text-[11px] text-[#5c403a] mt-0.5">{hint}</div>}
       </div>
-      <Toggle checked={checked} onChange={onChange} />
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
   )
 }
@@ -140,8 +141,8 @@ export default function AdminSettings() {
   }
 
   async function handleChangePassword() {
-    if (newPassword.length < 6) {
-      toastError("Mật khẩu mới phải có ít nhất 6 ký tự")
+    if (newPassword.length < 12) {
+      toastError("Mật khẩu mới phải có ít nhất 12 ký tự")
       return
     }
     if (newPassword !== confirmPassword) {
@@ -387,7 +388,7 @@ export default function AdminSettings() {
                     </FieldRow>
                     <div className="flex items-center justify-between pt-5">
                       <div>
-                        <div className="font-mono text-[12px] tracking-[0.06em] uppercase text-[#5c403a]">Sitemap XML</div>
+                        <div className="font-mono text-[12px] tracking-[0.06em] text-[#5c403a]">Sitemap XML</div>
                         <div className="font-mono text-[11px] text-[#5c403a]/70 mt-0.5">/sitemap.xml</div>
                       </div>
                       <Toggle checked={settings.sitemapEnabled} onChange={() => update("sitemapEnabled", !settings.sitemapEnabled)} />
@@ -436,6 +437,24 @@ export default function AdminSettings() {
 
           {/* ─── SECURITY ─── */}
           <TabContent value="security">
+            <div className="space-y-6">
+            <div className={sectionCls}>
+              <h3 className={sectionTitleCls}>
+                <Shield className="size-4 text-[#b51c00]" />
+                Xác thực hai bước (2FA)
+              </h3>
+              <ToggleRow
+                label="Bật xác thực OTP khi đăng nhập"
+                hint="Sau khi nhập đúng mật khẩu, hệ thống sẽ gửi mã OTP qua email để xác nhận."
+                checked={false}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="mt-3 flex items-start gap-2 p-3 bg-[#fff7ed] border border-[#fed7aa] text-[#9a3412] font-mono text-[11px]">
+                <AlertTriangle className="size-3.5 flex-shrink-0 mt-0.5" />
+                Tính năng này yêu cầu cấu hình SMTP (email server). Vui lòng thiết lập tài khoản email trước khi bật.
+              </div>
+            </div>
             <div className={sectionCls}>
               <h3 className={`${sectionTitleCls} text-[#ba1a1a]`}>
                 <Shield className="size-4" />
@@ -452,7 +471,7 @@ export default function AdminSettings() {
                     className={inputCls}
                   />
                 </FieldRow>
-                <FieldRow label="Mật khẩu mới" hint="Tối thiểu 6 ký tự">
+                <FieldRow label="Mật khẩu mới" hint="Tối thiểu 12 ký tự">
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -496,19 +515,18 @@ export default function AdminSettings() {
                 </div>
               </div>
             </div>
+            </div>
           </TabContent>
 
-          {/* ─── SAVE BAR (all tabs except security) ─── */}
-          {tab !== "security" && (
-            <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
-              <Button variant="ghost" icon={RotateCcw} onClick={handleDiscard}>
-                Hoàn tác
-              </Button>
-              <Button variant="primary" icon={Save} onClick={handleSave} loading={saving} disabled={saving}>
-                {saving ? "Đang lưu..." : "Lưu thay đổi"}
-              </Button>
-            </div>
-          )}
+          {/* ─── SAVE BAR ─── */}
+          <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
+            <Button variant="ghost" icon={RotateCcw} onClick={handleDiscard}>
+              Hoàn tác
+            </Button>
+            <Button variant="primary" icon={Save} onClick={handleSave} loading={saving} disabled={saving}>
+              {saving ? "Đang lưu..." : "Lưu thay đổi"}
+            </Button>
+          </div>
         </div>
       </Tabs>
     </div>

@@ -211,3 +211,47 @@ model RateLimit {
 
   @@index([resetAt])
 }
+
+// ── Sync Job management ──────────────────────────────────────
+
+model SyncJob {
+  id                String       @id @default(cuid())
+  key               String       @unique
+  name              String
+  description       String?
+  config            String       @default("{}") // JSON: configurable params
+  isEnabled         Boolean      @default(true)
+  scheduleEnabled   Boolean      @default(false)
+  scheduleCron      String?      // e.g. "0 0 * * *"
+  scheduleNextRunAt DateTime?    // precomputed, updated after each run
+  lastRunAt         DateTime?
+  lastStatus        String?      // "success" | "failed" | "partial" | "running"
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  runs              SyncJobRun[]
+
+  @@index([scheduleEnabled, scheduleNextRunAt])
+}
+
+model SyncJobRun {
+  id           String    @id @default(cuid())
+  jobId        String
+  job          SyncJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  triggerType  String    @default("manual") // "manual" | "auto"
+  triggeredBy  String?
+  status       String    @default("running") // "running" | "success" | "failed" | "partial"
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  itemsTotal   Int?
+  itemsSuccess Int?
+  itemsFailed  Int?
+  source       String?
+  niche        String?
+  summary      String?
+  errors       String?   // JSON: { item?: string; reason: string }[]
+  meta         String?   // JSON: extra metadata
+
+  @@index([jobId, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+}

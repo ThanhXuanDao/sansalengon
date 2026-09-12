@@ -262,7 +262,7 @@ export default function AdminCouponsPage() {
             />
           </div>
           <div>
-            <label className="block font-mono text-[10px] uppercase tracking-[0.05em] text-[#5c403a] mb-1">MỨC GIẢM *</label>
+            <label className="block font-mono text-[14px] tracking-[0.05em] text-[#5c403a] mb-1">Mức giảm *</label>
             <div className="flex gap-1">
               <input
                 required
@@ -270,12 +270,12 @@ export default function AdminCouponsPage() {
                 min={1}
                 value={form.discountValue}
                 onChange={(e) => setForm((f) => ({ ...f, discountValue: e.target.value }))}
-                className="flex-1 border border-[#e5beb6] px-3 py-1.5 font-mono text-sm text-[#1a1c1b] focus:outline-none focus:border-[#b51c00]"
+                className="flex-1 border border-[#e5beb6] px-3 py-1.5 font-mono text-[13px] text-[#1a1c1b] focus:outline-none focus:border-[#b51c00]"
               />
               <select
                 value={form.discountType}
                 onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value as "percent" | "fixed" }))}
-                className="border border-[#e5beb6] px-2 py-1.5 font-mono text-sm text-[#1a1c1b] focus:outline-none focus:border-[#b51c00]"
+                className="border border-[#e5beb6] px-2 py-1.5 font-mono text-[13px] text-[#1a1c1b] focus:outline-none focus:border-[#b51c00]"
               >
                 <option value="percent">%</option>
                 <option value="fixed">đ</option>
@@ -319,7 +319,7 @@ export default function AdminCouponsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm merchant, mã code..."
-          className="w-full border border-[#e5beb6] pl-9 pr-4 py-2 font-mono text-sm text-[#1a1c1b] bg-white focus:outline-none focus:border-[#b51c00]"
+          className="w-full border border-[#e5beb6] pl-9 pr-4 py-2 font-mono text-[13px] text-[#1a1c1b] bg-white focus:outline-none focus:border-[#b51c00]"
         />
       </div>
 

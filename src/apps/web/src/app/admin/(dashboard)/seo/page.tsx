@@ -136,7 +136,7 @@ export default function SeoPage() {
 
       {/* How it works */}
       <div className="bg-[#fafaf7] border border-dashed border-[#e5beb6] p-4 mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Cách hoạt động</p>
+        <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] font-bold">Cách hoạt động</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 font-mono text-[12px] text-[#5c403a]">
           <p>• <strong>Niche pages</strong> — generate thủ công tại đây, cache vào DB</p>
           <p>• <strong>Compare pages</strong> — generate tự động khi trang được crawl lần đầu</p>
@@ -196,8 +196,7 @@ function NicheCard({
 
   return (
     <div
-      className="bg-white border border-[#e5e1d8] overflow-hidden"
-      style={{ clipPath: "polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)" }}
+      className="bg-white border border-[#e5e1d8] overflow-hidden clip-bevel-xs"
     >
       {/* Row */}
       <div className="flex items-center gap-4 px-5 py-4">

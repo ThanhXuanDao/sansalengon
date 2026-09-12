@@ -26,7 +26,7 @@ function formatBytes(kb: number): string {
 
 function ImgPlaceholder() {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ flexShrink: 0 }}>
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="shrink-0">
       <rect width="36" height="36" rx="8" fill="#e2e8f0" />
       <rect x="7" y="9" width="22" height="18" rx="3" stroke="#94a3b8" strokeWidth="1.5" />
       <circle cx="13.5" cy="15.5" r="2" stroke="#94a3b8" strokeWidth="1.5" />

@@ -137,8 +137,7 @@ function AnalyticsTab({ data }: { data: ZaloData }) {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-white border border-[#e5e1d8] p-4"
-            style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}
+            className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm"
           >
             <div className="flex items-center gap-2 text-[#5c403a] mb-2">
               {s.icon}
@@ -153,7 +152,7 @@ function AnalyticsTab({ data }: { data: ZaloData }) {
 
       {/* Time series */}
       <div className="bg-white border border-[#e5e1d8] p-5">
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-4">
+        <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
           Click theo ngày
         </h3>
         <TimeSeriesChart data={data.timeSeries} />
@@ -162,7 +161,7 @@ function AnalyticsTab({ data }: { data: ZaloData }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Niche breakdown */}
         <div className="bg-white border border-[#e5e1d8] p-5">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-4">
+          <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
             Click theo ngách
           </h3>
           {data.totalClicks === 0 ? (
@@ -194,8 +193,8 @@ function AnalyticsTab({ data }: { data: ZaloData }) {
 
         {/* Top products */}
         <div className="bg-white border border-[#e5e1d8]">
-          <div className="px-5 py-4 border-b border-dashed border-[#e5e1d8]">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+          <div className="px-5 py-4 border-b border-dashed border-[#e5beb6]">
+            <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] flex items-center gap-2">
               Top sản phẩm từ Zalo
             </h3>
           </div>
@@ -263,8 +262,7 @@ function BroadcastsTab({ broadcasts }: { broadcasts: BroadcastSummary[] }) {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-white border border-[#e5e1d8] p-4"
-            style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}
+            className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm"
           >
             <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">{s.label}</p>
             <p className={`font-sans text-[28px] leading-[32px] font-extrabold tracking-tight ${s.color}`}>
@@ -276,8 +274,8 @@ function BroadcastsTab({ broadcasts }: { broadcasts: BroadcastSummary[] }) {
 
       {/* Broadcasts list */}
       <div className="bg-white border border-[#e5e1d8]">
-        <div className="px-5 py-4 border-b border-dashed border-[#e5e1d8] flex items-center justify-between">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+        <div className="px-5 py-4 border-b border-dashed border-[#e5beb6] flex items-center justify-between">
+          <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] flex items-center gap-2">
             Lịch sử broadcast ({broadcasts.length})
           </h3>
           <Link
@@ -425,8 +423,7 @@ function TokenTab() {
     <div className="max-w-xl space-y-6">
 
       {/* Status card */}
-      <div className={`border p-5 ${statusColor.bg} ${statusColor.border}`}
-        style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+      <div className={`border p-5 clip-bevel-sm ${statusColor.bg} ${statusColor.border}`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             {statusColor.icon}
@@ -494,7 +491,7 @@ function TokenTab() {
 
       {/* How tokens work */}
       <div className="bg-[#fafaf7] border border-dashed border-[#e5beb6] p-4 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Cách hoạt động</p>
+        <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] font-bold">Cách hoạt động</p>
         <div className="space-y-1.5 font-mono text-[12px] text-[#5c403a]">
           <p>• Token lưu trong bảng <code className="bg-white px-1">AppSetting</code> — không cần restart server khi đổi</p>
           <p>• API server <strong>tự động refresh</strong> mỗi thứ Hai 7:00 sáng nếu còn &lt;14 ngày</p>
@@ -504,10 +501,9 @@ function TokenTab() {
       </div>
 
       {/* Manual update form */}
-      <div className="bg-white border border-[#e5e1d8] p-5 space-y-4"
-        style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+      <div className="bg-white border border-[#e5e1d8] p-5 space-y-4 clip-bevel-sm">
         <div>
-          <h3 className="font-mono text-[13px] font-bold text-[#1a1c1b] uppercase tracking-[0.05em] mb-1">
+          <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-1">
             Cập nhật token thủ công
           </h3>
           <p className="font-mono text-[11px] text-[#906f69]">
@@ -523,7 +519,7 @@ function TokenTab() {
         <div className="space-y-3">
           {/* Access Token */}
           <div className="space-y-1">
-            <label className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+            <label className="font-mono text-[14px] tracking-[0.05em] text-[#5c403a]">
               Access Token <span className="text-[#b51c00]">*</span>
             </label>
             <div className="relative">
@@ -532,7 +528,7 @@ function TokenTab() {
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="Paste access token từ Zalo OA Manager..."
-                className="w-full border border-[#e5e1d8] px-3 py-2 pr-10 font-mono text-[12px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5]"
+                className="w-full border border-[#e5e1d8] px-3 py-2 pr-10 font-mono text-[13px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5]"
               />
               <button
                 type="button"
@@ -547,7 +543,7 @@ function TokenTab() {
 
           {/* Refresh Token */}
           <div className="space-y-1">
-            <label className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+            <label className="font-mono text-[14px] tracking-[0.05em] text-[#5c403a]">
               Refresh Token <span className="text-[#906f69]">(tùy chọn — dùng để tự động gia hạn)</span>
             </label>
             <div className="relative">
@@ -556,7 +552,7 @@ function TokenTab() {
                 value={refreshToken}
                 onChange={(e) => setRefreshToken(e.target.value)}
                 placeholder="Paste refresh token (nếu có)..."
-                className="w-full border border-[#e5e1d8] px-3 py-2 pr-10 font-mono text-[12px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5]"
+                className="w-full border border-[#e5e1d8] px-3 py-2 pr-10 font-mono text-[13px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5]"
               />
               <button
                 type="button"
@@ -571,7 +567,7 @@ function TokenTab() {
 
           {/* Expires in */}
           <div className="space-y-1">
-            <label className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+            <label className="font-mono text-[14px] tracking-[0.05em] text-[#5c403a]">
               Thời hạn token (ngày)
             </label>
             <div className="flex gap-2">
@@ -580,7 +576,7 @@ function TokenTab() {
                   key={d}
                   type="button"
                   onClick={() => setExpiresInDays(d)}
-                  className={`px-3 py-1.5 font-mono text-[12px] border transition-colors ${
+                  className={`px-3 py-1.5 font-mono text-[13px] border transition-colors ${
                     expiresInDays === d
                       ? "bg-[#006af5] text-white border-[#006af5]"
                       : "border-[#e5e1d8] text-[#5c403a] hover:border-[#006af5]"
@@ -595,7 +591,7 @@ function TokenTab() {
                 onChange={(e) => setExpiresInDays(e.target.value)}
                 min="1"
                 max="365"
-                className="w-20 border border-[#e5e1d8] px-2 py-1.5 font-mono text-[12px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5] text-center"
+                className="w-20 border border-[#e5e1d8] px-2 py-1.5 font-mono text-[13px] text-[#1a1c1b] bg-[#fafaf7] focus:outline-none focus:border-[#006af5] text-center"
               />
             </div>
             <p className="font-mono text-[10px] text-[#906f69]">Zalo OA token mặc định sống 90 ngày</p>

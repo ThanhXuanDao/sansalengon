@@ -36,7 +36,7 @@ export default function AdminHelpPage() {
         {resources.map((r) => {
           const Icon = r.icon
           return (
-            <div key={r.title} className="bg-white border border-[#e5e1d8] p-6 hover:bg-[#f4f4f1] transition-colors cursor-pointer" style={{ clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)" }}>
+            <div key={r.title} className="bg-white border border-[#e5e1d8] p-6 hover:bg-[#f4f4f1] transition-colors cursor-pointer clip-bevel-lg">
               <div className="flex items-start gap-4">
                 <div className="size-10 rounded-full bg-[#FFC93C] flex items-center justify-center shrink-0">
                   <Icon className="size-5 text-[#6f5400]" />
@@ -51,7 +51,7 @@ export default function AdminHelpPage() {
         })}
       </div>
 
-      <div className="bg-white border border-[#e5e1d8] p-6 text-center" style={{ clipPath: "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)" }}>
+      <div className="bg-white border border-[#e5e1d8] p-6 text-center clip-bevel-lg">
         <h3 className="font-sans text-[18px] font-bold text-[#1a1c1b]">Still need help?</h3>
         <p className="font-sans text-[14px] text-[#5c403a] mt-1">Contact us for personalized support.</p>
         <a href="mailto:support@sansalengon.vn" className="inline-flex items-center gap-2 mt-4 font-mono text-[13px] tracking-[0.05em] text-[#b51c00] hover:underline">

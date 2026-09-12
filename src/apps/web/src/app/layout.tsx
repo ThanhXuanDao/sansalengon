@@ -99,7 +99,7 @@ export default async function RootLayout({
               src={`https://www.googletagmanager.com/ns.html?id=${s.gtmId}`}
               height="0"
               width="0"
-              style={{ display: "none", visibility: "hidden" }}
+              className="hidden invisible"
             />
           </noscript>
         )}

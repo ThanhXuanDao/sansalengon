@@ -34,6 +34,7 @@ const defaultSettings = {
   maintenanceMode: false,
   debugMode: false,
   showErrors: false,
+  twoFA: false,
 }
 
 async function readSettings(): Promise<Record<string, unknown>> {

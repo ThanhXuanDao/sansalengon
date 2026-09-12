@@ -91,7 +91,7 @@ export default function NewProduct() {
 
           <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); handleSave() }}>
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-3">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-3">
                 Product Image
               </label>
 
@@ -108,7 +108,7 @@ export default function NewProduct() {
                 )}
               </div>
 
-              <div className="relative aspect-[4/3] bg-[#e2e3e0] overflow-hidden border border-[#e5e1d8]" style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+              <div className="relative aspect-[4/3] bg-[#e2e3e0] overflow-hidden border border-[#e5e1d8] clip-bevel-sm">
                 {imageUrl ? (
                   <Image
                     src={imageUrl}
@@ -129,7 +129,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="productName">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="productName">
                 Product Name
               </label>
               <input ref={nameRef} id="productName" type="text" placeholder="e.g. Ergonomic Desk Chair V2"
@@ -137,7 +137,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="category">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="category">
                 Category
               </label>
               <div className="relative">
@@ -153,7 +153,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="affiliateLink">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="affiliateLink">
                 Affiliate Link
               </label>
               <input ref={linkRef} id="affiliateLink" type="url" placeholder="https://shopee.co.id/..."
@@ -161,7 +161,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="price">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="price">
                 Giá (VND)
               </label>
               <div className="flex items-center gap-2">
@@ -172,7 +172,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="commission">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="commission">
                 Hoa hồng mỗi sản phẩm (VND)
               </label>
               <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="discount">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="discount">
                 Diskon (%)
               </label>
               <input id="discount" type="number" min={0} max={100} value={discountPct} onChange={(e) => setDiscountPct(e.target.value)} placeholder="0"
@@ -191,7 +191,7 @@ export default function NewProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-3" htmlFor="rating">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-3" htmlFor="rating">
                 Rating
               </label>
               <div className="flex items-center gap-3">

@@ -34,6 +34,7 @@ services:
       DATABASE_URL: postgresql://affiliate:secret@postgres:5432/affiliate
       NODE_ENV: production
       PORT: 4000
+      WEB_URL: http://web:3000   # CORS — web container
     ports:
       - "4000:4000"
 
@@ -45,6 +46,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      api:
+        condition: service_started
     env_file: .env.local
     environment:
       DATABASE_URL: postgresql://affiliate:secret@postgres:5432/affiliate
@@ -52,6 +55,8 @@ services:
       WEB_URL: http://localhost:3000
       NODE_ENV: production
       PORT: 3000
+      # Trong Docker, web container gọi api qua tên service (không phải localhost)
+      API_URL: http://api:4000
     ports:
       - "3000:3000"
     volumes:

@@ -144,10 +144,10 @@ export default function AIConfigPage() {
 
       {/* Text provider catalog */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="size-4 text-[#5c403a]" />
-          <h3 className="font-mono text-[12px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Text / Content Providers</h3>
-        </div>
+        <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
+          <FileText className="size-4 text-[#b51c00]" />
+          Text / Content Providers
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           {data.textProviders.map((p) => (
             <ProviderCard key={p.id} provider={p} />
@@ -172,10 +172,10 @@ export default function AIConfigPage() {
 
       {/* Image provider catalog */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Image className="size-4 text-[#5c403a]" />
-          <h3 className="font-mono text-[12px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Image Generation Providers</h3>
-        </div>
+        <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
+          <Image className="size-4 text-[#b51c00]" />
+          Image Generation Providers
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
           {data.imageProviders.map((p) => (
             <ProviderCard key={p.id} provider={p} compact />
@@ -199,10 +199,10 @@ export default function AIConfigPage() {
 
       {/* Feature flags — cost control */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <DollarSign className="size-4 text-[#5c403a]" />
-          <h3 className="font-mono text-[12px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Kiểm soát chi phí — Bật / Tắt từng tính năng AI</h3>
-        </div>
+        <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
+          <DollarSign className="size-4 text-[#b51c00]" />
+          Kiểm soát chi phí — Bật / Tắt từng tính năng AI
+        </h3>
         <div className="bg-[#fffbf0] border border-[#fdc73a]/50 px-4 py-2.5 mb-3">
           <p className="font-mono text-[12px] text-[#6f5400]">
             Tắt tính năng để ngăn AI gọi API — giúp kiểm soát chi phí. Nội dung đã cache vẫn hiển thị bình thường.
@@ -216,10 +216,9 @@ export default function AIConfigPage() {
             return (
               <div
                 key={task}
-                className={`border px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-colors ${
+                className={`border px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 transition-colors clip-bevel-xs ${
                   enabled ? "bg-white border-[#e5e1d8]" : "bg-[#fafaf7] border-dashed border-[#e5e1d8]"
                 }`}
-                style={{ clipPath: "polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)" }}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -262,7 +261,7 @@ export default function AIConfigPage() {
 
       {/* ENV key guide */}
       <section className="bg-[#fafaf7] border border-dashed border-[#e5beb6] p-5 space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] font-bold">Cách thêm API key</p>
+        <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] font-bold">Cách thêm API key</p>
         <div className="font-mono text-[12px] text-[#5c403a] space-y-1">
           <p>Thêm vào file <code className="bg-white px-1 border border-[#e5e1d8]">src/.env</code> và restart web server:</p>
           <div className="bg-white border border-[#e5e1d8] p-3 space-y-1 mt-2">
@@ -299,8 +298,7 @@ function ProviderCard({ provider, compact = false }: { provider: ProviderWithAva
   const colors = PROVIDER_COLORS[provider.id] ?? { bg: "bg-[#f4f4f1]", text: "text-[#1a1c1b]", border: "border-[#e5e1d8]" }
 
   return (
-    <div className={`border ${provider.available ? "border-[#e5e1d8] bg-white" : "border-dashed border-[#e5e1d8] bg-[#fafaf7] opacity-70"} p-4`}
-      style={{ clipPath: "polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)" }}>
+    <div className={`border clip-bevel-xs ${provider.available ? "border-[#e5e1d8] bg-white" : "border-dashed border-[#e5e1d8] bg-[#fafaf7] opacity-70"} p-4`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
@@ -350,8 +348,7 @@ function TaskRow({
   const colors = PROVIDER_COLORS[currentId] ?? { bg: "bg-[#f4f4f1]", text: "text-[#1a1c1b]", border: "border-[#e5e1d8]" }
 
   return (
-    <div className="bg-white border border-[#e5e1d8] px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4"
-      style={{ clipPath: "polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)" }}>
+    <div className="bg-white border border-[#e5e1d8] px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4 clip-bevel-xs">
       <div className="flex-1 min-w-0">
         <p className="font-sans text-[14px] font-bold text-[#1a1c1b] mb-0.5">{label}</p>
         <div className="flex items-center gap-2">

@@ -96,16 +96,110 @@ function SourceTag({ source }: { source: string | null }) {
   )
 }
 
+function LogDetail({ log }: { log: LogEntry }) {
+  const ctx = tryParseJson(log.context)
+  const ctxObj = ctx !== null && typeof ctx === "object" && !Array.isArray(ctx)
+    ? (ctx as Record<string, unknown>)
+    : null
+
+  // IIFE so TypeScript infers string | null cleanly (avoids unknown leaking into JSX)
+  const stack: string | null = (() => {
+    if (ctxObj !== null && ctxObj.stack != null) return String(ctxObj.stack)
+    if (typeof ctx === "string" && ctx.includes("\n")) return ctx
+    return null
+  })()
+
+  const otherFields = ctxObj !== null
+    ? Object.entries(ctxObj).filter(([k]) => k !== "stack")
+    : null
+
+  // Pre-compute booleans so JSX never sees `unknown`
+  const hasStack = stack !== null
+  const hasOther = otherFields !== null && otherFields.length > 0
+  const hasRaw   = ctx !== null && ctxObj === null && stack === null
+  const ctxStr   = hasRaw
+    ? (typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))
+    : ""
+
+  const { bg, text, border } = LEVEL_CONFIG[log.level]
+
+  return (
+    <div className="space-y-4">
+      {/* Full message */}
+      <div>
+        <p className={`font-mono text-[10px] uppercase tracking-[0.08em] font-bold mb-2 ${text}`}>
+          Thông điệp đầy đủ
+        </p>
+        <div className={`px-3 py-2.5 border ${bg} ${border}`}>
+          <p className="font-mono text-[12px] text-[#1a1c1b] leading-relaxed break-all whitespace-pre-wrap">
+            {log.message}
+          </p>
+        </div>
+      </div>
+
+      {/* Stack trace */}
+      {hasStack && (
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-bold text-[#5c403a] mb-2">
+            Stack trace
+          </p>
+          <pre className="font-mono text-[11px] text-[#374151] bg-white border border-[#e5e1d8] p-3 overflow-x-auto max-h-64 leading-relaxed">
+            {stack}
+          </pre>
+        </div>
+      )}
+
+      {/* Other context fields */}
+      {hasOther && (
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-bold text-[#5c403a] mb-2">
+            Metadata
+          </p>
+          <div className="space-y-1.5">
+            {otherFields!.map(([k, v]) => (
+              <div key={k} className="flex gap-3 font-mono text-[11px]">
+                <span className="text-[#906f69] shrink-0 w-28 truncate">{k}</span>
+                <span className="text-[#1a1c1b] break-all">
+                  {typeof v === "string" ? v : JSON.stringify(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Raw context (non-object) */}
+      {hasRaw && (
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-bold text-[#5c403a] mb-2">
+            Context
+          </p>
+          <pre className="font-mono text-[11px] text-[#374151] bg-white border border-[#e5e1d8] p-3 overflow-x-auto max-h-60">
+            {ctxStr}
+          </pre>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center gap-4 pt-1 border-t border-dashed border-[#e5e1d8]">
+        <span className="font-mono text-[10px] text-[#9ca3af]">ID: {log.id}</span>
+        <span className="font-mono text-[10px] text-[#9ca3af]">{fmtTime(log.createdAt)}</span>
+        {log.source !== null && (
+          <span className="font-mono text-[10px] text-[#9ca3af]">Source: {log.source}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function LogRow({ log }: { log: LogEntry }) {
   const [expanded, setExpanded] = useState(false)
-  const ctx = tryParseJson(log.context)
-  const hasCtx = ctx !== null
 
   return (
     <>
       <tr
-        className={`border-b border-dashed border-[#e5e1d8] hover:bg-[#fafaf7] transition-colors ${hasCtx ? "cursor-pointer" : ""}`}
-        onClick={() => hasCtx && setExpanded((v) => !v)}
+        className="border-b border-dashed border-[#e5e1d8] hover:bg-[#fafaf7] transition-colors cursor-pointer select-none"
+        onClick={() => setExpanded((v) => !v)}
       >
         {/* Time */}
         <td className="px-4 py-3 whitespace-nowrap" title={fmtTime(log.createdAt)}>
@@ -124,23 +218,19 @@ function LogRow({ log }: { log: LogEntry }) {
         {/* Message */}
         <td className="px-4 py-3">
           <div className="flex items-start gap-2">
-            {hasCtx && (
-              <span className="mt-0.5 shrink-0 text-[#9ca3af]">
-                {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-              </span>
-            )}
-            <span className="font-mono text-[12px] text-[#1a1c1b] leading-relaxed break-all">
+            <span className="mt-0.5 shrink-0 text-[#9ca3af]">
+              {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            </span>
+            <span className="font-mono text-[12px] text-[#1a1c1b] leading-relaxed break-all line-clamp-2">
               {log.message}
             </span>
           </div>
         </td>
       </tr>
-      {expanded && hasCtx && (
+      {expanded && (
         <tr className="border-b border-dashed border-[#e5e1d8] bg-[#f9f9f6]">
-          <td colSpan={4} className="px-4 pb-3 pt-0">
-            <pre className="font-mono text-[11px] text-[#374151] bg-white border border-[#e5e1d8] p-3 overflow-x-auto rounded-sm max-h-60">
-              {typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2)}
-            </pre>
+          <td colSpan={4} className="px-5 py-4">
+            <LogDetail log={log} />
           </td>
         </tr>
       )}
@@ -387,17 +477,6 @@ export default function LogsPage() {
         )}
       </div>
 
-      {/* Usage hint */}
-      <section className="bg-[#fafaf7] border border-dashed border-[#e5beb6] p-5">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-[#5c403a] font-bold mb-3">Cách sử dụng</p>
-        <pre className="font-mono text-[12px] text-[#374151] bg-white border border-[#e5e1d8] p-4 overflow-x-auto">{`import { logger } from "@/lib/logger"
-
-// Trong Server Actions, API routes, services...
-await logger.info("Sync hoàn tất", { products: 42 }, "sync")
-await logger.warn("Rate limit gần đạt", { remaining: 10 }, "api")
-await logger.error("Thanh toán thất bại", { orderId: "x123", code: 402 }, "payment")
-await logger.debug("Cache miss", { key: "products:featured" }, "cache")`}</pre>
-      </section>
     </div>
   )
 }

@@ -33,7 +33,7 @@ const PAGE_SIZE = 20
 function CouponSkeleton() {
   return (
     <div className="receipt-card flex overflow-hidden animate-pulse">
-      <div className="w-24 bg-[#e8e8e5]" style={{ minHeight: 112 }} />
+      <div className="w-24 bg-[#e8e8e5] min-h-[112px]" />
       <div className="flex-1 p-3 space-y-2">
         <div className="h-4 bg-[#e8e8e5] rounded w-1/2" />
         <div className="h-3 bg-[#e8e8e5] rounded w-3/4" />

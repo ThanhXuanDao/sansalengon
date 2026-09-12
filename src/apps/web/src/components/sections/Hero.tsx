@@ -130,8 +130,7 @@ export default function Hero({
 
         {/* Niche quick-links */}
         <div
-          className="flex gap-2 overflow-x-auto px-4 pb-4 pt-1"
-          style={{ scrollbarWidth: "none" }}
+          className="flex gap-2 overflow-x-auto px-4 pb-4 pt-1 scrollbar-hide"
           aria-label="Danh mục nhanh"
         >
           {NICHES.map((n) => (

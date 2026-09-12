@@ -70,7 +70,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
   const storeName = settings?.siteName || "Săn Sale Ngon"
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-white" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+    <nav className="fixed top-0 left-0 w-full z-50 bg-white navbar-shadow">
 
       {/* ─── Announcement bar ─── */}
       <div className="bg-[#1C1C4D] text-white text-xs py-1.5 text-center hidden sm:block">

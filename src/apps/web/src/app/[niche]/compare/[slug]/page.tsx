@@ -390,8 +390,7 @@ export default async function ComparePage(
               {/* Best deal CTA */}
               {cheapestPlatform && (
                 <div
-                  className="bg-[#1a1c1b] p-5 text-white"
-                  style={{ clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)" }}
+                  className="bg-[#1a1c1b] p-5 text-white clip-bevel-tr-lg"
                 >
                   <span className="font-mono text-[10px] text-[#fdc73a] uppercase tracking-widest block mb-1.5">
                     Giá rẻ nhất hôm nay

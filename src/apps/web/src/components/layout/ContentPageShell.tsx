@@ -17,11 +17,7 @@ export default function ContentPageShell({
       className={`flex-grow w-full ${width === "sm" ? "max-w-[600px]" : "max-w-[800px]"} mx-auto px-4 md:px-8 pt-36 pb-16`}
     >
       <div
-        className="bg-white border border-[#e5e1d8] p-8 md:p-12"
-        style={{
-          clipPath:
-            "polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px)",
-        }}
+        className="bg-white border border-[#e5e1d8] p-8 md:p-12 clip-bevel-2xl"
       >
         <div className="text-center mb-10">
           <h1 className="font-sans text-[32px] md:text-[40px] leading-[38px] md:leading-[48px] tracking-[-0.01em] md:tracking-[-0.02em] font-extrabold text-primary uppercase text-pretty">

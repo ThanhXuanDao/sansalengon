@@ -92,10 +92,7 @@ export default function ProductCard({
 
   return (
     <div
-      className="receipt-card p-3 flex flex-col justify-between hover-lift h-full"
-      style={{
-        clipPath: "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)",
-      }}
+      className="receipt-card p-3 flex flex-col justify-between hover-lift h-full clip-bevel-tl-sm"
     >
       <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-bg border border-border-color z-20" />
       {isHighlight && !isSoldOut && (
@@ -187,12 +184,11 @@ export default function ProductCard({
         {product.discountPct && product.discountPct > 0 ? (
           <div className="flex items-start gap-2 mb-2">
             <div>
-              <p className="font-mono text-xs text-ink/40 line-through" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <p className="font-mono text-xs text-ink/40 line-through tabular-nums">
                 {formatPrice(product.price)}
               </p>
               <p
-                className={`font-mono text-ink ${isHighlight ? "text-2xl" : "text-lg"}`}
-                style={{ fontVariantNumeric: "tabular-nums" }}
+                className={`font-mono text-ink tabular-nums ${isHighlight ? "text-2xl" : "text-lg"}`}
               >
                 {formatPrice(Math.round(product.price * (1 - product.discountPct / 100)))}
               </p>
@@ -203,8 +199,7 @@ export default function ProductCard({
           </div>
         ) : (
           <p
-            className={`font-mono text-ink mb-2 ${isHighlight ? "text-2xl" : "text-lg"}`}
-            style={{ fontVariantNumeric: "tabular-nums" }}
+            className={`font-mono text-ink mb-2 tabular-nums ${isHighlight ? "text-2xl" : "text-lg"}`}
           >
             {formatPrice(product.price)}
           </p>

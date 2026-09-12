@@ -216,8 +216,7 @@ export default function AdminProducts() {
                 <td className="py-4 px-6">
                   <div className="flex items-center gap-4">
                     <div
-                      className="relative size-12 bg-[#e2e3e0] shrink-0 flex items-center justify-center font-mono text-xs text-[#5c403a] overflow-hidden"
-                      style={{ clipPath: "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)" }}
+                      className="relative size-12 bg-[#e2e3e0] shrink-0 flex items-center justify-center font-mono text-xs text-[#5c403a] overflow-hidden clip-bevel-md"
                     >
                       {product.name.charAt(0)}
                     </div>

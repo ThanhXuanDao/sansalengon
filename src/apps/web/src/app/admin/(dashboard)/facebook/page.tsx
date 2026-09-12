@@ -180,8 +180,7 @@ function AnalyticsTab({ period }: { period: string }) {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-white border border-[#e5e1d8] p-4"
-            style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}
+            className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm"
           >
             <div className="flex items-center gap-2 text-[#5c403a] mb-2">
               {s.icon}
@@ -196,7 +195,7 @@ function AnalyticsTab({ period }: { period: string }) {
 
       {/* Time series */}
       <div className="bg-white border border-[#e5e1d8] p-5">
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-4">
+        <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
           Click theo ngày
         </h3>
         <TimeSeriesChart data={d?.timeSeries ?? []} />
@@ -205,7 +204,7 @@ function AnalyticsTab({ period }: { period: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Niche breakdown */}
         <div className="bg-white border border-[#e5e1d8] p-5">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-4">
+          <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">
             Click theo ngách
           </h3>
           {!d || d.totalClicks === 0 ? (
@@ -237,8 +236,8 @@ function AnalyticsTab({ period }: { period: string }) {
 
         {/* Top products */}
         <div className="bg-white border border-[#e5e1d8]">
-          <div className="px-5 py-4 border-b border-dashed border-[#e5e1d8]">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+          <div className="px-5 py-4 border-b border-dashed border-[#e5beb6]">
+            <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] flex items-center gap-2">
               Top sản phẩm từ Facebook
             </h3>
           </div>

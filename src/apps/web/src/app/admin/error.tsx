@@ -11,7 +11,7 @@ export default function AdminError({
 }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAFAF7] p-4" role="alert">
-      <div className="bg-white border border-[#e5e1d8] p-8 max-w-md w-full text-center" style={{ clipPath: "polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px)" }}>
+      <div className="bg-white border border-[#e5e1d8] p-8 max-w-md w-full text-center clip-bevel-xl">
         <AlertTriangle className="size-12 mx-auto text-[#b51c00] mb-4" aria-hidden="true" />
         <h2 className="font-sans text-[24px] font-black text-[#1a1c1b] uppercase mb-2">Something went wrong</h2>
         <p className="font-sans text-[14px] text-[#5c403a] mb-6">

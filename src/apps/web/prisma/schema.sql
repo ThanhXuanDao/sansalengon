@@ -245,6 +245,31 @@ CREATE TABLE "BroadcastLog" (
 
 CREATE INDEX "BroadcastLog_channel_sentAt_idx" ON "BroadcastLog"("channel", "sentAt");
 
+-- ── AppLog ───────────────────────────────────────────────────
+CREATE TABLE "AppLog" (
+    "id"        TEXT         NOT NULL,
+    "level"     TEXT         NOT NULL,
+    "message"   TEXT         NOT NULL,
+    "source"    TEXT,
+    "meta"      TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AppLog_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "AppLog_level_idx"     ON "AppLog"("level");
+CREATE INDEX "AppLog_source_idx"    ON "AppLog"("source");
+CREATE INDEX "AppLog_createdAt_idx" ON "AppLog"("createdAt");
+
+-- ── RateLimit ─────────────────────────────────────────────────
+CREATE TABLE "RateLimit" (
+    "key"     TEXT         NOT NULL,
+    "count"   INTEGER      NOT NULL DEFAULT 0,
+    "resetAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "RateLimit_pkey" PRIMARY KEY ("key")
+);
+
+CREATE INDEX "RateLimit_resetAt_idx" ON "RateLimit"("resetAt");
+
 -- ── Seed: Platform ───────────────────────────────────────────
 INSERT INTO "Platform" ("id", "name", "baseUrl", "isActive") VALUES
     ('shopee', 'Shopee',      'https://shopee.vn',           true),

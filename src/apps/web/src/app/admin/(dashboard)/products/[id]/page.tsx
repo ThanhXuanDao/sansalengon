@@ -131,12 +131,12 @@ export default function EditProduct() {
 
           <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); handleSave() }}>
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1">Item No.</label>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1">Item No.</label>
               <p className="font-mono text-[16px] leading-[24px] font-bold">#{product.id}</p>
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-3">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-3">
                 Product Image
               </label>
               <div>
@@ -151,7 +151,7 @@ export default function EditProduct() {
                   <p className="font-mono text-[11px] text-[#ba1a1a] mt-1">{urlError}</p>
                 )}
               </div>
-              <div className="relative aspect-[4/3] bg-[#e2e3e0] overflow-hidden border border-[#e5e1d8] mt-3" style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+              <div className="relative aspect-[4/3] bg-[#e2e3e0] overflow-hidden border border-[#e5e1d8] mt-3 clip-bevel-sm">
                 {imageUrl ? (
                   <Image
                     src={imageUrl}
@@ -172,13 +172,13 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="productName">Product Name</label>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="productName">Product Name</label>
               <input ref={nameRef} id="productName" type="text" defaultValue={product.name}
                 className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[20px] leading-[28px] font-bold text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="category">Category</label>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="category">Category</label>
               <div className="relative">
                 <select ref={categoryRef} id="category" defaultValue={product.categoryId}
                   className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] appearance-none pr-8 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none">
@@ -191,13 +191,13 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="affiliateLink">Affiliate Link</label>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="affiliateLink">Affiliate Link</label>
               <input ref={linkRef} id="affiliateLink" type="url" defaultValue={product.shopeeUrl}
                 className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="price">Giá (VND)</label>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="price">Giá (VND)</label>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[32px] leading-[32px] tracking-[-0.04em] font-bold text-[#b51c00]">Rp</span>
                 <input ref={priceRef} id="price" type="text" defaultValue={product.price.toLocaleString("vi-VN")}
@@ -206,7 +206,7 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="commission">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="commission">
                 Hoa hồng mỗi sản phẩm (VND)
               </label>
               <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-1" htmlFor="discount">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="discount">
                 Diskon (%)
               </label>
               <input id="discount" type="number" min={0} max={100} value={discountPct} onChange={(e) => setDiscountPct(e.target.value)} placeholder="0"
@@ -226,7 +226,7 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[12px] leading-[16px] font-medium text-[#76737b] uppercase mb-3" htmlFor="rating">
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-3" htmlFor="rating">
                 Rating
               </label>
               <div className="flex items-center gap-3">

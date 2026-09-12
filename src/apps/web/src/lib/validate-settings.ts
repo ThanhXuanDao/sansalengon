@@ -26,6 +26,7 @@ export interface ValidatedSettings {
   maintenanceMode?: boolean
   debugMode?: boolean
   showErrors?: boolean
+  twoFA?: boolean
 }
 
 const STRING_FIELDS = new Set([
@@ -37,7 +38,7 @@ const STRING_FIELDS = new Set([
 ])
 
 const BOOL_FIELDS = new Set([
-  "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors",
+  "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors", "twoFA",
 ])
 
 const LARGE_STRING_FIELDS = new Set(["logo", "favicon"])

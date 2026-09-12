@@ -88,7 +88,7 @@ export default function AutoClassifyPage() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
-          <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase mb-1">
+          <label className="block font-mono text-[14px] tracking-[0.05em] text-[#5c403a] mb-1">
             Số sản phẩm phân tích
           </label>
           <select
@@ -134,7 +134,7 @@ export default function AutoClassifyPage() {
             { label: "Chưa áp dụng", value: rows.length - appliedCount },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white border border-[#e5e1d8] p-4">
-              <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase mb-1">{label}</p>
+              <p className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1">{label}</p>
               <p className="font-sans text-[28px] font-black text-[#1a1c1b]">{value}</p>
             </div>
           ))}

@@ -132,20 +132,20 @@ export default function AdminMatchesPage() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="font-mono text-[10px] uppercase text-[#5c403a] block mb-1">Product ID</label>
+            <label className="font-mono text-[14px] text-[#5c403a] block mb-1">Product ID</label>
             <input
               value={formData.productId}
               onChange={(e) => setFormData((d) => ({ ...d, productId: e.target.value }))}
               placeholder="cuid của product"
-              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]"
+              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[13px] focus:outline-none focus:border-[#b51c00]"
             />
           </div>
           <div>
-            <label className="font-mono text-[10px] uppercase text-[#5c403a] block mb-1">Platform</label>
+            <label className="font-mono text-[14px] text-[#5c403a] block mb-1">Platform</label>
             <select
               value={formData.platformId}
               onChange={(e) => setFormData((d) => ({ ...d, platformId: e.target.value }))}
-              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00] bg-white"
+              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[13px] focus:outline-none focus:border-[#b51c00] bg-white"
             >
               <option value="lazada">Lazada</option>
               <option value="tiki">Tiki</option>
@@ -153,22 +153,22 @@ export default function AdminMatchesPage() {
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="font-mono text-[10px] uppercase text-[#5c403a] block mb-1">URL sản phẩm</label>
+            <label className="font-mono text-[14px] text-[#5c403a] block mb-1">URL sản phẩm</label>
             <input
               value={formData.candidateUrl}
               onChange={(e) => setFormData((d) => ({ ...d, candidateUrl: e.target.value }))}
               placeholder="https://lazada.vn/products/..."
-              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]"
+              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[13px] focus:outline-none focus:border-[#b51c00]"
             />
           </div>
           <div>
-            <label className="font-mono text-[10px] uppercase text-[#5c403a] block mb-1">Giá hiện tại (VND)</label>
+            <label className="font-mono text-[14px] text-[#5c403a] block mb-1">Giá hiện tại (VND)</label>
             <input
               type="number"
               value={formData.candidatePrice}
               onChange={(e) => setFormData((d) => ({ ...d, candidatePrice: e.target.value }))}
               placeholder="250000"
-              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]"
+              className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[13px] focus:outline-none focus:border-[#b51c00]"
             />
           </div>
         </div>

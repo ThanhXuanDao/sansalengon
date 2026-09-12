@@ -60,8 +60,7 @@ function SvgLineChart({ data, meta }: { data: PricePoint[]; meta: PriceMeta }) {
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      className="w-full"
-      style={{ height: 100 }}
+      className="w-full h-[100px]"
       aria-label="Biểu đồ lịch sử giá 30 ngày"
       role="img"
     >

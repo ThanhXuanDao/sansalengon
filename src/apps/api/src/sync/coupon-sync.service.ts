@@ -46,42 +46,55 @@ export class CouponSyncService {
 
   @Cron("0 6,18 * * *")
   async syncAllCoupons() {
-    this.log.log("Starting coupon sync");
-    const niches = this.loadActiveNiches();
-    await this.appLog.info("Bắt đầu đồng bộ coupon", { niches: niches.map((n) => n.id) }, SRC);
+    await this.triggerSync("all");
+  }
 
+  // Public method called by SyncController (manual / web-scheduled trigger)
+  async triggerSync(sources: "all" | "accesstrade" | "platforms" = "all"): Promise<{
+    total: number;
+    byNiche: Record<string, number>;
+    byPlatform: Record<string, number>;
+    durationMs: number;
+  }> {
+    this.log.log(`triggerSync coupons — sources: ${sources}`);
+    await this.appLog.info("Bắt đầu đồng bộ coupon", { sources }, SRC);
+
+    const t0 = Date.now();
     await this.deactivateExpiredCoupons();
 
-    const nicheResults: Record<string, number> = {};
-    for (const niche of niches) {
-      const count = await this.syncNicheCoupons(niche).catch(async (e) => {
-        this.log.error(`Coupon sync failed for niche "${niche.id}": ${e.message}`);
-        await this.appLog.error(`Sync coupon thất bại cho ngách "${niche.name}"`, {
-          niche: niche.id,
-          error: e.message,
-        }, SRC);
-        return 0;
-      });
-      nicheResults[niche.id] = count;
-      await sleep(1500);
+    const byNiche: Record<string, number> = {};
+    const byPlatform: Record<string, number> = {};
+
+    if (sources === "all" || sources === "accesstrade") {
+      const niches = this.loadActiveNiches();
+      for (const niche of niches) {
+        const count = await this.syncNicheCoupons(niche).catch(async (e) => {
+          this.log.error(`Coupon sync failed for niche "${niche.id}": ${e.message}`);
+          await this.appLog.error(`Sync coupon thất bại cho ngách "${niche.name}"`, {
+            niche: niche.id, error: e.message,
+          }, SRC);
+          return 0;
+        });
+        byNiche[niche.id] = count;
+        await sleep(1500);
+      }
     }
 
-    // Sync từ các sàn — delay 3s giữa mỗi platform
-    const shopeeCount  = await this.syncShopeeVouchers().catch(() => 0);
-    await sleep(3000);
-    const tikiCount    = await this.syncTikiVouchers().catch(() => 0);
-    await sleep(3000);
-    const lazadaCount  = await this.syncLazadaVouchers().catch(() => 0);
+    if (sources === "all" || sources === "platforms") {
+      byPlatform.shopee = await this.syncShopeeVouchers().catch(() => 0);
+      await sleep(3000);
+      byPlatform.tiki = await this.syncTikiVouchers().catch(() => 0);
+      await sleep(3000);
+      byPlatform.lazada = await this.syncLazadaVouchers().catch(() => 0);
+    }
 
-    const total = Object.values(nicheResults).reduce((a, b) => a + b, 0)
-                + shopeeCount + tikiCount + lazadaCount;
+    const total = Object.values(byNiche).reduce((a, b) => a + b, 0)
+                + Object.values(byPlatform).reduce((a, b) => a + b, 0);
 
     this.log.log(`Coupon sync complete — ${total} coupons upserted`);
-    await this.appLog.info("Hoàn tất đồng bộ coupon", {
-      total,
-      byNiche:   nicheResults,
-      byPlatform: { shopee: shopeeCount, tiki: tikiCount, lazada: lazadaCount },
-    }, SRC);
+    await this.appLog.info("Hoàn tất đồng bộ coupon", { total, byNiche, byPlatform }, SRC);
+
+    return { total, byNiche, byPlatform, durationMs: Date.now() - t0 };
   }
 
   private async syncNicheCoupons(niche: NicheConfig): Promise<number> {
@@ -368,7 +381,7 @@ export class CouponSyncService {
       .join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 64);
   }
 
-  private loadActiveNiches(): NicheConfig[] {
+  loadActiveNiches(): NicheConfig[] {
     const configPath = join(process.cwd(), "../../config/niches.yaml");
     const raw = readFileSync(configPath, "utf-8");
     const { niches } = parseYaml(raw) as { niches: NicheConfig[] };

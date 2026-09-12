@@ -31,6 +31,11 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 WEB_URL=http://localhost:3000
 NODE_ENV=production
 
+# Internal API (Web → NestJS) — trong Docker, API_URL bị override thành http://api:4000
+# Để trống API_INTERNAL_SECRET = không cần auth (ok cho local dev)
+API_URL=http://localhost:4000
+API_INTERNAL_SECRET=
+
 # Điền key nếu muốn test tính năng đó, để trống nếu không cần
 ACCESSTRADE_ACCESS_KEY=
 SHOPEE_AFFILIATE_APP_ID=
@@ -95,13 +100,19 @@ VALUES ('test-coupon-1', 'manual', 'Shopee', 'GIAM50K', 'Giảm 50k cho đơn t�
 
 ### 0.6 Trigger sync thủ công (không cần đợi cron)
 
-```bash
-# Trigger coupon sync ngay (thay vì đợi 6h/18h)
-curl -X POST http://localhost:3000/api/admin/coupons/sync
+Dùng **Admin → Sync Jobs** để chạy từng job ngay lập tức:
 
-# Xem log của api để theo dõi sync
+1. Mở http://localhost:3000/admin/jobs
+2. Chọn job trong sidebar: **Đồng bộ sản phẩm**, **Đồng bộ Coupon/Voucher**, hoặc **Khớp nền tảng**
+3. (Tùy chọn) Điều chỉnh config (ngách, nguồn) nếu cần
+4. Nhấn **Chạy ngay** — kết quả hiển thị real-time ngay bên dưới
+
+```bash
+# Theo dõi log chi tiết của api trong khi job chạy
 docker compose -f docker-compose.local.yml logs -f api
 ```
+
+> Trong Sync Jobs cũng có thể cấu hình **lịch chạy tự động** (bật/tắt toggle + chọn tần suất) cho từng job.
 
 ### 0.7 Các lệnh hữu ích
 
@@ -143,7 +154,9 @@ docker compose -f docker-compose.local.yml up --build
 | Admin dashboard | http://localhost:3000/admin → đăng nhập |
 | Coupon page | http://localhost:3000/ma-giam-gia |
 | Thêm coupon thủ công | Admin → Coupons → thêm form |
-| Sync coupon ngay | `curl -X POST http://localhost:3000/api/admin/coupons/sync` |
+| Sync Jobs | Admin → Sync Jobs → chọn job → Chạy ngay |
+| Đồng bộ sản phẩm | Sync Jobs → Đồng bộ sản phẩm → chọn ngách → Chạy ngay |
+| Đồng bộ Coupon/Voucher | Sync Jobs → Đồng bộ Coupon/Voucher → Chạy ngay |
 | Xem AI config | Admin → AI Config |
 | Generate blog | Admin → AI Blog → chọn ngách → Generate |
 | Affiliate redirect | http://localhost:3000/api/affiliate/redirect/[product-id] |
@@ -239,6 +252,8 @@ DATABASE_URL=<từ Railway PostgreSQL — cùng DB với api>
 NEXT_PUBLIC_SITE_URL=<URL public của service này>
 WEB_URL=<URL của service này>
 NODE_ENV=production
+API_URL=<URL internal của service apps/api — Railway internal URL>
+API_INTERNAL_SECRET=<random string ≥ 32 ký tự — phải khớp với apps/api>
 # ... các key AI, Zalo, v.v.
 ```
 
@@ -476,6 +491,8 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+        API_URL: "http://localhost:4000",       // web → api (cùng VPS)
+        API_INTERNAL_SECRET: "your_secret_here", // phải khớp với api
       },
     },
     {
@@ -485,6 +502,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 4000,
+        API_INTERNAL_SECRET: "your_secret_here", // bảo vệ /sync/* endpoints
       },
     },
   ],
@@ -652,10 +670,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      api:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://affiliate_user:${POSTGRES_PASSWORD}@postgres:5432/affiliate
       NODE_ENV: production
       PORT: 3000
+      API_URL: http://api:4000          # web → api qua Docker network
     env_file: ./src/.env
     ports:
       - "3000:3000"
@@ -773,7 +794,8 @@ pm2 monit
 curl https://yourdomain.com/api/health
 
 # 2. Chạy sync thủ công (không cần chờ cron)
-# Restart API → NestJS sẽ trigger OnModuleInit sync
+# Vào https://yourdomain.com/admin/jobs → chọn "Đồng bộ sản phẩm" → Chạy ngay
+# (hoặc "Đồng bộ Coupon/Voucher" để sync coupon ngay)
 
 # 3. Vào admin
 # https://yourdomain.com/admin → đăng nhập → kiểm tra
@@ -791,6 +813,8 @@ NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 WEB_URL=https://yourdomain.com
 NODE_ENV=production
 ACCESSTRADE_ACCESS_KEY=   # Hoặc Shopee
+API_URL=http://localhost:4000         # VPS: localhost; Docker: http://api:4000
+API_INTERNAL_SECRET=                  # Random string ≥ 32 ký tự — bảo vệ /sync/* endpoints
 ```
 
 Thêm để có AI:

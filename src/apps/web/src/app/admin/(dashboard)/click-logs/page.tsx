@@ -115,7 +115,7 @@ export default function AdminClickLogs() {
       {showFilters && (
         <div className="bg-white border border-[#e5e1d8] p-4 flex flex-wrap gap-4 items-end">
           <div>
-            <label htmlFor="dateFrom" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1">
+            <label htmlFor="dateFrom" className="block font-mono text-[14px] tracking-[0.05em] text-[#5c403a] mb-1">
               <Calendar className="size-3 inline mr-1" aria-hidden="true" />
               Từ ngày
             </label>
@@ -128,7 +128,7 @@ export default function AdminClickLogs() {
             />
           </div>
           <div>
-            <label htmlFor="dateTo" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1">
+            <label htmlFor="dateTo" className="block font-mono text-[14px] tracking-[0.05em] text-[#5c403a] mb-1">
               Đến ngày
             </label>
             <input

@@ -55,12 +55,30 @@ export class DealSyncService {
 
   @Cron("0 */4 * * *")
   async syncAllNiches() {
-    const niches = this.loadActiveNiches();
-    this.log.log(`Starting sync for ${niches.length} active niche(s)`);
-    await this.appLog.info(`Bắt đầu đồng bộ sản phẩm`, { niches: niches.map((n) => n.id) }, SRC);
+    await this.triggerSync();
+  }
 
+  // Public method called by SyncController (manual / web-scheduled trigger)
+  async triggerSync(nicheId?: string): Promise<{
+    niches: number;
+    fetched: number;
+    priceChanges: number;
+    newDeals: number;
+    skipped: number;
+    durationMs: number;
+  }> {
+    const allNiches = this.loadActiveNiches();
+    const targets = (nicheId && nicheId !== "all")
+      ? allNiches.filter((n) => n.id === nicheId)
+      : allNiches;
+
+    this.log.log(`triggerSync — ${targets.length} niche(s)${nicheId && nicheId !== "all" ? ` (${nicheId})` : ""}`);
+    await this.appLog.info(`Bắt đầu đồng bộ sản phẩm`, { niches: targets.map((n) => n.id) }, SRC);
+
+    const t0 = Date.now();
     const reports: SyncReport[] = [];
-    for (const niche of niches) {
+
+    for (const niche of targets) {
       const report = await this.syncNiche(niche).catch(async (e): Promise<SyncReport> => {
         this.log.error(`Sync failed for niche "${niche.id}": ${e.message}`);
         await this.appLog.error(`Sync thất bại cho ngách "${niche.name}"`, {
@@ -73,27 +91,24 @@ export class DealSyncService {
       reports.push(report);
     }
 
+    await this.pruneOldPriceHistory();
+
     const total = reports.reduce(
       (acc, r) => ({
-        fetched:       acc.fetched       + r.fetched,
-        priceChanges:  acc.priceChanges  + r.priceChanges,
-        newDeals:      acc.newDeals      + r.newDeals,
-        skipped:       acc.skipped       + r.skipped,
+        fetched:      acc.fetched      + r.fetched,
+        priceChanges: acc.priceChanges + r.priceChanges,
+        newDeals:     acc.newDeals     + r.newDeals,
+        skipped:      acc.skipped      + r.skipped,
       }),
-      { fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0 }
+      { fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0 },
     );
 
     this.log.log(`Sync complete — ${total.fetched} products, ${total.priceChanges} price changes, ${total.newDeals} new deals`);
     await this.appLog.info(`Hoàn tất đồng bộ sản phẩm`, {
-      niches:       niches.length,
-      fetched:      total.fetched,
-      priceChanges: total.priceChanges,
-      newDeals:     total.newDeals,
-      skipped:      total.skipped,
-      perNiche:     reports,
+      niches: targets.length, ...total, perNiche: reports,
     }, SRC);
 
-    await this.pruneOldPriceHistory();
+    return { niches: targets.length, ...total, durationMs: Date.now() - t0 };
   }
 
   async syncNiche(niche: NicheConfig): Promise<SyncReport> {
@@ -247,7 +262,7 @@ export class DealSyncService {
     });
   }
 
-  private loadActiveNiches(): NicheConfig[] {
+  loadActiveNiches(): NicheConfig[] {
     const configPath = join(process.cwd(), "../../config/niches.yaml");
     const raw = readFileSync(configPath, "utf-8");
     const { niches } = parseYaml(raw) as { niches: NicheConfig[] };

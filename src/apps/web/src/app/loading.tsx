@@ -20,7 +20,7 @@ export default function Loading() {
             <div className="h-14 skeleton-shimmer w-48 mt-6 rounded-full" />
           </div>
           <div className="relative h-[400px] hidden md:block">
-            <div className="absolute top-10 right-10 w-64 receipt-card p-4 -rotate-[3deg] z-10" style={{ background: "white", clipPath: "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)" }}>
+            <div className="absolute top-10 right-10 w-64 receipt-card p-4 -rotate-[3deg] z-10 bg-white clip-bevel-tl-sm">
               <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-bg border border-border-color z-20" />
               <div className="mt-8">
                 <div className="w-full h-40 skeleton-shimmer mb-4" />
@@ -32,7 +32,7 @@ export default function Loading() {
                 <div className="size-5 skeleton-shimmer" />
               </div>
             </div>
-            <div className="absolute bottom-10 left-10 w-64 receipt-card p-4 rotate-[2deg] z-0" style={{ background: "white", clipPath: "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)" }}>
+            <div className="absolute bottom-10 left-10 w-64 receipt-card p-4 rotate-[2deg] z-0 bg-white clip-bevel-tl-sm">
               <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-bg border border-border-color z-20" />
               <div className="mt-8">
                 <div className="w-full h-40 skeleton-shimmer mb-4" />
@@ -75,7 +75,7 @@ export default function Loading() {
               <div className="h-6 skeleton-shimmer w-48 mb-6" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={`sk-feat-${i}`} className="receipt-card p-3" style={{ clipPath: "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)" }}>
+                  <div key={`sk-feat-${i}`} className="receipt-card p-3 clip-bevel-tl-sm">
                     <div className="h-48 skeleton-shimmer w-full mb-3" />
                     <div className="h-3 skeleton-shimmer w-1/4 mb-2" />
                     <div className="h-4 skeleton-shimmer w-3/4" />
@@ -91,7 +91,7 @@ export default function Loading() {
             <div className="h-6 skeleton-shimmer w-32 mb-6" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={`sk-all-${i}`} className="receipt-card p-3" style={{ clipPath: "polygon(10px 0px, 100% 0px, 100% 100%, 0px 100%, 0px 10px)" }}>
+                <div key={`sk-all-${i}`} className="receipt-card p-3 clip-bevel-tl-sm">
                   <div className="h-32 skeleton-shimmer w-full mb-3" />
                   <div className="h-4 skeleton-shimmer w-2/3" />
                   <div className="mt-3 pt-3 border-t border-dashed border-border-color space-y-2">

@@ -48,8 +48,7 @@ export default function MobileBottomNav() {
 
       {/* Niche links — horizontal scroll */}
       <div
-        className="flex-1 flex overflow-x-auto"
-        style={{ scrollbarWidth: "none" }}
+        className="flex-1 flex overflow-x-auto scrollbar-hide"
       >
         {NICHES.map((n) => {
           const isActive = activeNiche?.id === n.id

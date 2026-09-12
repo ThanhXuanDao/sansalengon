@@ -134,19 +134,19 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
         <div className="space-y-6">
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-[#e5e1d8] p-4" style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+            <div className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm">
               <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Tổng click</p>
               <p className="font-sans text-[32px] leading-[36px] font-extrabold text-[#1a1c1b]">
                 {niche.totalClicks.toLocaleString("vi-VN")}
               </p>
             </div>
-            <div className="bg-white border border-[#e5e1d8] p-4" style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+            <div className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm">
               <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Sản phẩm có click</p>
               <p className="font-sans text-[32px] leading-[36px] font-extrabold text-[#1a1c1b]">
                 {niche.topProducts.length}
               </p>
             </div>
-            <div className="bg-white border border-[#e5e1d8] p-4 col-span-2 md:col-span-1" style={{ clipPath: "polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)" }}>
+            <div className="bg-white border border-[#e5e1d8] p-4 col-span-2 md:col-span-1 clip-bevel-sm">
               <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Kênh dẫn đầu</p>
               <p className="font-sans text-[20px] leading-[28px] font-extrabold text-[#1a1c1b]">
                 {(() => {
@@ -159,7 +159,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
 
           {/* Source breakdown */}
           <div className="bg-white border border-[#e5e1d8] p-5">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-4">Phân bổ theo kênh</h3>
+            <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">Phân bổ theo kênh</h3>
             <div className="space-y-3">
               {Object.entries(niche.bySource)
                 .sort((a, b) => b[1] - a[1])
@@ -190,8 +190,8 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
 
           {/* Top products */}
           <div className="bg-white border border-[#e5e1d8]">
-            <div className="px-5 py-4 border-b border-dashed border-[#e5e1d8]">
-              <h3 className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a]">
+            <div className="px-5 py-4 border-b border-dashed border-[#e5beb6]">
+              <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] flex items-center gap-2">
                 Top sản phẩm ({niche.topProducts.length})
               </h3>
             </div>

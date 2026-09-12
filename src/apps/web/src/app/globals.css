@@ -254,6 +254,41 @@
     clip-path: polygon(15% 0, 100% 0, 100% 100%, 0 100%, 0 15%);
   }
 
+  /* ── Clip-path utilities ────────────────────────────────────────────────────
+     Use these instead of inline style={{ clipPath: "..." }}.
+     "bevel" = diagonal corner cut; suffix = size in px.
+     TL+BR = top-left AND bottom-right corners cut (admin cards).
+     tl   = top-left only (receipt/skeleton cards).
+     tr   = top-right only (compare / blog hero cards).
+  ── */
+
+  /* TL + BR diagonal bevel */
+  .clip-bevel-xs  { clip-path: polygon(6px 0,  100% 0, 100% calc(100% - 6px),  calc(100% - 6px)  100%, 0 100%, 0 6px);  }
+  .clip-bevel-sm  { clip-path: polygon(8px 0,  100% 0, 100% calc(100% - 8px),  calc(100% - 8px)  100%, 0 100%, 0 8px);  }
+  .clip-bevel-md  { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+  .clip-bevel-lg  { clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+  .clip-bevel-xl  { clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+  .clip-bevel-2xl { clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px); }
+
+  /* Top-left only */
+  .clip-bevel-tl-sm { clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px); }
+
+  /* Top-right only */
+  .clip-bevel-tr-md { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+  .clip-bevel-tr-lg { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); }
+  .clip-bevel-tr-xl { clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); }
+
+  /* ── Scrollbar utility ──────────────────────────────────────────────────────
+     Use instead of style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+  ── */
+  .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* ── Navbar shadow ──────────────────────────────────────────────────────────
+     Use instead of style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+  ── */
+  .navbar-shadow { box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
+
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,

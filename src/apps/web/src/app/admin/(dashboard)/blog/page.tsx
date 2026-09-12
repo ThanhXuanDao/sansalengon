@@ -190,7 +190,7 @@ export default function BlogGeneratorPage() {
 
       {/* How it works — 3 steps */}
       <div className="border rounded-lg p-4 bg-muted/20 space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cách dùng</p>
+        <p className="text-xs font-semibold text-muted-foreground tracking-wider">Cách dùng</p>
         <div className="grid grid-cols-3 gap-3 text-xs">
           <div className="flex flex-col gap-1">
             <span className="font-mono text-purple-500 font-bold">01</span>

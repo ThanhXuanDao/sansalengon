@@ -28,6 +28,7 @@ import {
   Ticket,
   GitMerge,
   ScrollText,
+  Workflow,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { getCsrfToken } from "@/lib/utils"
@@ -51,6 +52,7 @@ const navItems = [
   { href: "/admin/facebook", label: "Facebook", icon: Share2 },
   { href: "/admin/zalo", label: "Zalo OA", icon: MessageCircle },
   { href: "/admin/broadcast", label: "Phát sóng", icon: Radio },
+  { href: "/admin/jobs",     label: "Sync Jobs",    icon: Workflow },
   { href: "/admin/logs",     label: "System Logs",  icon: ScrollText },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings },
 ]
