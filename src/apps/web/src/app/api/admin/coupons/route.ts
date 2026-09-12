@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 
 // GET — list all (active + inactive) for admin
 export async function GET(request: NextRequest) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const take = Math.min(100, Number(searchParams.get("take") ?? "30"))
   const skip = Number(searchParams.get("skip") ?? "0")
@@ -33,6 +39,12 @@ export async function GET(request: NextRequest) {
 
 // POST — create manual coupon
 export async function POST(request: NextRequest) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
+
   try {
     const body = await request.json()
     const {

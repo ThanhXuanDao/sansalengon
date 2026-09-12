@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 
 // PATCH /api/admin/matches/[id]  body: { action: "confirm" | "reject" }
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await checkAuth(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(req)
+  if (csrf) return csrf
+
   const { id } = await params
   const { action } = await req.json()
 

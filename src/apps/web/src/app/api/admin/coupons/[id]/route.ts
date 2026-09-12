@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 
 // PATCH — toggle isActive or update fields
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
+
   try {
     const { id } = await params
     const body = await request.json()
@@ -29,9 +37,15 @@ export async function PATCH(
 
 // DELETE
 export async function DELETE(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
+
   try {
     const { id } = await params
     await prisma.coupon.delete({ where: { id } })

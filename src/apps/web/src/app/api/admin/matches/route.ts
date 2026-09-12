@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { checkAuth } from "@/lib/auth"
+import { csrfGuard } from "@/lib/csrf"
 
 export const dynamic = "force-dynamic"
 
 // GET /api/admin/matches?status=PENDING&platform=lazada
 export async function GET(req: NextRequest) {
+  if (!(await checkAuth(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { searchParams } = req.nextUrl
   const status = (searchParams.get("status") ?? "PENDING") as "PENDING" | "CONFIRMED" | "REJECTED"
   const platformId = searchParams.get("platform") ?? undefined
@@ -36,6 +42,12 @@ export async function GET(req: NextRequest) {
 
 // POST /api/admin/matches — manual override (paste URL)
 export async function POST(req: NextRequest) {
+  if (!(await checkAuth(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(req)
+  if (csrf) return csrf
+
   const body = await req.json()
   const { productId, platformId, candidateUrl, candidateName, candidatePrice } = body
 
