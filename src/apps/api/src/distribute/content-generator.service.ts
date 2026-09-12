@@ -3,6 +3,9 @@ import { parse as parseYaml } from "yaml";
 import { readFileSync } from "fs";
 import { join } from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import { AppLogService } from "../shared/app-log.service";
+
+const SRC = "content-generator";
 
 export interface ProductForBroadcast {
   id: string;
@@ -27,11 +30,14 @@ export class ContentGeneratorService {
   private readonly siteUrl: string;
   private claude: Anthropic | null = null;
 
-  constructor() {
+  constructor(private readonly appLog: AppLogService) {
     this.siteUrl = (process.env.WEB_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) this.claude = new Anthropic({ apiKey });
-    else this.log.warn("ANTHROPIC_API_KEY not set — using template fallback for content generation");
+    else {
+      this.log.warn("ANTHROPIC_API_KEY not set — using template fallback for content generation");
+      void this.appLog.warn("ANTHROPIC_API_KEY chưa cấu hình — dùng template fallback", undefined, SRC);
+    }
   }
 
   // Tạo 1 tin digest gộp top N deals — 1 tin duy nhất, tránh spam
@@ -86,8 +92,12 @@ ${productList}`;
         messages: [{ role: "user", content: prompt }],
       });
       return (msg.content[0] as { type: string; text: string }).text.trim();
-    } catch (e) {
-      this.log.warn(`Claude digest generation failed: ${(e as Error).message}`);
+    } catch (e: any) {
+      this.log.warn(`Claude digest generation failed: ${e.message}`);
+      await this.appLog.warn("Claude tạo nội dung digest thất bại — dùng template", {
+        niche: nicheLabel,
+        error: e.message,
+      }, SRC);
       return this.generateDigestTemplate(top, nicheLabel);
     }
   }
@@ -113,8 +123,13 @@ Ngách: ${nicheId}`;
         messages: [{ role: "user", content: prompt }],
       });
       return (msg.content[0] as { type: string; text: string }).text.trim();
-    } catch (e) {
-      this.log.warn(`Claude single post generation failed: ${(e as Error).message}`);
+    } catch (e: any) {
+      this.log.warn(`Claude single post generation failed: ${e.message}`);
+      await this.appLog.warn("Claude tạo single post thất bại — dùng template", {
+        product: p.name,
+        niche: nicheId,
+        error: e.message,
+      }, SRC);
       return null;
     }
   }
