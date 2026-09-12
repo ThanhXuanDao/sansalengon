@@ -1,31 +1,38 @@
-const store = new Map<string, { count: number; resetAt: number }>()
-let lastCleanup = Date.now()
+import { prisma } from "./prisma"
 
-export function rateLimit(
+export async function rateLimit(
   key: string,
   { max = 5, windowMs = 60_000 }: { max?: number; windowMs?: number } = {}
-): { allowed: boolean } {
-  const now = Date.now()
+): Promise<{ allowed: boolean }> {
+  const now = new Date()
 
-  // Staggered cleanup: run every 60s instead of at capacity
-  if (now - lastCleanup > 60_000) {
-    for (const [k, v] of store) {
-      if (now > v.resetAt) store.delete(k)
-    }
-    lastCleanup = now
-  }
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const entry = await tx.rateLimit.findUnique({ where: { key } })
 
-  const entry = store.get(key)
+      if (!entry || entry.resetAt < now) {
+        await tx.rateLimit.upsert({
+          where: { key },
+          update: { count: 1, resetAt: new Date(Date.now() + windowMs) },
+          create: { key, count: 1, resetAt: new Date(Date.now() + windowMs) },
+        })
+        return { allowed: true }
+      }
 
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs })
+      if (entry.count >= max) {
+        return { allowed: false }
+      }
+
+      await tx.rateLimit.update({
+        where: { key },
+        data: { count: { increment: 1 } },
+      })
+      return { allowed: true }
+    })
+
+    return result
+  } catch {
+    // DB failure → fail open so legitimate users are never blocked by infra issues
     return { allowed: true }
   }
-
-  if (entry.count >= max) {
-    return { allowed: false }
-  }
-
-  entry.count++
-  return { allowed: true }
 }

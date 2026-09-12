@@ -7,7 +7,7 @@ import { generateCsrfToken } from "@/lib/csrf"
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
-    const { allowed } = rateLimit(`otp:${ip}`, { max: 5, windowMs: 60_000 })
+    const { allowed } = await rateLimit(`otp:${ip}`, { max: 5, windowMs: 60_000 })
     if (!allowed) {
       return NextResponse.json({ error: "Quá nhiều lần thử. Vui lòng thử lại sau." }, { status: 429 })
     }

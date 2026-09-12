@@ -13,7 +13,7 @@ function maskEmail(email: string): string {
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
-    const { allowed } = rateLimit(`feedback:${ip}`, { max: 2, windowMs: 60_000 })
+    const { allowed } = await rateLimit(`feedback:${ip}`, { max: 2, windowMs: 60_000 })
     if (!allowed) {
       return NextResponse.json({ error: "Terlalu banyak permintaan. Coba lagi nanti." }, { status: 429 })
     }

@@ -203,3 +203,11 @@ model AppLog {
   @@index([level, createdAt])
   @@index([createdAt])
 }
+
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}

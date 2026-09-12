@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
   const csrf = await csrfGuard(request)
   if (csrf) return csrf
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
-  const { allowed } = rateLimit(`product_create:${ip}`, { max: 20, windowMs: 60_000 })
+  const { allowed } = await rateLimit(`product_create:${ip}`, { max: 20, windowMs: 60_000 })
   if (!allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
