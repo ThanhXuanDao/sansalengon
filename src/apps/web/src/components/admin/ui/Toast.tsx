@@ -37,13 +37,13 @@ const iconColor: Record<ToastTone, string> = {
   info:    "text-[#1565c0]",
 }
 
-function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) {
+function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string) => void }) {
   const { cls, bar, Icon } = config[item.tone]
   const duration = item.duration ?? 4000
   const progressRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const timer = setTimeout(onClose, duration)
+    const timer = setTimeout(() => onRemove(item.id), duration)
     if (progressRef.current) {
       progressRef.current.style.transition = `width ${duration}ms linear`
       requestAnimationFrame(() => {
@@ -51,7 +51,8 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
       })
     }
     return () => clearTimeout(timer)
-  }, [duration, onClose])
+  // item.id and onRemove are both stable — timer won't reset when new toasts arrive
+  }, [duration, item.id, onRemove])
 
   return (
     <div className={`relative w-80 border shadow-lg overflow-hidden ${cls} animate-in slide-in-from-right-5 fade-in duration-200`}>
@@ -69,7 +70,7 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
       </div>
 
       <button
-        onClick={onClose}
+        onClick={() => onRemove(item.id)}
         className="absolute right-2 top-2 p-1 rounded hover:bg-[#f4f4f1] transition-colors text-[#5c403a]"
         aria-label="Đóng"
       >
@@ -103,7 +104,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">
-            <ToastCard item={t} onClose={() => remove(t.id)} />
+            <ToastCard item={t} onRemove={remove} />
           </div>
         ))}
       </div>

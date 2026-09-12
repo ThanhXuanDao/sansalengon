@@ -3,12 +3,14 @@ import { Cron } from "@nestjs/schedule"
 import { PrismaClient } from "@prisma/client"
 import { PlatformAdapter } from "./platform.adapter"
 import { ProductMatcherService } from "./matcher/product-matcher.service"
+import { AppLogService } from "../shared/app-log.service"
 
 // Thresholds
 const CONFIDENCE_AUTO_CONFIRM = 0.95
 const CONFIDENCE_PENDING      = 0.85
 const PRICE_DELTA_SUSPICIOUS  = 3.0   // if candidate price > 3× product price → reject
 const MATCH_BATCH_SIZE        = 20    // products per cron tick to avoid overloading APIs
+const SRC = "platform-sync"
 
 @Injectable()
 export class PlatformSyncService {
@@ -18,22 +20,33 @@ export class PlatformSyncService {
   constructor(
     @Inject(PlatformAdapter) private readonly adapters: PlatformAdapter[],
     private readonly matcher: ProductMatcherService,
+    private readonly appLog: AppLogService,
   ) {}
 
   // ── Matching job: nightly at 2am ─────────────────────────────
   @Cron("0 2 * * *")
   async runMatchingJob() {
     this.log.log("Starting nightly product matching job")
-
     const activeAdapters = this.adapters.filter((a) => a.platformId !== "shopee")
+    await this.appLog.info("Bắt đầu job matching sản phẩm đa sàn", {
+      platforms: activeAdapters.map((a) => a.platformId),
+    }, SRC)
+
+    const platformResults: Record<string, { matched: number; autoConfirmed: number; errors: number }> = {}
 
     for (const adapter of activeAdapters) {
-      await this.matchForPlatform(adapter).catch((e) =>
+      platformResults[adapter.platformId] = { matched: 0, autoConfirmed: 0, errors: 0 }
+      await this.matchForPlatform(adapter, platformResults[adapter.platformId]).catch(async (e) => {
         this.log.error(`Matching failed for ${adapter.platformId}: ${e.message}`)
-      )
+        await this.appLog.error(`Matching thất bại cho sàn ${adapter.platformId}`, {
+          platform: adapter.platformId,
+          error: e.message,
+        }, SRC)
+      })
     }
 
     this.log.log("Nightly matching job complete")
+    await this.appLog.info("Hoàn tất job matching sản phẩm đa sàn", { byPlatform: platformResults }, SRC)
   }
 
   // ── Price refresh: every 4 hours, after main sync ────────────
@@ -76,6 +89,7 @@ export class PlatformSyncService {
     }
 
     this.log.log(`Refreshed ${confirmed.length} platform products`)
+    await this.appLog.info("Cập nhật giá đa sàn hoàn tất", { total: confirmed.length }, SRC)
   }
 
   // ── Admin: manually confirm a match ─────────────────────────
@@ -121,7 +135,10 @@ export class PlatformSyncService {
   }
 
   // ── Internal: match all products for one platform ────────────
-  private async matchForPlatform(adapter: PlatformAdapter): Promise<void> {
+  private async matchForPlatform(
+    adapter: PlatformAdapter,
+    stats?: { matched: number; autoConfirmed: number; errors: number },
+  ): Promise<void> {
     // Find products that don't yet have a confirmed match on this platform
     const products = await this.prisma.$queryRaw<{ id: string; name: string; price: number }[]>`
       SELECT p.id, p.name, p.price
@@ -140,17 +157,30 @@ export class PlatformSyncService {
     `
 
     this.log.log(`[${adapter.platformId}] Matching ${products.length} unmatched products`)
+    if (products.length > 0) {
+      await this.appLog.info(`Bắt đầu matching sàn ${adapter.platformId}`, {
+        platform: adapter.platformId,
+        unmatched: products.length,
+      }, SRC)
+    }
 
     for (const product of products) {
-      await this.matchProduct(product, adapter).catch((e) =>
+      await this.matchProduct(product, adapter, stats).catch(async (e) => {
         this.log.warn(`[${adapter.platformId}] Match error for "${product.name}": ${e.message}`)
-      )
+        if (stats) stats.errors++
+        await this.appLog.warn(`Match lỗi cho sản phẩm "${product.name}"`, {
+          platform: adapter.platformId,
+          productId: product.id,
+          error: e.message,
+        }, SRC)
+      })
     }
   }
 
   private async matchProduct(
     product: { id: string; name: string; price: number },
     adapter: PlatformAdapter,
+    stats?: { matched: number; autoConfirmed: number; errors: number },
   ): Promise<void> {
     const candidates = await this.matcher.findCandidates(product.name, adapter, 3)
 
@@ -183,8 +213,16 @@ export class PlatformSyncService {
       if (status === "CONFIRMED") {
         await this.confirmMatch(match.id, "auto")
         this.log.log(`[${adapter.platformId}] Auto-confirmed "${product.name}" → "${candidate.candidateName}" (${(candidate.confidence * 100).toFixed(0)}%)`)
+        if (stats) stats.autoConfirmed++
+        await this.appLog.info(`Auto-confirm match sản phẩm`, {
+          platform: adapter.platformId,
+          product: product.name,
+          candidate: candidate.candidateName,
+          confidence: Math.round(candidate.confidence * 100),
+        }, SRC)
       }
 
+      if (stats) stats.matched++
       break // only process the top candidate per product per cron tick
     }
   }

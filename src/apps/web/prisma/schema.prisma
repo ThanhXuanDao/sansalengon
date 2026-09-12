@@ -191,3 +191,15 @@ model BroadcastLog {
 
   @@index([channel, sentAt])
 }
+
+model AppLog {
+  id        String   @id @default(cuid())
+  level     String   // "error" | "warn" | "info" | "debug"
+  message   String
+  context   String?  // JSON-serialized extra data
+  source    String?  // e.g. "sync", "ai", "broadcast", "api"
+  createdAt DateTime @default(now())
+
+  @@index([level, createdAt])
+  @@index([createdAt])
+}

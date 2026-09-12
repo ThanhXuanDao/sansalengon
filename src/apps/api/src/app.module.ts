@@ -25,6 +25,8 @@ import { EmbeddingService } from "./platforms/matcher/embedding.service";
 import { PlatformSyncService } from "./platforms/platform-sync.service";
 import { PlatformAdapter } from "./platforms/platform.adapter";
 
+import { AppLogService } from "./shared/app-log.service";
+
 // Stub observability — thay bằng Sentry thật khi cần
 const ObsStubs = [
   { provide: "OBS_SENTRY", useValue: { captureException: () => {}, captureMessage: () => {}, addBreadcrumb: () => {} } },
@@ -46,6 +48,9 @@ const ObsStubs = [
     // AccessTrade
     AccessTradeRateLimitGuard,
     AccessTradePublisherClient,
+
+    // Shared
+    AppLogService,
 
     // Core sync
     DealSyncService,

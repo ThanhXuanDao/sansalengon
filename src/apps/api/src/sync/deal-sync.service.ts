@@ -6,6 +6,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { ShopeeAffiliateClient } from "../affiliate/shopee/client";
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client";
+import { AppLogService } from "../shared/app-log.service";
 
 interface NicheConfig {
   id: string;
@@ -39,6 +40,7 @@ interface SyncReport {
 }
 
 const PRICE_HISTORY_RETENTION_DAYS = 90;
+const SRC = "deal-sync";
 
 @Injectable()
 export class DealSyncService {
@@ -48,28 +50,49 @@ export class DealSyncService {
   constructor(
     private readonly shopee: ShopeeAffiliateClient,
     private readonly accesstrade: AccessTradePublisherClient,
+    private readonly appLog: AppLogService,
   ) {}
 
   @Cron("0 */4 * * *")
   async syncAllNiches() {
     const niches = this.loadActiveNiches();
     this.log.log(`Starting sync for ${niches.length} active niche(s)`);
+    await this.appLog.info(`Bắt đầu đồng bộ sản phẩm`, { niches: niches.map((n) => n.id) }, SRC);
 
     const reports: SyncReport[] = [];
     for (const niche of niches) {
-      const report = await this.syncNiche(niche).catch((e): SyncReport => {
+      const report = await this.syncNiche(niche).catch(async (e): Promise<SyncReport> => {
         this.log.error(`Sync failed for niche "${niche.id}": ${e.message}`);
+        await this.appLog.error(`Sync thất bại cho ngách "${niche.name}"`, {
+          niche: niche.id,
+          error: e.message,
+          stack: e.stack?.slice(0, 500),
+        }, SRC);
         return { niche: niche.id, fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: 0 };
       });
       reports.push(report);
     }
 
     const total = reports.reduce(
-      (acc, r) => ({ fetched: acc.fetched + r.fetched, priceChanges: acc.priceChanges + r.priceChanges, newDeals: acc.newDeals + r.newDeals }),
-      { fetched: 0, priceChanges: 0, newDeals: 0 }
+      (acc, r) => ({
+        fetched:       acc.fetched       + r.fetched,
+        priceChanges:  acc.priceChanges  + r.priceChanges,
+        newDeals:      acc.newDeals      + r.newDeals,
+        skipped:       acc.skipped       + r.skipped,
+      }),
+      { fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0 }
     );
 
     this.log.log(`Sync complete — ${total.fetched} products, ${total.priceChanges} price changes, ${total.newDeals} new deals`);
+    await this.appLog.info(`Hoàn tất đồng bộ sản phẩm`, {
+      niches:       niches.length,
+      fetched:      total.fetched,
+      priceChanges: total.priceChanges,
+      newDeals:     total.newDeals,
+      skipped:      total.skipped,
+      perNiche:     reports,
+    }, SRC);
+
     await this.pruneOldPriceHistory();
   }
 
@@ -77,7 +100,6 @@ export class DealSyncService {
     const start = Date.now();
     this.log.log(`Syncing niche: ${niche.name}`);
 
-    // Upsert Category so products can reference it
     await this.prisma.category.upsert({
       where: { id: niche.id },
       update: {},
@@ -128,6 +150,7 @@ export class DealSyncService {
     };
 
     this.log.log(`[${niche.name}] fetched=${report.fetched} priceChanges=${report.priceChanges} newDeals=${report.newDeals} skipped=${report.skipped} (${report.durationMs}ms)`);
+    await this.appLog.info(`Đồng bộ ngách "${niche.name}" hoàn tất`, report, SRC);
     return report;
   }
 
@@ -149,6 +172,7 @@ export class DealSyncService {
     });
     if (count > 0) {
       this.log.log(`Pruned ${count} price history records older than ${PRICE_HISTORY_RETENTION_DAYS} days`);
+      await this.appLog.info(`Dọn lịch sử giá cũ`, { deleted: count, retentionDays: PRICE_HISTORY_RETENTION_DAYS }, SRC);
     }
   }
 
@@ -182,6 +206,12 @@ export class DealSyncService {
         }
       } catch (e: any) {
         this.log.warn(`Shopee search failed for keyword "${keyword}": ${e.message}`);
+        await this.appLog.warn(`Shopee search thất bại`, {
+          niche: niche.id,
+          keyword,
+          error: e.message,
+          code: e.code,
+        }, SRC);
       }
     }
 
