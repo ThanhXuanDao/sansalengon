@@ -4,6 +4,12 @@ import { rateLimit } from "@/lib/rate-limit"
 import { checkAuth } from "@/lib/auth"
 import { classifySentiment } from "@/lib/sentiment-classifier"
 
+function maskEmail(email: string): string {
+  const [user, domain] = email.split("@")
+  if (!domain) return "***"
+  return `${user.slice(0, 2)}***@${domain}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
@@ -38,7 +44,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.info("[Feedback] New feedback from:", email)
+    console.info("[Feedback] New feedback from:", maskEmail(email))
 
     // Fire-and-forget: classify sentiment in background
     classifySentiment(message.trim()).then((result) => {

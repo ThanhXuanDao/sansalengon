@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { rateLimit } from "@/lib/rate-limit"
 
+function maskEmail(email: string): string {
+  const [user, domain] = email.split("@")
+  if (!domain) return "***"
+  return `${user.slice(0, 2)}***@${domain}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
@@ -25,7 +31,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.info("[Contact] New message from:", email)
+    console.info("[Contact] New message from:", maskEmail(email))
 
     return NextResponse.json({
       success: true,

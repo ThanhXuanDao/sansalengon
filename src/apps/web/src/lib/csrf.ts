@@ -11,13 +11,15 @@ export async function csrfGuard(request: NextRequest): Promise<NextResponse | nu
     return null
   }
 
-  // 2. Jalur fallback: jika session admin valid dan sec-fetch-site same-origin (browser modern)
+  // 2. Fallback: session hợp lệ + request từ same-origin (browser gửi sec-fetch-site tự động).
+  // Non-browser clients (curl, server-side) không gửi sec-fetch-site → cũng pass nếu có session.
+  // Đây là thiết kế có chủ ý: non-browser clients được tin tưởng nếu đã xác thực.
+  // Bảo vệ CSRF thực sự dựa vào SameSite=Lax trên cookie session (block cross-site browser requests).
   const sessionToken = request.cookies.get("sansale_admin_session")?.value
   const secFetchSite = request.headers.get("sec-fetch-site")
-  
+
   if (sessionToken) {
     const isSessionValid = await verifySessionToken(sessionToken)
-    // sec-fetch-site same-origin memastikan request dipicu dari web kita sendiri, bukan web lain
     if (isSessionValid && (!secFetchSite || secFetchSite === "same-origin")) {
       return null
     }

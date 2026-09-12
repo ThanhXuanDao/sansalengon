@@ -22,9 +22,9 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 12) {
       return NextResponse.json(
-        { error: "New password must be at least 6 characters" },
+        { error: "Mật khẩu mới phải có ít nhất 12 ký tự" },
         { status: 400 }
       )
     }
