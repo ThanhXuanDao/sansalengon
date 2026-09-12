@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaClient } from "@prisma/client";
+import { AppLogService } from "../shared/app-log.service";
+
+const SRC = "price-prediction";
 
 interface DayPattern { dayOfWeek: number; avgPrice: number; samples: number }
 interface Prediction {
@@ -24,14 +27,18 @@ export class PricePredictionService {
   private readonly log = new Logger(PricePredictionService.name);
   private readonly prisma = new PrismaClient();
 
+  constructor(private readonly appLog: AppLogService) {}
+
   // Runs every Monday 8:00 AM — logs top predictions (foundation for Zalo alert)
   @Cron("0 8 * * 1")
   async weeklyPredictionReport() {
     this.log.log("Running weekly price prediction analysis…");
+    await this.appLog.info("Bắt đầu phân tích dự đoán giá hàng tuần", undefined, SRC);
     try {
       const predictions = await this.getTopPredictions(10);
       if (predictions.length === 0) {
         this.log.log("No significant price patterns detected yet (need more price history)");
+        await this.appLog.info("Chưa đủ dữ liệu lịch sử giá để phát hiện mẫu", undefined, SRC);
         return;
       }
       this.log.log(`Found ${predictions.length} products with price drop patterns:`);
@@ -40,8 +47,19 @@ export class PricePredictionService {
           `  [${p.confidence.toUpperCase()}] ${p.productName.slice(0, 50)} — rẻ hơn ${p.savingPct}% vào ${DAY_NAMES[p.cheapestDay]} (${p.dataPoints} records)`,
         );
       }
+      await this.appLog.info("Hoàn tất phân tích dự đoán giá hàng tuần", {
+        total: predictions.length,
+        top: predictions.slice(0, 5).map((p) => ({
+          product: p.productName.slice(0, 60),
+          cheapestDay: DAY_NAMES[p.cheapestDay],
+          savingPct: p.savingPct,
+          confidence: p.confidence,
+          dataPoints: p.dataPoints,
+        })),
+      }, SRC);
     } catch (err: any) {
       this.log.error(`Price prediction analysis failed: ${err.message}`);
+      await this.appLog.error("Phân tích dự đoán giá thất bại", { error: err.message }, SRC);
     }
   }
 
