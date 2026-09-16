@@ -26,8 +26,22 @@ export async function ensureCsrfToken(): Promise<string> {
   return ""
 }
 
-export function formatPrice(price: number): string {
-  return `${price.toLocaleString("vi-VN")}₫`
+interface PriceFormatOpts {
+  currencySymbol?: string
+  currencyPosition?: string
+  thousandSeparator?: string
+}
+
+export function formatPrice(price: number, opts?: PriceFormatOpts): string {
+  // Prices are stored as cents (VND × 100) — divide before display
+  const amount = Math.round(price / 100)
+  const symbol = opts?.currencySymbol ?? "₫"
+  const position = opts?.currencyPosition ?? "after"
+  // vi-VN uses "." as thousands separator; swap if settings differ
+  let formatted = amount.toLocaleString("vi-VN")
+  const sep = opts?.thousandSeparator
+  if (sep && sep !== ".") formatted = formatted.replace(/\./g, sep)
+  return position === "before" ? `${symbol}${formatted}` : `${formatted}${symbol}`
 }
 
 export const NUMBER_RANGE_CHUNK_SIZE = 100

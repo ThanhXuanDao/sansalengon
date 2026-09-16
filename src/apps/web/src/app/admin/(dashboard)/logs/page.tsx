@@ -11,6 +11,7 @@ import { Button, PageSpinner, useToast } from "@/components/admin/ui"
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Level = "error" | "warn" | "info" | "debug"
+type AppOrigin = "web-public" | "web-admin" | "api" | "api-sync" | "api-distribute"
 
 interface LogEntry {
   id: string
@@ -18,6 +19,8 @@ interface LogEntry {
   message: string
   context: string | null
   source: string | null
+  app: AppOrigin | null
+  trigger: string | null
   createdAt: string
 }
 
@@ -27,6 +30,7 @@ interface LogsResponse {
   page: number
   pages: number
   levelCounts: Record<Level, number>
+  appCounts: Record<string, number>
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -44,6 +48,23 @@ const LEVEL_CONFIG: Record<Level, {
   info:  { label: "Info",   bg: "bg-[#eff6ff]", text: "text-[#1d4ed8]", border: "border-[#3b82f6]/20", dot: "bg-[#3b82f6]", Icon: Info },
   debug: { label: "Debug",  bg: "bg-[#f4f4f1]", text: "text-[#5c403a]", border: "border-[#e5e1d8]",    dot: "bg-[#9ca3af]", Icon: Bug },
 }
+
+const APP_CONFIG: Record<AppOrigin, { label: string; bg: string; text: string; border: string }> = {
+  "web-admin":      { label: "web-admin",      bg: "bg-[#f0f0ff]", text: "text-[#4338ca]", border: "border-[#818cf8]/30" },
+  "web-public":     { label: "web-public",     bg: "bg-[#f0fdf4]", text: "text-[#15803d]", border: "border-[#86efac]/40" },
+  "api":            { label: "api",            bg: "bg-[#fff7ed]", text: "text-[#b45309]", border: "border-[#fcd34d]/40" },
+  "api-sync":       { label: "api-sync",       bg: "bg-[#fdf2f8]", text: "text-[#9d174d]", border: "border-[#f9a8d4]/30" },
+  "api-distribute": { label: "api-distribute", bg: "bg-[#ecfeff]", text: "text-[#0e7490]", border: "border-[#67e8f9]/30" },
+}
+
+const TRIGGER_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  cron:   { label: "cron",   bg: "bg-[#f9f9f6]", text: "text-[#5c403a]" },
+  manual: { label: "manual", bg: "bg-[#f0f9ff]", text: "text-[#0369a1]" },
+  user:   { label: "user",   bg: "bg-[#f0fdf4]", text: "text-[#15803d]" },
+  system: { label: "system", bg: "bg-[#fff7ed]", text: "text-[#92400e]" },
+}
+
+const APP_ORIGINS: AppOrigin[] = ["web-admin", "web-public", "api", "api-sync", "api-distribute"]
 
 const RANGE_OPTIONS = [
   { value: "today", label: "Hôm nay" },
@@ -65,7 +86,7 @@ function fmtTime(iso: string) {
 
 function relTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
-  if (diff < 60_000)   return `${Math.floor(diff / 1000)}s trước`
+  if (diff < 60_000)    return `${Math.floor(diff / 1000)}s trước`
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m trước`
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h trước`
   return `${Math.floor(diff / 86_400_000)}d trước`
@@ -87,6 +108,26 @@ function LevelBadge({ level }: { level: Level }) {
   )
 }
 
+function AppBadge({ app }: { app: AppOrigin | null }) {
+  if (!app) return null
+  const cfg = APP_CONFIG[app] ?? { label: app, bg: "bg-[#f4f4f1]", text: "text-[#5c403a]", border: "border-[#e5e1d8]" }
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 font-mono text-[10px] border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      {cfg.label}
+    </span>
+  )
+}
+
+function TriggerBadge({ trigger }: { trigger: string | null }) {
+  if (!trigger) return null
+  const cfg = TRIGGER_CONFIG[trigger] ?? { label: trigger, bg: "bg-[#f4f4f1]", text: "text-[#5c403a]" }
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 font-mono text-[10px] border border-transparent ${cfg.bg} ${cfg.text}`}>
+      {cfg.label}
+    </span>
+  )
+}
+
 function SourceTag({ source }: { source: string | null }) {
   if (!source) return <span className="text-[#9ca3af] font-mono text-[11px]">—</span>
   return (
@@ -102,7 +143,6 @@ function LogDetail({ log }: { log: LogEntry }) {
     ? (ctx as Record<string, unknown>)
     : null
 
-  // IIFE so TypeScript infers string | null cleanly (avoids unknown leaking into JSX)
   const stack: string | null = (() => {
     if (ctxObj !== null && ctxObj.stack != null) return String(ctxObj.stack)
     if (typeof ctx === "string" && ctx.includes("\n")) return ctx
@@ -113,7 +153,6 @@ function LogDetail({ log }: { log: LogEntry }) {
     ? Object.entries(ctxObj).filter(([k]) => k !== "stack")
     : null
 
-  // Pre-compute booleans so JSX never sees `unknown`
   const hasStack = stack !== null
   const hasOther = otherFields !== null && otherFields.length > 0
   const hasRaw   = ctx !== null && ctxObj === null && stack === null
@@ -181,11 +220,17 @@ function LogDetail({ log }: { log: LogEntry }) {
       )}
 
       {/* Footer */}
-      <div className="flex items-center gap-4 pt-1 border-t border-dashed border-[#e5e1d8]">
+      <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-dashed border-[#e5e1d8]">
         <span className="font-mono text-[10px] text-[#9ca3af]">ID: {log.id}</span>
         <span className="font-mono text-[10px] text-[#9ca3af]">{fmtTime(log.createdAt)}</span>
         {log.source !== null && (
-          <span className="font-mono text-[10px] text-[#9ca3af]">Source: {log.source}</span>
+          <span className="font-mono text-[10px] text-[#9ca3af]">source: {log.source}</span>
+        )}
+        {log.app !== null && (
+          <span className="font-mono text-[10px] text-[#9ca3af]">app: {log.app}</span>
+        )}
+        {log.trigger !== null && (
+          <span className="font-mono text-[10px] text-[#9ca3af]">trigger: {log.trigger}</span>
         )}
       </div>
     </div>
@@ -215,6 +260,13 @@ function LogRow({ log }: { log: LogEntry }) {
         <td className="px-4 py-3 whitespace-nowrap">
           <SourceTag source={log.source} />
         </td>
+        {/* App + Trigger badges */}
+        <td className="px-4 py-3 whitespace-nowrap">
+          <div className="flex flex-col gap-1">
+            {log.app     && <AppBadge     app={log.app}         />}
+            {log.trigger && <TriggerBadge trigger={log.trigger} />}
+          </div>
+        </td>
         {/* Message */}
         <td className="px-4 py-3">
           <div className="flex items-start gap-2">
@@ -229,7 +281,7 @@ function LogRow({ log }: { log: LogEntry }) {
       </tr>
       {expanded && (
         <tr className="border-b border-dashed border-[#e5e1d8] bg-[#f9f9f6]">
-          <td colSpan={4} className="px-5 py-4">
+          <td colSpan={5} className="px-5 py-4">
             <LogDetail log={log} />
           </td>
         </tr>
@@ -245,6 +297,7 @@ export default function LogsPage() {
   const [data, setData]         = useState<LogsResponse | null>(null)
   const [loading, setLoading]   = useState(true)
   const [level, setLevel]       = useState<Level | "all">("all")
+  const [app, setApp]           = useState<AppOrigin | "all">("all")
   const [range, setRange]       = useState("today")
   const [q, setQ]               = useState("")
   const [page, setPage]         = useState(1)
@@ -259,7 +312,8 @@ export default function LogsPage() {
       const params = new URLSearchParams({
         page:  String(page),
         range,
-        ...(level !== "all" ? { level } : {}),
+        ...(level !== "all" ? { level }     : {}),
+        ...(app   !== "all" ? { app }        : {}),
         ...(q.trim()        ? { q: q.trim() } : {}),
       })
       const res = await fetch(`/api/admin/logs?${params}`)
@@ -270,7 +324,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, range, level, q, toastError])
+  }, [page, range, level, app, q, toastError])
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
@@ -285,8 +339,11 @@ export default function LogsPage() {
     if (!confirmClear) { setConfirmClear(true); return }
     setClearing(true)
     try {
-      const params = level !== "all" ? `?level=${level}` : ""
-      const res = await fetch(`/api/admin/logs${params}`, { method: "DELETE" })
+      const p = new URLSearchParams()
+      if (level !== "all") p.set("level", level)
+      if (app   !== "all") p.set("app",   app)
+      const qs = p.toString() ? `?${p.toString()}` : ""
+      const res = await fetch(`/api/admin/logs${qs}`, { method: "DELETE" })
       if (!res.ok) throw new Error()
       const { deleted } = await res.json()
       success(`Đã xóa ${deleted} log`)
@@ -301,10 +358,9 @@ export default function LogsPage() {
   }
 
   const handleLevelChange = (v: Level | "all") => { setLevel(v); setPage(1) }
-  const handleRangeChange = (v: string)        => { setRange(v); setPage(1) }
-  const handleSearch = (v: string)             => { setQ(v);     setPage(1) }
-
-  const levelOrder: (Level | "all")[] = ["all", "error", "warn", "info", "debug"]
+  const handleAppChange   = (v: AppOrigin | "all") => { setApp(v);   setPage(1) }
+  const handleRangeChange = (v: string)            => { setRange(v); setPage(1) }
+  const handleSearch      = (v: string)            => { setQ(v);     setPage(1) }
 
   return (
     <div className="flex flex-col gap-6">
@@ -313,7 +369,6 @@ export default function LogsPage() {
         subtitle="Lịch sử error, warning, info và debug của hệ thống"
         actions={
           <div className="flex items-center gap-2">
-            {/* Auto-refresh toggle */}
             <button
               onClick={() => setAutoRefresh((v) => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 font-mono text-[12px] border transition-colors ${
@@ -356,6 +411,46 @@ export default function LogsPage() {
                 </p>
               </div>
               <Icon className={`size-5 shrink-0 ${level === lv ? text : "text-[#c5c0b8]"}`} />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* App origin filter chips */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => handleAppChange("all")}
+          className={`px-3 py-1.5 font-mono text-[11px] border transition-colors ${
+            app === "all"
+              ? "bg-[#1a1c1b] text-white border-[#1a1c1b]"
+              : "border-[#e5e1d8] text-[#5c403a] hover:border-[#1a1c1b] bg-white"
+          }`}
+        >
+          Tất cả
+          {data && (
+            <span className="ml-1.5 opacity-60">
+              {Object.values(data.appCounts).reduce((a, b) => a + b, 0).toLocaleString("vi-VN")}
+            </span>
+          )}
+        </button>
+        {APP_ORIGINS.map((origin) => {
+          const cfg   = APP_CONFIG[origin]
+          const count = data?.appCounts[origin] ?? 0
+          const active = app === origin
+          return (
+            <button
+              key={origin}
+              onClick={() => handleAppChange(active ? "all" : origin)}
+              className={`px-3 py-1.5 font-mono text-[11px] border transition-colors ${
+                active
+                  ? `${cfg.bg} ${cfg.text} ${cfg.border} ring-1 ring-current`
+                  : "border-[#e5e1d8] text-[#5c403a] hover:border-[#1a1c1b] bg-white"
+              }`}
+            >
+              {origin}
+              <span className={`ml-1.5 ${active ? "opacity-60" : "text-[#9ca3af]"}`}>
+                {count.toLocaleString("vi-VN")}
+              </span>
             </button>
           )
         })}
@@ -412,7 +507,11 @@ export default function LogsPage() {
           onBlur={() => setTimeout(() => setConfirmClear(false), 200)}
         >
           <Trash2 className="size-3.5" />
-          {confirmClear ? "Xác nhận xóa?" : level !== "all" ? `Xóa ${LEVEL_CONFIG[level as Level].label}` : "Xóa tất cả"}
+          {confirmClear
+            ? "Xác nhận xóa?"
+            : level !== "all" || app !== "all"
+              ? `Xóa bộ lọc hiện tại`
+              : "Xóa tất cả"}
         </button>
       </div>
 
@@ -431,12 +530,13 @@ export default function LogsPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
+              <table className="w-full text-sm min-w-[720px]">
                 <thead>
                   <tr className="border-b border-[#e5e1d8] bg-[#f4f4f1]">
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-[#5c403a] w-36">Thời gian</th>
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-[#5c403a] w-20">Level</th>
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-[#5c403a] w-24">Source</th>
+                    <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-[#5c403a] w-32">Origin</th>
                     <th className="text-left px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-[#5c403a]">Message</th>
                   </tr>
                 </thead>

@@ -29,16 +29,18 @@ export class PricePredictionService {
 
   constructor(private readonly appLog: AppLogService) {}
 
+  private get slog() { return this.appLog.scope("api-sync"); }
+
   // Runs every Monday 8:00 AM — logs top predictions (foundation for Zalo alert)
   @Cron("0 8 * * 1")
   async weeklyPredictionReport() {
     this.log.log("Running weekly price prediction analysis…");
-    await this.appLog.info("Bắt đầu phân tích dự đoán giá hàng tuần", undefined, SRC);
+    await this.slog.info("Bắt đầu phân tích dự đoán giá hàng tuần", SRC, undefined, "cron");
     try {
       const predictions = await this.getTopPredictions(10);
       if (predictions.length === 0) {
         this.log.log("No significant price patterns detected yet (need more price history)");
-        await this.appLog.info("Chưa đủ dữ liệu lịch sử giá để phát hiện mẫu", undefined, SRC);
+        await this.slog.info("Chưa đủ dữ liệu lịch sử giá để phát hiện mẫu", SRC);
         return;
       }
       this.log.log(`Found ${predictions.length} products with price drop patterns:`);
@@ -47,7 +49,7 @@ export class PricePredictionService {
           `  [${p.confidence.toUpperCase()}] ${p.productName.slice(0, 50)} — rẻ hơn ${p.savingPct}% vào ${DAY_NAMES[p.cheapestDay]} (${p.dataPoints} records)`,
         );
       }
-      await this.appLog.info("Hoàn tất phân tích dự đoán giá hàng tuần", {
+      await this.slog.info("Hoàn tất phân tích dự đoán giá hàng tuần", SRC, {
         total: predictions.length,
         top: predictions.slice(0, 5).map((p) => ({
           product: p.productName.slice(0, 60),
@@ -56,10 +58,10 @@ export class PricePredictionService {
           confidence: p.confidence,
           dataPoints: p.dataPoints,
         })),
-      }, SRC);
+      }, "cron");
     } catch (err: any) {
       this.log.error(`Price prediction analysis failed: ${err.message}`);
-      await this.appLog.error("Phân tích dự đoán giá thất bại", { error: err.message }, SRC);
+      await this.slog.error("Phân tích dự đoán giá thất bại", SRC, { error: err.message }, "cron");
     }
   }
 

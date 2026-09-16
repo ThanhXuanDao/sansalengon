@@ -1,7 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { parse as parseYaml } from "yaml";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { PrismaClient } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { AppLogService } from "../shared/app-log.service";
 
@@ -27,16 +25,19 @@ export interface BroadcastContent {
 @Injectable()
 export class ContentGeneratorService {
   private readonly log = new Logger(ContentGeneratorService.name);
+  private readonly prisma = new PrismaClient();
   private readonly siteUrl: string;
   private claude: Anthropic | null = null;
 
-  constructor(private readonly appLog: AppLogService) {
+  constructor(
+    private readonly appLog: AppLogService,
+  ) {
     this.siteUrl = (process.env.WEB_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) this.claude = new Anthropic({ apiKey });
     else {
       this.log.warn("ANTHROPIC_API_KEY not set — using template fallback for content generation");
-      void this.appLog.warn("ANTHROPIC_API_KEY chưa cấu hình — dùng template fallback", undefined, SRC);
+      void this.appLog.warn("ANTHROPIC_API_KEY chưa cấu hình — dùng template fallback", undefined, SRC, "api-distribute", "system");
     }
   }
 
@@ -60,7 +61,7 @@ export class ContentGeneratorService {
       const result = await this.generateSingleWithAI(p, nicheId);
       if (result) return result;
     }
-    return this.generateSingleTemplate(p, nicheId);
+    return await this.generateSingleTemplate(p, nicheId);
   }
 
   private async generateDigestWithAI(top: ProductForBroadcast[], nicheLabel?: string): Promise<string> {
@@ -97,7 +98,7 @@ ${productList}`;
       await this.appLog.warn("Claude tạo nội dung digest thất bại — dùng template", {
         niche: nicheLabel,
         error: e.message,
-      }, SRC);
+      }, SRC, "api-distribute", "system");
       return this.generateDigestTemplate(top, nicheLabel);
     }
   }
@@ -129,7 +130,7 @@ Ngách: ${nicheId}`;
         product: p.name,
         niche: nicheId,
         error: e.message,
-      }, SRC);
+      }, SRC, "api-distribute", "system");
       return null;
     }
   }
@@ -166,10 +167,10 @@ Ngách: ${nicheId}`;
     return lines.join("\n");
   }
 
-  private generateSingleTemplate(p: ProductForBroadcast, nicheId: string): string {
-    const nicheConfig = this.loadNicheConfig(nicheId);
-    const prefix = nicheConfig?.content?.post_prefix ?? "🔥 Deal hôm nay";
-    const hashtags = nicheConfig?.content?.hashtags ?? "#deal #shopee";
+  private async generateSingleTemplate(p: ProductForBroadcast, nicheId: string): Promise<string> {
+    const nicheRow = await this.prisma.niche.findUnique({ where: { id: nicheId } }).catch(() => null);
+    const prefix = nicheRow?.postPrefix ?? "🔥 Deal hôm nay";
+    const hashtags = nicheRow?.hashtags ?? "#deal #shopee";
     const salePrice = p.discountPct
       ? Math.round(p.price * (1 - p.discountPct / 100))
       : p.price;
@@ -194,14 +195,4 @@ Ngách: ${nicheId}`;
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
   }
 
-  private loadNicheConfig(nicheId: string): any {
-    try {
-      const configPath = join(process.cwd(), "../../config/niches.yaml");
-      const raw = readFileSync(configPath, "utf-8");
-      const { niches } = parseYaml(raw) as { niches: any[] };
-      return niches.find((n) => n.id === nicheId);
-    } catch {
-      return null;
-    }
-  }
 }

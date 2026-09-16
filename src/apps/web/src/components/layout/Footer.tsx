@@ -1,7 +1,11 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Mail, MapPin, Phone, Share2, Play, Send } from "lucide-react"
-import { NICHES } from "@/lib/niches"
+
+interface NicheItem { id: string; name: string; emoji: string }
 
 const QUICK_LINKS = [
   { href: "/", label: "Trang chủ" },
@@ -24,6 +28,15 @@ const SOCIAL = [
 ]
 
 export default function Footer() {
+  const [niches, setNiches] = useState<NicheItem[]>([])
+
+  useEffect(() => {
+    fetch("/api/niches")
+      .then((r) => r.json())
+      .then((json) => { if (Array.isArray(json?.data)) setNiches(json.data) })
+      .catch(() => {})
+  }, [])
+
   return (
     <footer className="w-full">
 
@@ -125,7 +138,7 @@ export default function Footer() {
               Danh mục nổi bật
             </h3>
             <ul className="grid grid-cols-2 gap-2">
-              {NICHES.slice(0, 8).map((n) => (
+              {niches.slice(0, 8).map((n) => (
                 <li key={n.id}>
                   <Link
                     href={`/${n.id}`}

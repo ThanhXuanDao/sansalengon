@@ -107,7 +107,9 @@ Chạy file SQL một lần để tạo toàn bộ bảng:
 psql \$DATABASE_URL -f src/apps/web/prisma/schema.sql
 `````r
 
-File này tạo tất cả bảng: `Category`, `Product`, `PriceHistory`, `PlatformProduct`, `ProductMatch`, `Platform`, `ClickLog`, `AppSetting`, `Feedback`, `Coupon` (có `platform`, `clickCount`), `ProductEmbedding`, `BroadcastLog`, và seed sẵn 4 platform (Shopee, Lazada, Tiki, TikTok Shop).
+File này tạo tất cả bảng: `Niche`, `Category`, `Product`, `PriceHistory`, `PlatformProduct`, `ProductMatch`, `Platform`, `ClickLog`, `AppSetting`, `Feedback`, `Coupon`, `ProductEmbedding`, `BroadcastLog`, `NicheIntegration`, và seed sẵn 4 platform (Shopee, Lazada, Tiki, TikTok Shop).
+
+> **Sau khi chạy `schema.sql`:** Bảng `Niche` sẽ trống. Cần seed ngách đầu tiên qua Admin UI trước khi chạy sync — xem bước 10.3.
 
 > **Lưu ý:** Project dùng `schema.sql` trực tiếp — không dùng Prisma migrations. Không chạy `prisma migrate deploy`.
 
@@ -473,19 +475,24 @@ Thực hiện **theo thứ tự** sau:
        ↓
 5. Kiểm tra admin: http://localhost:3000/admin
        ↓
-6. Chạy sync thủ công (không cần chờ cron):
-   Vào http://localhost:3000/admin/jobs → chọn job → Chạy ngay
-   Thứ tự nên làm: Đồng bộ sản phẩm → Đồng bộ Coupon/Voucher → Khớp nền tảng
-   (Cron tự chạy theo lịch sau: deal mỗi 4h, coupon 6h & 18h, matching 2h hằng đêm)
+6. Seed ngách đầu tiên (DB trống sau khi schema.sql):
+   Vào http://localhost:3000/admin/niches/manage → "Thêm ngách"
+   → Điền id (vd: fashion), name, emoji, shopeeKeywords, atKeywords
+   → Set status = draft
        ↓
-7. (Có AI key) Vào /admin/ai-config → chọn provider cho từng task
+7. Chạy sync thủ công:
+   Vào http://localhost:3000/admin/jobs → Đồng bộ sản phẩm → chọn ngách → Chạy ngay
+   → Nếu có sản phẩm về: vào /admin/niches/manage → đổi status = active
+   → Cron tự chạy theo lịch sau: deal mỗi 4h, coupon 6h & 18h, matching 2h hằng đêm
        ↓
-8. (Có AI key) Vào /admin/seo → "Generate tất cả ngách"
+8. (Có AI key) Vào /admin/ai-config → chọn provider cho từng task
        ↓
-9. (Có OPENAI_API_KEY hoặc GOOGLE_AI_API_KEY)
-   Vào /admin/embeddings → "Chạy ngay" để tạo embedding cho sản phẩm
+9. (Có AI key) Vào /admin/seo → "Generate tất cả ngách"
        ↓
-10. (Tùy chọn) Cấu hình Zalo OA → kiểm tra broadcast qua /admin/broadcast
+10. (Có OPENAI_API_KEY hoặc GOOGLE_AI_API_KEY)
+    Vào /admin/embeddings → "Chạy ngay" để tạo embedding cho sản phẩm
+       ↓
+11. (Tùy chọn) Cấu hình Zalo OA → kiểm tra broadcast qua /admin/broadcast
 ```
 
 > **Không dùng** `npx prisma migrate deploy` — project dùng `schema.sql` trực tiếp.
@@ -500,6 +507,7 @@ Thực hiện **theo thứ tự** sau:
 - [ ] Trang chủ hiển thị sản phẩm (không trống)
 - [ ] Click "Mua ngay" → redirect đúng Shopee/AccessTrade link
 - [ ] Click log xuất hiện trong `/admin/click-logs`
+- [ ] Ngách đã seed tại `/admin/niches/manage` (ít nhất 1 với status=active)
 - [ ] Trang `/fashion` (niche page) load được
 - [ ] Sitemap tại `/sitemap.xml` có URL sản phẩm
 

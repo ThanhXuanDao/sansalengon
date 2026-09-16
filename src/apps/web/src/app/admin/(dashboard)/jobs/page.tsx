@@ -226,8 +226,20 @@ function RunRow({ run }: { run: SyncJobRun }) {
             </span>
           ) : <span className="text-[#9a9a96]">—</span>}
         </td>
-        <td className="px-3 py-2.5 max-w-[240px]">
+        <td className="px-3 py-2.5 max-w-[280px]">
           <span className="font-mono text-[11px] text-[#5c403a] line-clamp-1">{run.summary ?? "—"}</span>
+          {!!(run.meta as Record<string, unknown> | null)?.bySource && Object.keys((run.meta as Record<string, unknown>).bySource as object).length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {Object.entries((run.meta as Record<string, Record<string, { fetched: number; skipped: number }>>).bySource)
+                .filter(([, c]) => c.fetched > 0)
+                .map(([src, c]) => (
+                  <span key={src} className="font-mono text-[9px] bg-[#f0ede8] text-[#5c403a] px-1 py-0.5 tabular-nums">
+                    {src}:{c.fetched}
+                    {c.skipped > 0 && <span className="text-[#906f69]">(-{c.skipped})</span>}
+                  </span>
+                ))}
+            </div>
+          )}
         </td>
         <td className="px-3 py-2.5">
           {hasErrors && (
@@ -404,11 +416,13 @@ function ScheduleSection({
 
 function JobDetail({
   job,
+  nicheOptions,
   onToggle,
   onRunComplete,
   onScheduleSaved,
 }: {
   job: SyncJob
+  nicheOptions: { value: string; label: string }[]
   onToggle: (key: string, enabled: boolean) => void
   onRunComplete: () => void
   onScheduleSaved: (key: string, patch: { scheduleEnabled: boolean; scheduleCron: string | null; scheduleNextRunAt: string | null }) => void
@@ -422,11 +436,14 @@ function JobDetail({
   const [runsLoading, setRunsLoading] = useState(false)
   const [runsPage, setRunsPage] = useState(1)
   const [runsTotalPages, setRunsTotalPages] = useState(1)
+  const [runsNicheFilter, setRunsNicheFilter] = useState("all")
 
-  const loadRuns = useCallback(async (page = 1) => {
+  const loadRuns = useCallback(async (page = 1, nicheFilter = "all") => {
     setRunsLoading(true)
     try {
-      const res = await fetch(`/api/admin/jobs/${job.key}?page=${page}`)
+      const qs = new URLSearchParams({ page: String(page) })
+      if (nicheFilter && nicheFilter !== "all") qs.set("niche", nicheFilter)
+      const res = await fetch(`/api/admin/jobs/${job.key}?${qs}`)
       const data = await res.json() as { runs: SyncJobRun[]; pagination: { totalPages: number } }
       setRuns(data.runs)
       setRunsTotalPages(data.pagination.totalPages)
@@ -440,7 +457,8 @@ function JobDetail({
     setLocalConfig(job.config)
     setConfigDirty(false)
     setLastRunResult(null)
-    loadRuns(1)
+    setRunsNicheFilter("all")
+    loadRuns(1, "all")
   }, [job.key, job.config, loadRuns])
 
   const handleConfigChange = (key: string, value: unknown) => {
@@ -483,7 +501,7 @@ function JobDetail({
         setLastRunResult({ status: data.status, summary: data.summary, durationMs: data.durationMs })
       }
       onRunComplete()
-      await loadRuns(1)
+      await loadRuns(1, runsNicheFilter)
     } catch (err) {
       setLastRunResult({ status: "failed", summary: err instanceof Error ? err.message : "Network error", durationMs: 0 })
     } finally {
@@ -599,14 +617,31 @@ function JobDetail({
           <h3 className="font-mono text-[12px] font-bold uppercase tracking-[0.06em] text-[#5c403a]">
             Lịch sử chạy
           </h3>
-          <button
-            onClick={() => loadRuns(runsPage)}
-            disabled={runsLoading}
-            className="flex items-center gap-1 font-mono text-[11px] text-[#5c403a] hover:text-[#1a1c1b] transition-colors"
-          >
-            <RefreshCw className={`size-3 ${runsLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {nicheOptions.length > 1 && (
+              <select
+                className="font-mono text-[11px] text-[#1a1c1b] bg-white border border-[#e5e1d8] px-2 py-1 focus:outline-none focus:border-[#1a1c1b] transition-colors"
+                value={runsNicheFilter}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setRunsNicheFilter(val)
+                  loadRuns(1, val)
+                }}
+              >
+                {nicheOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => loadRuns(runsPage, runsNicheFilter)}
+              disabled={runsLoading}
+              className="flex items-center gap-1 font-mono text-[11px] text-[#5c403a] hover:text-[#1a1c1b] transition-colors"
+            >
+              <RefreshCw className={`size-3 ${runsLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {runsLoading ? (
@@ -640,14 +675,14 @@ function JobDetail({
                 <span className="font-mono text-[11px] text-[#9a9a96]">Trang {runsPage}/{runsTotalPages}</span>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => loadRuns(runsPage - 1)}
+                    onClick={() => loadRuns(runsPage - 1, runsNicheFilter)}
                     disabled={runsPage <= 1}
                     className="font-mono text-[11px] px-2 py-1 border border-[#e5e1d8] hover:border-[#1a1c1b] disabled:opacity-30 transition-colors"
                   >
                     ←
                   </button>
                   <button
-                    onClick={() => loadRuns(runsPage + 1)}
+                    onClick={() => loadRuns(runsPage + 1, runsNicheFilter)}
                     disabled={runsPage >= runsTotalPages}
                     className="font-mono text-[11px] px-2 py-1 border border-[#e5e1d8] hover:border-[#1a1c1b] disabled:opacity-30 transition-colors"
                   >
@@ -669,18 +704,45 @@ export default function SyncJobsPage() {
   const [jobs, setJobs] = useState<SyncJob[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [nicheOptions, setNicheOptions] = useState<{ value: string; label: string }[]>([
+    { value: "all", label: "Tất cả ngách" },
+  ])
+
+  useEffect(() => {
+    fetch("/api/admin/niches/manage").then(async (r) => {
+      if (!r.ok) return
+      const j = await r.json()
+      const opts = [
+        { value: "all", label: "Tất cả ngách" },
+        ...(j.data ?? []).map((n: { id: string; name: string; emoji: string }) => ({
+          value: n.id,
+          label: `${n.emoji} ${n.name}`,
+        })),
+      ]
+      setNicheOptions(opts)
+    }).catch(() => {})
+  }, [])
+
+  const injectNicheOptions = useCallback((jobList: SyncJob[]): SyncJob[] =>
+    jobList.map((j) => ({
+      ...j,
+      configFields: j.configFields.map((f) =>
+        f.key === "niche" ? { ...f, options: nicheOptions } : f
+      ),
+    })), [nicheOptions])
 
   const loadJobs = useCallback(async () => {
     const res = await fetch("/api/admin/jobs")
     const data = await res.json() as { jobs: SyncJob[] }
-    setJobs(data.jobs)
+    setJobs(injectNicheOptions(data.jobs))
     if (!selectedKey && data.jobs.length > 0) {
       setSelectedKey(data.jobs[0].key)
     }
     setLoading(false)
-  }, [selectedKey])
+  }, [selectedKey, injectNicheOptions])
 
   useEffect(() => { loadJobs() }, [loadJobs])
+  useEffect(() => { setJobs((prev) => injectNicheOptions(prev)) }, [nicheOptions, injectNicheOptions])
 
   const handleToggle = async (key: string, enabled: boolean) => {
     const csrf = await getCsrfToken()
@@ -778,6 +840,7 @@ export default function SyncJobsPage() {
               <JobDetail
                 key={selectedJob.key}
                 job={selectedJob}
+                nicheOptions={nicheOptions}
                 onToggle={handleToggle}
                 onRunComplete={loadJobs}
                 onScheduleSaved={handleScheduleSaved}

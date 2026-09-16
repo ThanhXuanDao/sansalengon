@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useRef, type ElementType, type ReactNode } from "react"
 import { X } from "lucide-react"
 import { Button } from "./Button"
 
@@ -8,6 +8,7 @@ interface ModalProps {
   open: boolean
   onClose: () => void
   title: string
+  icon?: ElementType
   description?: string
   children: ReactNode
   footer?: ReactNode
@@ -21,7 +22,7 @@ const sizes = {
   xl: "max-w-2xl",
 }
 
-export function Modal({ open, onClose, title, description, children, footer, size = "md" }: ModalProps) {
+export function Modal({ open, onClose, title, icon: Icon, description, children, footer, size = "md" }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
 
   // Close on Escape
@@ -71,7 +72,8 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-dashed border-[#e5beb6] shrink-0">
           <div>
-            <h2 id="modal-title" className="font-sans text-[18px] font-bold text-[#1a1c1b]">
+            <h2 id="modal-title" className="font-sans text-[18px] font-bold text-[#1a1c1b] flex items-center gap-2">
+              {Icon && <Icon className="size-5 shrink-0 text-[#b51c00]" aria-hidden="true" />}
               {title}
             </h2>
             {description && (
@@ -110,9 +112,12 @@ interface ConfirmModalProps {
   onClose: () => void
   onConfirm: () => void
   title: string
+  icon?: ElementType
   message: string
   confirmLabel?: string
+  confirmIcon?: ElementType
   cancelLabel?: string
+  cancelIcon?: ElementType
   danger?: boolean
   loading?: boolean
 }
@@ -122,9 +127,12 @@ export function ConfirmModal({
   onClose,
   onConfirm,
   title,
+  icon,
   message,
   confirmLabel = "Xác nhận",
+  confirmIcon,
   cancelLabel = "Hủy",
+  cancelIcon,
   danger = false,
   loading = false,
 }: ConfirmModalProps) {
@@ -133,14 +141,16 @@ export function ConfirmModal({
       open={open}
       onClose={onClose}
       title={title}
+      icon={icon}
       size="sm"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
+          <Button variant="ghost" icon={cancelIcon} onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button
             variant={danger ? "danger" : "primary"}
+            icon={confirmIcon}
             onClick={onConfirm}
             loading={loading}
           >

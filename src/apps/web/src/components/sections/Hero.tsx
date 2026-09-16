@@ -5,7 +5,7 @@ import Image from "next/image"
 import { ArrowRight, Flame } from "lucide-react"
 import type { Product } from "@/types"
 import { GalleryGrid, GalleryGridCell } from "@/components/blocks/CtaSectionWithGallery"
-import { NICHES } from "@/lib/niches"
+import { useNiches } from "@/lib/niche-context"
 
 interface HeroProps {
   featuredProducts?: Product[]
@@ -94,6 +94,7 @@ export default function Hero({
   storeName,
   tagline,
 }: HeroProps) {
+  const niches = useNiches()
   const displayProducts = featuredProducts?.length ? featuredProducts : defaultFeatured
   const gridProducts = displayProducts.slice(0, 4)
 
@@ -133,7 +134,7 @@ export default function Hero({
           className="flex gap-2 overflow-x-auto px-4 pb-4 pt-1 scrollbar-hide"
           aria-label="Danh mục nhanh"
         >
-          {NICHES.map((n) => (
+          {niches.map((n) => (
             <Link
               key={n.id}
               href={`/${n.id}`}

@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
-import { NICHES, getNiche } from "@/lib/niches"
+import { getActiveNiches, getNiche } from "@/lib/niches"
 import { generatePostVariants } from "@/lib/claude"
 import { pollinationsUrl } from "@/lib/image-generator"
 
@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
   const nicheId = searchParams.get("niche")
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "")
 
-  const targetNiches = nicheId ? [getNiche(nicheId)].filter(Boolean) : NICHES
+  const NICHES = await getActiveNiches()
+  const targetNiches = nicheId ? [await getNiche(nicheId)].filter(Boolean) : NICHES
   if (targetNiches.length === 0) {
     return NextResponse.json({ error: "Niche not found" }, { status: 404 })
   }

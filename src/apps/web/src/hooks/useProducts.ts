@@ -17,7 +17,7 @@ export function useProducts(options?: UseProductsOptions) {
   const { categorySlug, sort, numberFrom, numberTo, q } = options ?? {}
 
   const query = useInfiniteQuery({
-    queryKey: ["products", "paginated", categorySlug ?? "all", sort ?? "newest", numberFrom ?? 0, numberTo ?? 0, q ?? ""],
+    queryKey: ["products", "paginated", categorySlug ?? "all", sort ?? "discount_desc", numberFrom ?? 0, numberTo ?? 0, q ?? ""],
     queryFn: ({ pageParam }) =>
       fetchProducts(
         categorySlug,

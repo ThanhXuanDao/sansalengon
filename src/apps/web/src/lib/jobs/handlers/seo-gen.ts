@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 import { generateNicheSeo } from "@/lib/seo-generator"
 import type { JobConfig, JobResult, JobError } from "../types"
 
@@ -13,6 +13,7 @@ export async function seoGenHandler(config: JobConfig): Promise<JobResult> {
   }
 
   const nicheId = String(config.niche ?? "all")
+  const NICHES = await getActiveNiches()
   const targets = nicheId === "all" ? NICHES : NICHES.filter((n) => n.id === nicheId)
 
   if (targets.length === 0) {

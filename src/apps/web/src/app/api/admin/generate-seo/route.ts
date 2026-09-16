@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 import { generateNicheSeo, getNicheSeoFromCache } from "@/lib/seo-generator"
 
 // GET — trạng thái SEO cache cho tất cả niches
@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const NICHES = await getActiveNiches()
   const statuses = await Promise.all(
     NICHES.map(async (niche) => {
       const cached = await getNicheSeoFromCache(niche)
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { target, nicheId } = body as { target: string; nicheId?: string }
+  const NICHES = await getActiveNiches()
 
   if (target === "niche") {
     if (!nicheId) return NextResponse.json({ error: "nicheId required" }, { status: 400 })

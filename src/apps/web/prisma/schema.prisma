@@ -107,6 +107,30 @@ enum MatchStatus {
   REJECTED
 }
 
+model Niche {
+  id             String    @id               // "fashion" — slug URL-safe, dùng làm categorySlug
+  name           String
+  emoji          String    @default("🏷️")
+  status         String    @default("draft") // "active" | "draft" | "paused"
+  description    String?                     // SEO meta description
+  metaKeywords   String?                     // SEO meta keywords
+  sortOrder      Int       @default(0)
+  // Sync config (replaces niches.yaml)
+  shopeeKeywords Json      @default("[]")    // string[]
+  atCampaignIds  Json      @default("[]")    // string[] — explicit override
+  atKeywords     Json      @default("[]")    // string[] — auto-match keywords
+  minDiscountPct Int       @default(0)
+  minPrice       Int       @default(0)
+  maxPrice       Int       @default(10000000)
+  // Content / broadcast
+  postPrefix     String?
+  hashtags       String?
+  zaloOaId       String?
+  launchedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
 model Category {
   id       String    @id @default(cuid())
   name     String
@@ -197,10 +221,14 @@ model AppLog {
   level     String   // "error" | "warn" | "info" | "debug"
   message   String
   context   String?  // JSON-serialized extra data
-  source    String?  // e.g. "sync", "ai", "broadcast", "api"
+  source    String?  // feature: "auth", "deal-sync", "niche-config", "zalo-broadcast", etc.
+  app       String?  // origin: "web-public" | "web-admin" | "api" | "api-sync" | "api-distribute"
+  trigger   String?  // "cron" | "manual" | "user" | "system"
   createdAt DateTime @default(now())
 
   @@index([level, createdAt])
+  @@index([app, createdAt])
+  @@index([source, createdAt])
   @@index([createdAt])
 }
 
@@ -254,4 +282,51 @@ model SyncJobRun {
 
   @@index([jobId, startedAt(sort: Desc)])
   @@index([startedAt(sort: Desc)])
+}
+
+// ── AccessTrade campaign tracking ────────────────────────────
+// Upsert mỗi lần sync chạy — persist để debug offline
+
+model AtCampaign {
+  id             String   @id              // AT campaign ID (string từ AT)
+  name           String
+  merchant       String
+  url            String
+  approval       String                    // "successful" | "pending" | "rejected"
+  cookieDuration Int?
+  status         Int
+  lastSeenAt     DateTime                  // lần sync gần nhất thấy campaign này
+  createdAt      DateTime @default(now())
+
+  nicheMatches   AtCampaignNicheMatch[]
+}
+
+model AtCampaignNicheMatch {
+  id         String     @id @default(cuid())
+  campaignId String
+  nicheId    String
+  matchedAt  DateTime   @default(now())
+
+  campaign   AtCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, nicheId])
+  @@index([nicheId])
+}
+
+// ── Per-niche platform integration config ────────────────────
+// Runtime-configurable qua Admin UI — không cần sửa YAML hay restart
+
+model NicheIntegration {
+  id             String   @id @default(cuid())
+  nicheId        String   // "fashion" | "electronics" — id từ niches.yaml
+  platform       String   // "tiki" | "sendo" | future platforms
+  enabled        Boolean  @default(true)   // master toggle cho platform này
+  atEnabled      Boolean  @default(true)   // Cách 1: tìm AT campaign match platform
+  directEnabled  Boolean  @default(true)   // Cách 2: gọi thẳng platform API
+  directFallback Boolean  @default(true)   // true = Cách 2 chỉ chạy khi Cách 1 có 0 kết quả
+  campaignId     String?  // override AT campaign ID (bỏ trống = auto-detect theo tên)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([nicheId, platform])
+  @@index([nicheId])
 }

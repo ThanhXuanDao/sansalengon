@@ -45,6 +45,7 @@ const itemVariants = {
 const SKELETON_COUNT = 8
 
 const sortOptions = [
+  { value: "discount_desc", label: "Giảm nhiều nhất" },
   { value: "number_asc", label: "Số" },
   { value: "newest", label: "Mới nhất" },
   { value: "price_asc", label: "Rẻ nhất" },

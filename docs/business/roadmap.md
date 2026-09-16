@@ -45,7 +45,7 @@
 
 **Mục tiêu**: Validate hệ thống scale theo ngách (chỉ thêm config)
 
-- [ ] Activate ngách thứ 2 trong `config/niches.yaml` (status: active)
+- [ ] Thêm ngách thứ 2 qua Admin UI `/admin/niches/manage` → đổi status = active
 - [ ] Tạo kênh phân phối riêng cho ngách mới
 - [ ] So sánh hiệu quả giữa các ngách → ưu tiên ngách tốt hơn
 

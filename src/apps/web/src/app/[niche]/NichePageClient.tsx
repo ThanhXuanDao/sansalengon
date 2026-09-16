@@ -27,7 +27,7 @@ interface Props {
 }
 
 export default function NichePageClient({ niche, initialProducts, initialCoupons, blogPosts = [] }: Props) {
-  const [sort, setSort] = useState("newest")
+  const [sort, setSort] = useState("discount_desc")
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
     categorySlug: niche.categorySlug,

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next"
 import { prisma } from "@/lib/prisma"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 import { getAllPosts } from "@/lib/blog"
 
 const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
@@ -8,6 +8,12 @@ const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").
 export const revalidate = 3600 // rebuild mỗi 1 giờ
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  let NICHES: Awaited<ReturnType<typeof getActiveNiches>> = []
+  try {
+    NICHES = await getActiveNiches()
+  } catch {
+    // DB unreachable during build — return static routes only
+  }
   // Niche pages (static, high priority for SEO)
   const nicheRoutes: MetadataRoute.Sitemap = NICHES.map((n) => ({
     url: `${BASE_URL}/${n.id}`,

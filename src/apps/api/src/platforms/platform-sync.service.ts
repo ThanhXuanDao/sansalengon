@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client"
 import { PlatformAdapter } from "./platform.adapter"
 import { ProductMatcherService } from "./matcher/product-matcher.service"
 import { AppLogService } from "../shared/app-log.service"
+import type { Trigger } from "../shared/app-log.service"
 
 // Thresholds
 const CONFIDENCE_AUTO_CONFIRM = 0.95
@@ -23,23 +24,25 @@ export class PlatformSyncService {
     private readonly appLog: AppLogService,
   ) {}
 
+  private get slog() { return this.appLog.scope("api") }
+
   // ── Matching job: nightly at 2am ─────────────────────────────
   @Cron("0 2 * * *")
   async runMatchingJob() {
-    await this.triggerMatch()
+    await this.triggerMatch("cron")
   }
 
   // Public method called by SyncController (manual / web-scheduled trigger)
-  async triggerMatch(): Promise<{
+  async triggerMatch(trigger: Trigger = "manual"): Promise<{
     byPlatform: Record<string, { matched: number; autoConfirmed: number; errors: number }>
     durationMs: number
   }> {
     const t0 = Date.now()
     this.log.log("Starting product matching job")
     const activeAdapters = this.adapters.filter((a) => a.platformId !== "shopee")
-    await this.appLog.info("Bắt đầu job matching sản phẩm đa sàn", {
+    await this.slog.info("Bắt đầu job matching sản phẩm đa sàn", SRC, {
       platforms: activeAdapters.map((a) => a.platformId),
-    }, SRC)
+    }, trigger)
 
     const byPlatform: Record<string, { matched: number; autoConfirmed: number; errors: number }> = {}
 
@@ -47,15 +50,15 @@ export class PlatformSyncService {
       byPlatform[adapter.platformId] = { matched: 0, autoConfirmed: 0, errors: 0 }
       await this.matchForPlatform(adapter, byPlatform[adapter.platformId]).catch(async (e) => {
         this.log.error(`Matching failed for ${adapter.platformId}: ${e.message}`)
-        await this.appLog.error(`Matching thất bại cho sàn ${adapter.platformId}`, {
+        await this.slog.error(`Matching thất bại cho sàn ${adapter.platformId}`, SRC, {
           platform: adapter.platformId,
           error: e.message,
-        }, SRC)
+        }, trigger)
       })
     }
 
     this.log.log("Matching job complete")
-    await this.appLog.info("Hoàn tất job matching sản phẩm đa sàn", { byPlatform }, SRC)
+    await this.slog.info("Hoàn tất job matching sản phẩm đa sàn", SRC, { byPlatform }, trigger)
 
     return { byPlatform, durationMs: Date.now() - t0 }
   }
@@ -100,7 +103,7 @@ export class PlatformSyncService {
     }
 
     this.log.log(`Refreshed ${confirmed.length} platform products`)
-    await this.appLog.info("Cập nhật giá đa sàn hoàn tất", { total: confirmed.length }, SRC)
+    await this.slog.info("Cập nhật giá đa sàn hoàn tất", SRC, { total: confirmed.length })
   }
 
   // ── Admin: manually confirm a match ─────────────────────────
@@ -169,21 +172,21 @@ export class PlatformSyncService {
 
     this.log.log(`[${adapter.platformId}] Matching ${products.length} unmatched products`)
     if (products.length > 0) {
-      await this.appLog.info(`Bắt đầu matching sàn ${adapter.platformId}`, {
+      await this.slog.info(`Bắt đầu matching sàn ${adapter.platformId}`, SRC, {
         platform: adapter.platformId,
         unmatched: products.length,
-      }, SRC)
+      })
     }
 
     for (const product of products) {
       await this.matchProduct(product, adapter, stats).catch(async (e) => {
         this.log.warn(`[${adapter.platformId}] Match error for "${product.name}": ${e.message}`)
         if (stats) stats.errors++
-        await this.appLog.warn(`Match lỗi cho sản phẩm "${product.name}"`, {
+        await this.slog.warn(`Match lỗi cho sản phẩm "${product.name}"`, SRC, {
           platform: adapter.platformId,
           productId: product.id,
           error: e.message,
-        }, SRC)
+        })
       })
     }
   }
@@ -225,12 +228,12 @@ export class PlatformSyncService {
         await this.confirmMatch(match.id, "auto")
         this.log.log(`[${adapter.platformId}] Auto-confirmed "${product.name}" → "${candidate.candidateName}" (${(candidate.confidence * 100).toFixed(0)}%)`)
         if (stats) stats.autoConfirmed++
-        await this.appLog.info(`Auto-confirm match sản phẩm`, {
+        await this.slog.info(`Auto-confirm match sản phẩm`, SRC, {
           platform: adapter.platformId,
           product: product.name,
           candidate: candidate.candidateName,
           confidence: Math.round(candidate.confidence * 100),
-        }, SRC)
+        })
       }
 
       if (stats) stats.matched++

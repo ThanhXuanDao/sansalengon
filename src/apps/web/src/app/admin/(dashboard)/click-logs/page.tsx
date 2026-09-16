@@ -79,7 +79,7 @@ export default function AdminClickLogs() {
   }
 
   const formatPrice = (price: number) =>
-    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(price)
+    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(Math.round(price / 100))
 
   return (
     <div className="flex flex-col gap-6">

@@ -4,6 +4,7 @@ import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { getJobDefinition } from "@/lib/jobs/registry"
 import { runJob } from "@/lib/jobs/runner"
+import { adminLog } from "@/lib/logger"
 
 // POST — trigger a manual run
 export async function POST(
@@ -47,6 +48,11 @@ export async function POST(
     triggerType: "manual",
     triggeredBy: "admin",
   })
+
+  void adminLog.info(`Job thủ công: ${key}`, "job-trigger", {
+    key, runId, status, durationMs,
+    itemsTotal: result.itemsTotal, itemsSuccess: result.itemsSuccess,
+  }, "manual")
 
   return NextResponse.json({
     ok: true,

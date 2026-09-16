@@ -1,6 +1,6 @@
 # Sync Jobs — Hướng dẫn vận hành
 
-*Last updated: 2026-09-12*
+*Last updated: 2026-09-13*
 
 ---
 
@@ -21,7 +21,7 @@ Các job này **chạy tự động** theo lịch cứng trong code. Không cầ
 
 | Service | Cron | Giờ VN (UTC+7) | Làm gì |
 |---|---|---|---|
-| `DealSyncService` | `0 */4 * * *` | 0h, 4h, 8h, 12h, 16h, 20h | Fetch sản phẩm mới từ Shopee Affiliate + AccessTrade, lưu vào DB, cập nhật giá |
+| `DealSyncService` | `0 */4 * * *` | 0h, 4h, 8h, 12h, 16h, 20h | Fetch sản phẩm từ **Shopee** + **AccessTrade** + **Tiki** + **Lazada** (nếu enabled trong Admin → Cấu hình nguồn), upsert DB, cập nhật giá |
 | `CouponSyncService` | `0 6,18 * * *` | 6h, 18h | Đồng bộ coupon từ nguồn ngoài, deactivate hết hạn |
 | `PricePredictionService` | `0 8 * * 1` | Thứ 2 lúc 8h | Phân tích lịch sử giá, tính ngày mua rẻ nhất theo tuần |
 | `ZaloBroadcastService` | `0 9 * * *` | 9h mỗi ngày | Gửi top deal đến followers Zalo OA |
@@ -31,6 +31,47 @@ Các job này **chạy tự động** theo lịch cứng trong code. Không cầ
 | `PlatformSyncService` (delta) | `30 */4 * * *` | 4h30, 8h30, ... | Cập nhật delta giá các sàn |
 
 > **Điều kiện chạy được:** `apps/api` phải đang chạy (`docker compose up api`). Nếu `apps/api` down, các job này sẽ không chạy.
+
+### AccessTrade campaign auto-discovery (DealSyncService)
+
+`DealSyncService` tự tìm campaign AccessTrade phù hợp — không cần điền tay ID:
+
+1. Gọi `GET /v1/campaigns?approval=successful` → lấy tất cả campaign đã duyệt (cache 4h)
+2. Với mỗi ngách: match campaign theo `atKeywords` trong bảng `Niche` (DB)  
+   (fallback về tên ngách và id nếu `atKeywords` trống)
+3. Dùng campaign matched để gọi `GET /v1/offers?campaign_id={id}&limit=50`
+4. Tạo affiliate tracking link qua `POST /v1/product_link/create` cho từng sản phẩm
+
+Có thể override bằng cách điền `atCampaignIds` cụ thể qua Admin → Quản lý ngách (`/admin/niches/manage`) → xem [niche-config.md](../technical/niche-config.md).
+
+### Tiki integration (DealSyncService)
+
+Tiki được bật/tắt **per-niche** qua **Admin → Cấu hình nguồn** (`/admin/niches/config`) — không cần sửa file hay restart.
+
+Luồng ưu tiên:
+1. **Cách 1 (AT)**: tìm AccessTrade campaign có tên/merchant chứa "tiki" → fetch `/v1/offers` → có hoa hồng AT
+2. **Cách 2 (direct)**: gọi `tiki.vn/api/v2/products?q={keyword}` → nếu có Tiki campaign AT thì wrap tracking link, nếu không thì raw URL (không hoa hồng)
+3. Mặc định `directFallback=true` → Cách 2 chỉ chạy khi Cách 1 có 0 kết quả
+
+Không cần credentials — `tiki.vn/api/v2/products` là public API, không cần auth.
+
+### Lazada integration (DealSyncService)
+
+Lazada được bật/tắt **per-niche** qua **Admin → Cấu hình nguồn** (`/admin/niches/config`) — cùng giao diện với Tiki.
+
+Luồng ưu tiên (giống Tiki):
+1. **Cách 1 (AT)**: tìm AccessTrade campaign có tên/merchant chứa "lazada" → fetch `/v1/offers` → có hoa hồng AT
+2. **Cách 2 (direct)**: gọi Lazada Affiliate API (`lazada.affiliate.products.query`) → nếu có Lazada campaign AT thì wrap tracking link
+3. Mặc định `directFallback=true` → Cách 2 chỉ chạy khi Cách 1 có 0 kết quả
+
+**Yêu cầu credentials cho Cách 2:**
+```env
+LAZADA_APP_KEY=your_app_key
+LAZADA_APP_SECRET=your_app_secret
+```
+Đăng ký tại: https://open.lazada.com (Lazada Open Platform). Nếu thiếu credentials, Cách 2 sẽ trả về mảng rỗng và log warning.
+
+Xem cấu hình tại: Admin → Cấu hình nguồn
 
 ---
 

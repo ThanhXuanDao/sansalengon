@@ -67,8 +67,6 @@ Affiliate/
 │   │       │   └── schema.sql    — DDL để tạo DB từ đầu
 │   │       └── package.json
 │   └── .env                      — Copy từ .env.example
-├── config/
-│   └── niches.yaml               — Cấu hình ngách (thêm ngách = thêm entry đây)
 └── docs/                         — Tài liệu này
 ```
 

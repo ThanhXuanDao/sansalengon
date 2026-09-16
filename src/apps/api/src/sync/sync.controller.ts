@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, HttpCode } from "@nestjs/common"
+import { Controller, Post, Get, Body, Headers, UnauthorizedException, HttpCode, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { DealSyncService } from "./deal-sync.service"
 import { CouponSyncService } from "./coupon-sync.service"
@@ -6,6 +6,8 @@ import { PlatformSyncService } from "../platforms/platform-sync.service"
 
 @Controller("sync")
 export class SyncController {
+  private readonly log = new Logger(SyncController.name);
+
   constructor(
     private readonly cfg: ConfigService,
     private readonly dealSync: DealSyncService,
@@ -20,19 +22,63 @@ export class SyncController {
     if (token !== secret) throw new UnauthorizedException("Invalid internal token")
   }
 
-  // POST /sync/deals — trigger product sync for one niche or all
-  @Post("deals")
-  @HttpCode(200)
-  async triggerDeals(
+  // GET /sync/campaigns — danh sách AT campaigns đã approve (từ cache hoặc DB)
+  @Get("campaigns")
+  async getCampaigns(
     @Headers("authorization") auth: string | undefined,
-    @Body() body: { niche?: string } = {},
   ) {
     this.checkAuth(auth)
-    const result = await this.dealSync.triggerSync(body.niche)
+    const campaigns = await this.dealSync.getApprovedCampaigns()
+    return { ok: true, campaigns, total: campaigns.length }
+  }
+
+  // POST /sync/deals — fire-and-forget trigger (returns 202 immediately, sync runs in background)
+  // Web handler polls GET /sync/status for completion and result.
+  @Post("deals")
+  @HttpCode(202)
+  async triggerDeals(
+    @Headers("authorization") auth: string | undefined,
+    @Body() body: { niche?: string; source?: string } = {},
+  ) {
+    this.checkAuth(auth)
+    if (this.dealSync.syncStatus.running) {
+      return { ok: false, inProgress: true, message: "Sync đang chạy, vui lòng đợi" }
+    }
+    const source = (["all", "shopee", "accesstrade", "tiki", "lazada"].includes(body.source ?? ""))
+      ? (body.source as "all" | "shopee" | "accesstrade" | "tiki" | "lazada")
+      : "all"
+    // Fire-and-forget: don't await so the HTTP response is sent immediately
+    void this.dealSync.triggerSync(body.niche, source, "manual").catch((e: Error) => {
+      this.log.error(`[sync/deals] Background sync error: ${e.message}`)
+    })
+    return { ok: true, started: true, startedAt: new Date().toISOString() }
+  }
+
+  // GET /sync/status — poll for sync completion and result
+  @Get("status")
+  async getSyncStatus(
+    @Headers("authorization") auth: string | undefined,
+  ) {
+    this.checkAuth(auth)
+    const s = this.dealSync.syncStatus
+    if (s.running) {
+      return { ok: true, inProgress: true, result: null }
+    }
+    if (!s.result) {
+      return { ok: true, inProgress: false, result: null }
+    }
+    const srcLine = Object.entries(s.result.bySource)
+      .filter(([, c]) => c.fetched > 0)
+      .map(([src, c]) => `${src}:${c.fetched}`)
+      .join(", ")
     return {
       ok: true,
-      ...result,
-      summary: `${result.niches} ngách — ${result.fetched} sản phẩm, ${result.newDeals} deal mới, ${result.priceChanges} thay đổi giá`,
+      inProgress: false,
+      completedAt: s.completedAt?.toISOString(),
+      result: {
+        ...s.result,
+        summary: `${s.result.niches} ngách — ${s.result.fetched} sản phẩm (${srcLine || "0"}), ${s.result.newDeals} deal mới, ${s.result.priceChanges} thay đổi giá`,
+      },
     }
   }
 

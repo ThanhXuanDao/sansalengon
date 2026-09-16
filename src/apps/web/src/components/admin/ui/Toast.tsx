@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from "lucide-react"
 
 export type ToastTone = "success" | "error" | "warning" | "info"
@@ -71,6 +72,7 @@ function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
 
       <button
         onClick={() => onRemove(item.id)}
+        tabIndex={-1}
         className="absolute right-2 top-2 p-1 rounded hover:bg-[#f4f4f1] transition-colors text-[#5c403a]"
         aria-label="Đóng"
       >
@@ -82,6 +84,9 @@ function ToastCard({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const remove = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -97,17 +102,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const warning = useCallback((message: string, title?: string) => toast({ tone: "warning", message, title }), [toast])
   const info    = useCallback((message: string, title?: string) => toast({ tone: "info",    message, title }), [toast])
 
+  const container = (
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div key={t.id} className="pointer-events-auto">
+          <ToastCard item={t} onRemove={remove} />
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <ToastContext.Provider value={{ toast, success, error, warning, info }}>
       {children}
-      {/* Toast container — top-right */}
-      <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
-        {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto">
-            <ToastCard item={t} onRemove={remove} />
-          </div>
-        ))}
-      </div>
+      {/* Portal vào document.body — tránh bị ảnh hưởng bởi overflow/scroll của layout */}
+      {mounted && createPortal(container, document.body)}
     </ToastContext.Provider>
   )
 }

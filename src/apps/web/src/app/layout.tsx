@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import { Be_Vietnam_Pro } from "next/font/google"
 import Script from "next/script"
-import { headers } from "next/headers"
 import Providers from "./providers"
+import AnalyticsScripts from "@/components/analytics/AnalyticsScripts"
 import { getSiteSettings } from "@/lib/get-site-settings"
 import "./globals.css"
 
@@ -61,9 +61,6 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const s = await getSiteSettings()
-  const headersList = await headers()
-  const pathname = headersList.get("x-pathname") || ""
-  const isAdmin = pathname.startsWith("/admin")
 
   return (
     <html lang="vi" className={beVietnamPro.variable}>
@@ -82,29 +79,9 @@ export default async function RootLayout({
             }]
           })}
         </script>
-        {/* GTM head snippet */}
-        {s.gtmId && /^GTM-[A-Z0-9]{4,10}$/.test(s.gtmId) && !isAdmin && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${s.gtmId}');`,
-            }}
-          />
-        )}
       </head>
       <body className="min-h-screen flex flex-col" translate="no">
-        {/* GTM noscript */}
-        {s.gtmId && /^GTM-[A-Z0-9]{4,10}$/.test(s.gtmId) && !isAdmin && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${s.gtmId}`}
-              height="0"
-              width="0"
-              className="hidden invisible"
-            />
-          </noscript>
-        )}
-
-        {s.maintenanceMode && !isAdmin ? (
+        {s.maintenanceMode ? (
           <MaintenancePage siteName={s.siteName || "Săn Sale Ngon"} tagline={s.tagline} />
         ) : (
           <>
@@ -114,25 +91,16 @@ export default async function RootLayout({
             >
               Chuyển đến nội dung chính
             </a>
-            <Providers>{children}</Providers>
+            <Providers
+              currencySymbol={s.currencySymbol || "₫"}
+              currencyPosition={s.currencyPosition || "after"}
+              thousandSeparator={s.thousandSeparator || "."}
+            >{children}</Providers>
           </>
         )}
 
-        {/* GA4 */}
-        {s.ga4Id && /^G-[A-Z0-9]{4,12}$/.test(s.ga4Id) && !isAdmin && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${s.ga4Id}`}
-              strategy="afterInteractive"
-            />
-            <Script id="ga4-init" strategy="afterInteractive">
-              {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${s.ga4Id}');`}
-            </Script>
-          </>
-        )}
+        {/* GTM + GA4 — client component checks pathname to skip on /admin */}
+        <AnalyticsScripts gtmId={s.gtmId || undefined} ga4Id={s.ga4Id || undefined} />
 
         <Script id="schema-breadcrumb" type="application/ld+json" strategy="beforeInteractive">
           {JSON.stringify({

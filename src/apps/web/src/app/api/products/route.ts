@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
   const take = takeParam !== null ? Number(takeParam) : undefined
   const numberFrom = searchParams.get("numberFrom") ? Number(searchParams.get("numberFrom")) : undefined
   const numberTo = searchParams.get("numberTo") ? Number(searchParams.get("numberTo")) : undefined
-
   const hasNumberFilter = numberFrom !== undefined && numberTo !== undefined
 
   const categoryWhere: Record<string, unknown> =
@@ -64,11 +63,16 @@ export async function GET(request: NextRequest) {
       ? { category: { slug: categorySlug } }
       : {}
 
+  // Always hide sold-out products on the public API (non-admin path)
+  categoryWhere.isSoldOut = false
+
   let orderBy: Prisma.ProductOrderByWithRelationInput[]
-  if (sort === "number_asc") orderBy = [{ createdAt: "asc" }]
+  if (sort === "discount_desc") orderBy = [{ discountPct: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }]
+  else if (sort === "number_asc") orderBy = [{ createdAt: "asc" }]
   else if (sort === "price_asc") orderBy = [{ price: "asc" }]
   else if (sort === "price_desc") orderBy = [{ price: "desc" }]
   else if (sort === "rating_desc") orderBy = [{ rating: "desc" }]
+  else if (sort === "rating_asc") orderBy = [{ rating: "asc" }]
   else if (sort === "rating_desc,price_asc") orderBy = [{ rating: "desc" }, { price: "asc" }]
   else orderBy = [{ createdAt: "desc" }]
 

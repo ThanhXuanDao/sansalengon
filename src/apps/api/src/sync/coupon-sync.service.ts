@@ -1,12 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+﻿import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaClient } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
-import { parse as parseYaml } from "yaml";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client";
 import { AppLogService } from "../shared/app-log.service";
+import type { Trigger } from "../shared/app-log.service";
 
 interface NicheConfig {
   id: string;
@@ -44,20 +42,22 @@ export class CouponSyncService {
     private readonly appLog: AppLogService,
   ) {}
 
+  private get slog() { return this.appLog.scope("api-sync"); }
+
   @Cron("0 6,18 * * *")
   async syncAllCoupons() {
-    await this.triggerSync("all");
+    await this.triggerSync("all", "cron");
   }
 
   // Public method called by SyncController (manual / web-scheduled trigger)
-  async triggerSync(sources: "all" | "accesstrade" | "platforms" = "all"): Promise<{
+  async triggerSync(sources: "all" | "accesstrade" | "platforms" = "all", trigger: Trigger = "manual"): Promise<{
     total: number;
     byNiche: Record<string, number>;
     byPlatform: Record<string, number>;
     durationMs: number;
   }> {
     this.log.log(`triggerSync coupons — sources: ${sources}`);
-    await this.appLog.info("Bắt đầu đồng bộ coupon", { sources }, SRC);
+    await this.slog.info("Bắt đầu đồng bộ coupon", SRC, { sources }, trigger);
 
     const t0 = Date.now();
     await this.deactivateExpiredCoupons();
@@ -66,13 +66,13 @@ export class CouponSyncService {
     const byPlatform: Record<string, number> = {};
 
     if (sources === "all" || sources === "accesstrade") {
-      const niches = this.loadActiveNiches();
+      const niches = await this.loadActiveNiches();
       for (const niche of niches) {
         const count = await this.syncNicheCoupons(niche).catch(async (e) => {
           this.log.error(`Coupon sync failed for niche "${niche.id}": ${e.message}`);
-          await this.appLog.error(`Sync coupon thất bại cho ngách "${niche.name}"`, {
+          await this.slog.error(`Sync coupon thất bại cho ngách "${niche.name}"`, SRC, {
             niche: niche.id, error: e.message,
-          }, SRC);
+          }, trigger);
           return 0;
         });
         byNiche[niche.id] = count;
@@ -92,7 +92,7 @@ export class CouponSyncService {
                 + Object.values(byPlatform).reduce((a, b) => a + b, 0);
 
     this.log.log(`Coupon sync complete — ${total} coupons upserted`);
-    await this.appLog.info("Hoàn tất đồng bộ coupon", { total, byNiche, byPlatform }, SRC);
+    await this.slog.info("Hoàn tất đồng bộ coupon", SRC, { total, byNiche, byPlatform }, trigger);
 
     return { total, byNiche, byPlatform, durationMs: Date.now() - t0 };
   }
@@ -101,7 +101,7 @@ export class CouponSyncService {
     const accessKey = this.cfg.get<string>("ACCESSTRADE_ACCESS_KEY");
     if (!accessKey) {
       this.log.warn("ACCESSTRADE_ACCESS_KEY not set — skipping coupon sync");
-      await this.appLog.warn("ACCESSTRADE_ACCESS_KEY chưa cấu hình — bỏ qua coupon sync", undefined, SRC);
+      await this.slog.warn("ACCESSTRADE_ACCESS_KEY chưa cấu hình — bỏ qua coupon sync", SRC);
       return 0;
     }
 
@@ -142,7 +142,7 @@ export class CouponSyncService {
     }
 
     this.log.log(`[${niche.name}] ${count} coupons synced`);
-    await this.appLog.info(`Đồng bộ coupon ngách "${niche.name}" hoàn tất`, { niche: niche.id, count }, SRC);
+    await this.slog.info(`Đồng bộ coupon ngách "${niche.name}" hoàn tất`, SRC, { niche: niche.id, count });
     return count;
   }
 
@@ -168,14 +168,14 @@ export class CouponSyncService {
           this.log.warn(`AccessTrade voucher API ${res.status} for campaign ${campaignId}`);
           if (res.status === 429) {
             this.log.warn("AccessTrade rate limit hit — stopping campaign loop");
-            await this.appLog.warn("AccessTrade rate limit (429) — dừng loop campaign", {
+            await this.slog.warn("AccessTrade rate limit (429) — dừng loop campaign", SRC, {
               niche: niche.id,
               campaignId,
               processedSoFar: results.length,
-            }, SRC);
+            });
             break;
           }
-          await this.appLog.warn(`AccessTrade API lỗi ${res.status}`, { niche: niche.id, campaignId, status: res.status }, SRC);
+          await this.slog.warn(`AccessTrade API lỗi ${res.status}`, SRC, { niche: niche.id, campaignId, status: res.status });
           continue;
         }
 
@@ -190,7 +190,7 @@ export class CouponSyncService {
       return results;
     } catch (e: any) {
       this.log.warn(`Failed to fetch vouchers for niche "${niche.id}": ${e.message}`);
-      await this.appLog.warn(`Lấy voucher thất bại cho ngách "${niche.id}"`, { error: e.message }, SRC);
+      await this.slog.warn(`Lấy voucher thất bại cho ngách "${niche.id}"`, SRC, { error: e.message });
       return [];
     }
   }
@@ -209,7 +209,7 @@ export class CouponSyncService {
       });
       if (!res.ok) {
         this.log.warn(`Shopee affiliate API ${res.status}`);
-        await this.appLog.warn(`Shopee affiliate API lỗi ${res.status}`, { status: res.status }, SRC);
+        await this.slog.warn(`Shopee affiliate API lỗi ${res.status}`, SRC, { status: res.status });
         return 0;
       }
       const body = await res.json();
@@ -226,11 +226,11 @@ export class CouponSyncService {
         count++;
       }
       this.log.log(`[Shopee] ${count} vouchers synced`);
-      await this.appLog.info(`Đồng bộ voucher Shopee hoàn tất`, { count }, SRC);
+      await this.slog.info(`Đồng bộ voucher Shopee hoàn tất`, SRC, { count });
       return count;
     } catch (e: any) {
       this.log.warn(`Shopee sync failed: ${e.message}`);
-      await this.appLog.error(`Shopee voucher sync thất bại`, { error: e.message }, SRC);
+      await this.slog.error(`Shopee voucher sync thất bại`, SRC, { error: e.message });
       return 0;
     }
   }
@@ -249,7 +249,7 @@ export class CouponSyncService {
       });
       if (!res.ok) {
         this.log.warn(`Tiki affiliate API ${res.status}`);
-        await this.appLog.warn(`Tiki affiliate API lỗi ${res.status}`, { status: res.status }, SRC);
+        await this.slog.warn(`Tiki affiliate API lỗi ${res.status}`, SRC, { status: res.status });
         return 0;
       }
       const body = await res.json();
@@ -266,11 +266,11 @@ export class CouponSyncService {
         count++;
       }
       this.log.log(`[Tiki] ${count} vouchers synced`);
-      await this.appLog.info(`Đồng bộ voucher Tiki hoàn tất`, { count }, SRC);
+      await this.slog.info(`Đồng bộ voucher Tiki hoàn tất`, SRC, { count });
       return count;
     } catch (e: any) {
       this.log.warn(`Tiki sync failed: ${e.message}`);
-      await this.appLog.error(`Tiki voucher sync thất bại`, { error: e.message }, SRC);
+      await this.slog.error(`Tiki voucher sync thất bại`, SRC, { error: e.message });
       return 0;
     }
   }
@@ -289,7 +289,7 @@ export class CouponSyncService {
       });
       if (!res.ok) {
         this.log.warn(`Lazada affiliate API ${res.status}`);
-        await this.appLog.warn(`Lazada affiliate API lỗi ${res.status}`, { status: res.status }, SRC);
+        await this.slog.warn(`Lazada affiliate API lỗi ${res.status}`, SRC, { status: res.status });
         return 0;
       }
       const body = await res.json();
@@ -306,11 +306,11 @@ export class CouponSyncService {
         count++;
       }
       this.log.log(`[Lazada] ${count} vouchers synced`);
-      await this.appLog.info(`Đồng bộ voucher Lazada hoàn tất`, { count }, SRC);
+      await this.slog.info(`Đồng bộ voucher Lazada hoàn tất`, SRC, { count });
       return count;
     } catch (e: any) {
       this.log.warn(`Lazada sync failed: ${e.message}`);
-      await this.appLog.error(`Lazada voucher sync thất bại`, { error: e.message }, SRC);
+      await this.slog.error(`Lazada voucher sync thất bại`, SRC, { error: e.message });
       return 0;
     }
   }
@@ -322,7 +322,7 @@ export class CouponSyncService {
     });
     if (count > 0) {
       this.log.log(`Deactivated ${count} expired coupons`);
-      await this.appLog.info(`Vô hiệu hóa coupon hết hạn`, { count }, SRC);
+      await this.slog.info(`Vô hiệu hóa coupon hết hạn`, SRC, { count });
     }
   }
 
@@ -381,10 +381,16 @@ export class CouponSyncService {
       .join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 64);
   }
 
-  loadActiveNiches(): NicheConfig[] {
-    const configPath = join(process.cwd(), "../../config/niches.yaml");
-    const raw = readFileSync(configPath, "utf-8");
-    const { niches } = parseYaml(raw) as { niches: NicheConfig[] };
-    return niches.filter((n) => n.status === "active");
+  async loadActiveNiches(): Promise<NicheConfig[]> {
+    const rows = await this.prisma.niche.findMany({
+      where: { status: "active" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      status: r.status,
+      accesstrade: { campaign_ids: (r.atCampaignIds as string[]) ?? [] },
+    }));
   }
 }

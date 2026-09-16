@@ -4,12 +4,13 @@ import { useRef } from "react"
 import Image from "next/image"
 import { Flame, ChevronLeft, ChevronRight, Eye, ImageOff } from "lucide-react"
 import { useTrending, type TrendingProduct } from "@/hooks/useTrending"
-import { formatPrice } from "@/lib/utils"
+import { useFormatPrice } from "@/lib/currency-context"
 import { logClick } from "@/lib/services/click"
 
 // ── Individual card ──────────────────────────────────────────────────────────
 
 function TrendingCard({ product, onBuy }: { product: TrendingProduct; onBuy: (p: TrendingProduct) => void }) {
+  const formatPrice = useFormatPrice()
   const salePrice = product.discountPct
     ? Math.round(product.price * (1 - product.discountPct / 100))
     : product.price

@@ -4,9 +4,6 @@ import { PrismaClient } from "@prisma/client";
 import { ContentGeneratorService, type ProductForBroadcast } from "./content-generator.service";
 import { ZaloTokenService } from "./zalo-token.service";
 import { AppLogService } from "../shared/app-log.service";
-import { parse as parseYaml } from "yaml";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 // Zalo OA API v2.0 — https://developers.zalo.me/docs/api/official-account-api
 const ZALO_OA_API = "https://openapi.zalo.me/v2.0/oa";
@@ -30,19 +27,21 @@ export class ZaloBroadcastService {
     private readonly appLog: AppLogService,
   ) {}
 
+  private get slog() { return this.appLog.scope("api-distribute"); }
+
   // Chạy 9h sáng mỗi ngày
   @Cron("0 9 * * *")
   async broadcastDailyDeals() {
     const accessToken = await this.tokenSvc.getValidToken();
     if (!accessToken) {
       this.log.warn("No valid Zalo token — skipping broadcast");
-      await this.appLog.warn("Không có Zalo token hợp lệ — bỏ qua broadcast", undefined, SRC);
+      await this.slog.warn("Không có Zalo token hợp lệ — bỏ qua broadcast", SRC, undefined, "cron");
       return;
     }
 
     this.log.log("Starting daily Zalo OA broadcast");
-    const niches = this.loadActiveNiches();
-    await this.appLog.info("Bắt đầu Zalo broadcast hàng ngày", { niches: niches.map((n) => n.id) }, SRC);
+    const niches = await this.loadActiveNiches();
+    await this.slog.info("Bắt đầu Zalo broadcast hàng ngày", SRC, { niches: niches.map((n) => n.id) }, "cron");
 
     let sent = 0;
     const failed: string[] = [];
@@ -54,7 +53,7 @@ export class ZaloBroadcastService {
       await delay(3000);
     }
 
-    await this.appLog.info("Hoàn tất Zalo broadcast hàng ngày", { sent, failed, total: niches.length }, SRC);
+    await this.slog.info("Hoàn tất Zalo broadcast hàng ngày", SRC, { sent, failed, total: niches.length }, "cron");
   }
 
   // Trigger thủ công qua API nội bộ (test / emergency resend)
@@ -62,7 +61,7 @@ export class ZaloBroadcastService {
     const accessToken = await this.tokenSvc.getValidToken();
     if (!accessToken) throw new Error("No valid Zalo token — check token configuration");
 
-    const niches = this.loadActiveNiches().filter((n) =>
+    const niches = (await this.loadActiveNiches()).filter((n) =>
       nicheId ? n.id === nicheId : true
     );
 
@@ -84,7 +83,7 @@ export class ZaloBroadcastService {
 
       if (products.length === 0) {
         this.log.log(`Niche ${niche.id}: no products — skipping`);
-        await this.appLog.info(`Ngách "${niche.name}" không có sản phẩm — bỏ qua broadcast`, { niche: niche.id }, SRC);
+        await this.slog.info(`Ngách "${niche.name}" không có sản phẩm — bỏ qua broadcast`, SRC, { niche: niche.id });
         return true;
       }
 
@@ -103,18 +102,18 @@ export class ZaloBroadcastService {
       });
 
       this.log.log(`Niche ${niche.id}: broadcast sent (${products.length} products)`);
-      await this.appLog.info(`Broadcast Zalo ngách "${niche.name}" thành công`, {
+      await this.slog.info(`Broadcast Zalo ngách "${niche.name}" thành công`, SRC, {
         niche: niche.id,
         products: products.length,
         productIds: products.map((p) => p.id),
-      }, SRC);
+      });
       return true;
     } catch (err: any) {
       this.log.error(`Niche ${niche.id} broadcast failed: ${err.message}`);
-      await this.appLog.error(`Broadcast Zalo ngách "${niche.name}" thất bại`, {
+      await this.slog.error(`Broadcast Zalo ngách "${niche.name}" thất bại`, SRC, {
         niche: niche.id,
         error: err.message,
-      }, SRC);
+      });
       await this.prisma.broadcastLog.create({
         data: {
           channel: "zalo",
@@ -206,15 +205,21 @@ export class ZaloBroadcastService {
     }
   }
 
-  private loadActiveNiches(): NicheConfig[] {
+  private async loadActiveNiches(): Promise<NicheConfig[]> {
     try {
-      const configPath = join(process.cwd(), "../../config/niches.yaml");
-      const raw = readFileSync(configPath, "utf-8");
-      const { niches } = parseYaml(raw) as { niches: NicheConfig[] };
-      return niches.filter((n) => n.status === "active");
+      const rows = await this.prisma.niche.findMany({
+        where: { status: "active" },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        status: r.status,
+        channels: { zalo_oa_id: r.zaloOaId ?? null },
+      }));
     } catch (err: any) {
-      this.log.error(`Failed to load niches.yaml: ${err.message}`);
-      void this.appLog.error("Không thể đọc file niches.yaml", { error: err.message }, SRC);
+      this.log.error(`Failed to load niches from DB: ${err.message}`);
+      void this.slog.error("Không thể tải ngách từ DB", SRC, { error: err.message });
       return [];
     }
   }

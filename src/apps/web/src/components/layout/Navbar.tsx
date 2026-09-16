@@ -5,7 +5,7 @@ import Image from "next/image"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Search, X, ChevronDown, Phone, User, Tag } from "lucide-react"
 import { useSettings } from "@/hooks/useSettings"
-import { NICHES } from "@/lib/niches"
+import { useNiches } from "@/lib/niche-context"
 
 interface NavbarProps {
   onSearch?: (q: string) => void
@@ -67,6 +67,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
         : "text-[#4F586D] hover:text-secondary"
     }`
 
+  const niches = useNiches()
   const storeName = settings?.siteName || "Săn Sale Ngon"
 
   return (
@@ -121,7 +122,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               aria-haspopup="listbox"
             >
               <span className="hidden sm:inline">
-                {selectedCategory ? NICHES.find((n) => n.id === selectedCategory)?.name ?? "Tất cả" : "Danh mục"}
+                {selectedCategory ? niches.find((n) => n.id === selectedCategory)?.name ?? "Tất cả" : "Danh mục"}
               </span>
               <ChevronDown className={`size-3.5 transition-transform ${categoryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
@@ -141,7 +142,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
                     Tất cả danh mục
                   </button>
                 </li>
-                {NICHES.map((n) => (
+                {niches.map((n) => (
                   <li key={n.id}>
                     <button
                       type="button"

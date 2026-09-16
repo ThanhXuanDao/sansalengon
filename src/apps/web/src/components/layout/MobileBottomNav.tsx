@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home } from "lucide-react"
-import { NICHES } from "@/lib/niches"
+import { useNiches } from "@/lib/niche-context"
 
 export default function MobileBottomNav() {
   const pathname = usePathname()
@@ -18,7 +18,8 @@ export default function MobileBottomNav() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  const activeNiche = NICHES.find((n) => pathname.startsWith(`/${n.id}`))
+  const niches = useNiches()
+  const activeNiche = niches.find((n) => pathname.startsWith(`/${n.id}`))
 
   return (
     <nav
@@ -50,7 +51,7 @@ export default function MobileBottomNav() {
       <div
         className="flex-1 flex overflow-x-auto scrollbar-hide"
       >
-        {NICHES.map((n) => {
+        {niches.map((n) => {
           const isActive = activeNiche?.id === n.id
           return (
             <Link

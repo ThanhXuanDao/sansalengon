@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 
 // GET /api/admin/niche-analytics?period=7d|30d|all&niche=<id>
 export async function GET(request: NextRequest) {
@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
     where: clickWhere,
     _count: { id: true },
   })
+
+  const NICHES = await getActiveNiches()
 
   if (clicksByProduct.length === 0) {
     return NextResponse.json({
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Build top products per niche
-  const niches = await Promise.all(
+  const nicheResults = await Promise.all(
     NICHES.filter((n) => !nicheFilter || n.id === nicheFilter).map(async (n) => {
       const stats = nicheStats.get(n.id)!
       const sorted = [...stats.productClicks.entries()]
@@ -111,7 +113,7 @@ export async function GET(request: NextRequest) {
     })
   )
 
-  const total = niches.reduce((sum, n) => sum + n.totalClicks, 0)
+  const total = nicheResults.reduce((sum, n) => sum + n.totalClicks, 0)
 
-  return NextResponse.json({ niches, period, total })
+  return NextResponse.json({ niches: nicheResults, period, total })
 }

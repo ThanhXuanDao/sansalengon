@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
-import { NICHES, getNiche } from "@/lib/niches"
+import { getActiveNiches, getNiche } from "@/lib/niches"
 import { getProductNumberMap } from "@/lib/products-numbering"
 import { getPostsByNiche } from "@/lib/blog"
 import { getNicheSeoFromCache } from "@/lib/seo-generator"
@@ -12,15 +12,21 @@ const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").
 export const revalidate = 1800 // ISR: rebuild mỗi 30 phút
 
 // Tạo static pages cho tất cả niches đang active
-export function generateStaticParams() {
-  return NICHES.map((n) => ({ niche: n.id }))
+export async function generateStaticParams() {
+  try {
+    const niches = await getActiveNiches()
+    return niches.map((n) => ({ niche: n.id }))
+  } catch {
+    // DB unreachable during build — pages generated on demand at runtime
+    return []
+  }
 }
 
 export async function generateMetadata(
   { params }: { params: Promise<{ niche: string }> }
 ): Promise<Metadata> {
   const { niche: nicheId } = await params
-  const niche = getNiche(nicheId)
+  const niche = await getNiche(nicheId)
   if (!niche) return {}
 
   // Use AI-generated meta if available, else fall back to template
@@ -31,7 +37,7 @@ export async function generateMetadata(
   return {
     title,
     description,
-    keywords: niche.keywords,
+    keywords: niche.metaKeywords,
     alternates: { canonical: `${BASE_URL}/${niche.id}` },
     openGraph: {
       title,
@@ -46,7 +52,7 @@ export default async function NichePage(
   { params }: { params: Promise<{ niche: string }> }
 ) {
   const { niche: nicheId } = await params
-  const niche = getNiche(nicheId)
+  const niche = await getNiche(nicheId)
   if (!niche) notFound()
 
   // SSR: lấy trang đầu tiên để Google crawl được nội dung

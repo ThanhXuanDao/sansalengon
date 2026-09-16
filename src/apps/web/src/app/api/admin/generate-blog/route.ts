@@ -3,7 +3,7 @@ import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 import { generateBlogPost, toSlug } from "@/lib/blog-generator"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 
 export async function POST(request: NextRequest) {
   if (!(await checkAuth(request))) {
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "niche and title are required" }, { status: 400 })
   }
 
+  const NICHES = await getActiveNiches()
   const nicheConfig = NICHES.find((n) => n.id === niche)
   if (!nicheConfig) {
     return NextResponse.json({ error: "Unknown niche" }, { status: 400 })

@@ -6,8 +6,8 @@ import Image from "next/image"
 import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, Flame, ArrowLeftRight } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/types"
-import { formatPrice } from "@/lib/utils"
-import { getNicheByCategory } from "@/lib/niches"
+import { useFormatPrice } from "@/lib/currency-context"
+import { useNicheByCategory } from "@/lib/niche-context"
 
 const PriceHistoryChart = dynamic(() => import("./PriceHistoryChart"), {
   loading: () => <div className="mt-3 pt-3 border-t border-dashed border-border-color h-24 skeleton-shimmer rounded" />,
@@ -78,6 +78,8 @@ export default function ProductCard({
   onBuy,
   viewCount,
 }: ProductCardProps) {
+  const formatPrice = useFormatPrice()
+  const niche = useNicheByCategory(product.category?.slug ?? "")
   const isHighlight = variant === "highlight"
   const isSoldOut = product.isSoldOut
   const [nameExpanded, setNameExpanded] = useState(false)
@@ -241,7 +243,6 @@ export default function ProductCard({
         {/* So sánh giá đa sàn */}
         <PlatformPriceBar productId={product.id} className="mt-2" />
         {(() => {
-          const niche = getNicheByCategory(product.category.slug)
           return niche ? (
             <Link
               href={`/${niche.id}/compare/${product.id}`}

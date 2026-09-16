@@ -2,8 +2,21 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState } from "react"
+import { CurrencyProvider } from "@/lib/currency-context"
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+interface ProvidersProps {
+  children: React.ReactNode
+  currencySymbol?: string
+  currencyPosition?: string
+  thousandSeparator?: string
+}
+
+export default function Providers({
+  children,
+  currencySymbol = "₫",
+  currencyPosition = "after",
+  thousandSeparator = ".",
+}: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -17,6 +30,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <CurrencyProvider opts={{ currencySymbol, currencyPosition, thousandSeparator }}>
+        {children}
+      </CurrencyProvider>
+    </QueryClientProvider>
   )
 }

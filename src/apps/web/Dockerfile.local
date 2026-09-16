@@ -35,4 +35,4 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY prisma ./prisma
 
 EXPOSE 3000
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node prisma/seed.js && node server.js"]

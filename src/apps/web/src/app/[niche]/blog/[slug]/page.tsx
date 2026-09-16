@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { ChevronRight, Clock, Calendar, BookOpen, Tag, ShoppingBag } from "lucide-react"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 import { getPost, getAllPosts, getRelatedPosts } from "@/lib/blog"
 import { POST_LOADERS } from "@/content/blog"
 import ReadingProgress from "@/components/blog/ReadingProgress"
@@ -24,6 +24,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const NICHES = await getActiveNiches()
   const { niche: nicheId, slug } = await params
   const post = getPost(nicheId, slug)
   const niche = NICHES.find((n) => n.id === nicheId)
@@ -46,6 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPage({ params }: Props) {
+  const NICHES = await getActiveNiches()
   const { niche: nicheId, slug } = await params
 
   const post = getPost(nicheId, slug)

@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 
 // GET /api/admin/facebook-analytics?period=7d|30d|all
 export async function GET(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   if (allClicks.length === 0) {
     return NextResponse.json({
       totalClicks: 0,
-      byNiche: NICHES.map((n) => ({ id: n.id, name: n.name, emoji: n.emoji, clicks: 0 })),
+      byNiche: (await getActiveNiches()).map((n) => ({ id: n.id, name: n.name, emoji: n.emoji, clicks: 0 })),
       topProducts: [],
       timeSeries: [],
       period,
@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
   const productMap = new Map(products.map((p) => [p.id, p]))
 
   // Niche breakdown from product→category mapping
+  const NICHES = await getActiveNiches()
   const nicheClickMap = new Map<string, number>(NICHES.map((n) => [n.id, 0]))
 
   for (const [productId, count] of productClickCount) {

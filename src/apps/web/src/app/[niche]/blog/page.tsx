@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { BookOpen, ChevronRight } from "lucide-react"
-import { NICHES } from "@/lib/niches"
+import { getActiveNiches } from "@/lib/niches"
 import { getPostsByNiche } from "@/lib/blog"
 import PostCard from "@/components/blog/PostCard"
 import type { BlogPostMeta } from "@/content/blog"
@@ -14,10 +14,16 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  return NICHES.map((n) => ({ niche: n.id }))
+  try {
+    const niches = await getActiveNiches()
+    return niches.map((n) => ({ niche: n.id }))
+  } catch {
+    return []
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const NICHES = await getActiveNiches()
   const { niche: nicheId } = await params
   const niche = NICHES.find((n) => n.id === nicheId)
   if (!niche) return {}
@@ -92,6 +98,7 @@ function FeaturedPost({ post, nicheId }: { post: BlogPostMeta; nicheId: string }
 }
 
 export default async function NicheBlogListPage({ params }: Props) {
+  const NICHES = await getActiveNiches()
   const { niche: nicheId } = await params
   const niche = NICHES.find((n) => n.id === nicheId)
   if (!niche) notFound()

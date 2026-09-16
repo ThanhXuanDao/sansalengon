@@ -17,18 +17,22 @@ export async function GET(
   const { searchParams } = request.nextUrl
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"))
   const pageSize = 20
+  const nicheFilter = searchParams.get("niche") ?? null
 
   const job = await prisma.syncJob.findUnique({ where: { key } })
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 })
 
+  const runsWhere: Record<string, unknown> = { jobId: job.id }
+  if (nicheFilter && nicheFilter !== "all") runsWhere.niche = nicheFilter
+
   const [runs, total] = await Promise.all([
     prisma.syncJobRun.findMany({
-      where: { jobId: job.id },
+      where: runsWhere,
       orderBy: { startedAt: "desc" },
       take: pageSize,
       skip: (page - 1) * pageSize,
     }),
-    prisma.syncJobRun.count({ where: { jobId: job.id } }),
+    prisma.syncJobRun.count({ where: runsWhere }),
   ])
 
   const def = JOB_DEFINITIONS.find((d) => d.key === key)

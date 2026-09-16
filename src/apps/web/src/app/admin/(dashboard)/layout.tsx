@@ -29,6 +29,8 @@ import {
   GitMerge,
   ScrollText,
   Workflow,
+  Antenna,
+  Settings2,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { getCsrfToken } from "@/lib/utils"
@@ -40,6 +42,8 @@ const navItems = [
   { href: "/admin/categories", label: "Danh mục", icon: Tags },
   { href: "/admin/click-logs", label: "Lịch sử click", icon: MousePointerClick },
   { href: "/admin/niches", label: "Ngách sản phẩm", icon: Layers },
+  { href: "/admin/niches/manage", label: "Quản lý ngách", icon: Settings2 },
+  { href: "/admin/campaigns", label: "AT Campaigns", icon: Antenna },
   { href: "/admin/coupons", label: "Mã giảm giá", icon: Ticket },
   { href: "/admin/feedback", label: "Phản hồi", icon: MessageSquare },
   { href: "/admin/ai-config", label: "Cấu hình AI", icon: Bot },

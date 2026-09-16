@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rate-limit"
 import { generateCsrfToken } from "@/lib/csrf"
 import { createOtp } from "@/lib/otp-store"
 import { sendOtpEmail } from "@/lib/email"
+import { adminLog } from "@/lib/logger"
 
 async function readTwoFA(): Promise<boolean> {
   try {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
     const valid = await validateCredentials(email, password)
 
     if (!valid) {
+      void adminLog.warn("Đăng nhập thất bại — sai thông tin", "auth", { email, ip }, "user")
       return NextResponse.json(
         { error: "Email hoặc mật khẩu không đúng" },
         { status: 401 }
@@ -49,9 +51,11 @@ export async function POST(request: Request) {
     if (twoFA) {
       const code = createOtp(email)
       await sendOtpEmail(email, code)
+      void adminLog.info("Đăng nhập yêu cầu OTP", "auth", { email, ip }, "user")
       return NextResponse.json({ requiresOtp: true })
     }
 
+    void adminLog.info("Đăng nhập thành công", "auth", { email, ip }, "user")
     const token = await createSessionToken()
     const csrfToken = generateCsrfToken()
 

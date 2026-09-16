@@ -2,9 +2,10 @@
 
 import {
   Globe, Palette, Search, Settings2, Shield, Save, RotateCcw,
-  BarChart3, Phone, AlertTriangle, Info,
+  BarChart3, Phone, AlertTriangle, Info, ToggleRight, ToggleLeft,
+  Loader2, Plug, RefreshCw, Layers,
 } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { ensureCsrfToken } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import { Button, PageSpinner, useToast, Tabs, TabList, TabTrigger, TabContent, ImageUpload } from "@/components/admin/ui"
@@ -42,6 +43,54 @@ const defaultSettings = {
 
 type Settings = typeof defaultSettings
 
+// ── Sync config types ─────────────────────────────────────────────────────────
+
+interface TikiSyncConfig {
+  tikiBatchSize: number
+  tikiBatchPauseMin: number
+  tikiInterNicheDelaySec: number
+}
+
+const defaultSyncConfig: TikiSyncConfig = {
+  tikiBatchSize: 3,
+  tikiBatchPauseMin: 10,
+  tikiInterNicheDelaySec: 10,
+}
+
+// ── Niche config types ────────────────────────────────────────────────────────
+
+interface PlatformConfig {
+  enabled: boolean
+  atEnabled: boolean
+  directEnabled: boolean
+  directFallback: boolean
+  campaignId: string
+}
+
+interface NicheRow {
+  id: string
+  name: string
+  status: string
+  keywordSeeds: string[]
+  platforms: { tiki: PlatformConfig; lazada: PlatformConfig }
+}
+
+const PLATFORM_META: Record<string, { label: string; directLabel: string; atWarning: string }> = {
+  tiki: {
+    label: "Tiki",
+    directLabel: "Tiki API trực tiếp (tiki.vn/api/v2)",
+    atWarning: "Cách 1 đang tắt — Cách 2 sẽ không có AT tracking link cho Tiki (không hoa hồng).",
+  },
+  lazada: {
+    label: "Lazada",
+    directLabel: "Lazada Affiliate API (cần LAZADA_APP_KEY/SECRET)",
+    atWarning: "Cách 1 đang tắt — Cách 2 sẽ không có AT tracking link cho Lazada (không hoa hồng).",
+  },
+}
+
+const PLATFORMS = ["tiki", "lazada"] as const
+type PlatformKey = typeof PLATFORMS[number]
+
 const inputCls = "w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[13px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none placeholder:text-[#5c403a]/40"
 const labelCls = "block font-mono text-[14px] tracking-[0.06em] text-[#5c403a] mb-1.5"
 const sectionCls = "bg-white border border-[#e5e1d8] p-6"
@@ -62,6 +111,156 @@ function FieldRow({ label, hint, children }: { label: string; hint?: string; chi
       <label className={labelCls}>{label}</label>
       {children}
       {hint && <p className="mt-1.5 font-mono text-[11px] text-[#5c403a]/70">{hint}</p>}
+    </div>
+  )
+}
+
+function SrcToggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 font-mono text-[12px] transition-colors focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+    >
+      {value ? <ToggleRight className="size-5 text-[#1a6b3c]" /> : <ToggleLeft className="size-5 text-[#5c403a]" />}
+      <span className={value ? "text-[#1a6b3c] font-bold" : "text-[#5c403a]"}>{value ? "Bật" : "Tắt"}</span>
+    </button>
+  )
+}
+
+function PlatformSection({ platformKey, config, keywordSeeds, onChange }: {
+  platformKey: string; config: PlatformConfig; keywordSeeds: string[]
+  onChange: (patch: Partial<PlatformConfig>) => void
+}) {
+  const meta = PLATFORM_META[platformKey]
+  return (
+    <div className="py-4 border-t border-dashed border-[#e5e1d8] first:border-t-0 first:pt-0">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-[#5c403a] font-bold w-20">{meta.label}</span>
+        <SrcToggle value={config.enabled} onChange={(v) => onChange({ enabled: v })} />
+      </div>
+      {config.enabled && (
+        <div className="space-y-3 pl-4 border-l-2 border-[#e5e1d8]">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[12px] text-[#1a1c1b] w-56">Cách 1: AccessTrade campaign</span>
+              <SrcToggle value={config.atEnabled} onChange={(v) => onChange({ atEnabled: v })} />
+            </div>
+            {config.atEnabled && (
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[11px] text-[#5c403a] w-56 pl-4">Campaign ID (bỏ trống = auto-detect)</span>
+                <input
+                  type="text" value={config.campaignId}
+                  onChange={(e) => onChange({ campaignId: e.target.value })}
+                  placeholder="vd: 12345"
+                  className="w-36 border border-[#e5e1d8] px-2 py-1 font-mono text-[12px] text-[#1a1c1b] focus:border-[#b51c00] focus:outline-none bg-[#f9f9f6]"
+                />
+              </div>
+            )}
+          </div>
+          <div className="border-t border-dashed border-[#e5e1d8]" />
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[12px] text-[#1a1c1b] w-56">Cách 2: {meta.directLabel}</span>
+              <SrcToggle value={config.directEnabled} onChange={(v) => onChange({ directEnabled: v })} />
+            </div>
+            {config.directEnabled && (
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[11px] text-[#5c403a] w-56 pl-4">Chỉ chạy khi Cách 1 không có data</span>
+                <SrcToggle value={config.directFallback} onChange={(v) => onChange({ directFallback: v })} />
+              </div>
+            )}
+          </div>
+          {config.directEnabled && !config.atEnabled && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-[#fff8e1] border border-[#fdc73a]/50">
+              <Info className="size-3.5 text-[#6f5400] mt-0.5 shrink-0" />
+              <p className="font-mono text-[11px] text-[#6f5400]">{meta.atWarning} Bật Cách 1 để tự động tìm campaign trên AccessTrade.</p>
+            </div>
+          )}
+          {keywordSeeds.length > 0 && (
+            <div className="pt-0.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#906f69] mb-1">Keywords dùng cho Cách 2</p>
+              <div className="flex flex-wrap gap-1.5">
+                {keywordSeeds.slice(0, 3).map((kw) => (
+                  <span key={kw} className="px-2 py-0.5 bg-[#f4f4f1] border border-[#e5e1d8] font-mono text-[11px] text-[#5c403a]">{kw}</span>
+                ))}
+                {keywordSeeds.length > 3 && <span className="font-mono text-[11px] text-[#906f69]">+{keywordSeeds.length - 3} nữa</span>}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NicheCard({ niche, onSave }: { niche: NicheRow; onSave: () => void }) {
+  const { success, error: toastError } = useToast()
+  const [platforms, setPlatforms] = useState<Record<PlatformKey, PlatformConfig>>({
+    tiki: { ...niche.platforms.tiki },
+    lazada: { ...niche.platforms.lazada },
+  })
+  const [saving, setSaving] = useState<PlatformKey | null>(null)
+  const [dirty, setDirty] = useState<Record<PlatformKey, boolean>>({ tiki: false, lazada: false })
+
+  const updatePlatform = (key: PlatformKey, patch: Partial<PlatformConfig>) => {
+    setPlatforms((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }))
+    setDirty((prev) => ({ ...prev, [key]: true }))
+  }
+
+  const savePlatform = async (key: PlatformKey) => {
+    setSaving(key)
+    try {
+      const csrf = await ensureCsrfToken()
+      const res = await fetch("/api/admin/niche-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+        body: JSON.stringify({ nicheId: niche.id, platform: key, ...platforms[key] }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? `HTTP ${res.status}`)
+      }
+      success(`Đã lưu ${PLATFORM_META[key].label} cho ngách "${niche.name}"`)
+      setDirty((prev) => ({ ...prev, [key]: false }))
+      onSave()
+    } catch (e: unknown) {
+      toastError(`Lưu thất bại: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const anyDirty = Object.values(dirty).some(Boolean)
+
+  return (
+    <div className="bg-white border border-[#e5e1d8]">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-dashed border-[#e5e1d8]">
+        <div className="flex items-center gap-3">
+          <span className="font-sans text-[15px] font-bold text-[#1a1c1b]">{niche.name}</span>
+          <span className="font-mono text-[11px] text-[#5c403a]">{niche.id}</span>
+          <span className={`px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${niche.status === "active" ? "bg-[#e6f4ea] text-[#1a6b3c]" : "bg-[#f4f4f1] text-[#5c403a]"}`}>
+            {niche.status}
+          </span>
+        </div>
+        {anyDirty && (
+          <div className="flex items-center gap-2">
+            {PLATFORMS.filter((k) => dirty[k]).map((k) => (
+              <Button key={k} onClick={() => savePlatform(k)} disabled={saving !== null} size="sm" className="flex items-center gap-1.5">
+                {saving === k ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                Lưu {PLATFORM_META[k].label}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="px-5">
+        {PLATFORMS.map((key) => (
+          <PlatformSection key={key} platformKey={key} config={platforms[key]} keywordSeeds={niche.keywordSeeds}
+            onChange={(patch) => updatePlatform(key, patch)} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -89,6 +288,65 @@ export default function AdminSettings() {
   const [changingPassword, setChangingPassword] = useState(false)
   const originalRef = useRef<Settings>(defaultSettings)
   const { success, error: toastError } = useToast()
+  const [nicheData, setNicheData] = useState<NicheRow[] | null>(null)
+  const [nicheLoading, setNicheLoading] = useState(false)
+
+  const [syncConfig, setSyncConfig] = useState<TikiSyncConfig>(defaultSyncConfig)
+  const [syncConfigLoading, setSyncConfigLoading] = useState(false)
+  const [syncConfigSaving, setSyncConfigSaving] = useState(false)
+
+  const fetchNicheConfig = useCallback(async (silent = false) => {
+    if (!silent) setNicheLoading(true)
+    try {
+      const csrf = await ensureCsrfToken()
+      const res = await fetch("/api/admin/niche-config", { headers: { "x-csrf-token": csrf } })
+      if (res.ok) setNicheData((await res.json()).niches ?? [])
+    } catch {
+      if (!silent) setNicheData([])
+    } finally {
+      if (!silent) setNicheLoading(false)
+    }
+  }, [])
+
+  const fetchSyncConfig = useCallback(async () => {
+    setSyncConfigLoading(true)
+    try {
+      const csrf = await ensureCsrfToken()
+      const res = await fetch("/api/admin/sync-config", { headers: { "x-csrf-token": csrf } })
+      if (res.ok) setSyncConfig({ ...defaultSyncConfig, ...(await res.json()) })
+    } catch { /* keep defaults */ }
+    finally { setSyncConfigLoading(false) }
+  }, [])
+
+  const saveSyncConfig = async () => {
+    setSyncConfigSaving(true)
+    try {
+      const csrf = await ensureCsrfToken()
+      const res = await fetch("/api/admin/sync-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+        body: JSON.stringify(syncConfig),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `HTTP ${res.status}`)
+      }
+      setSyncConfig(await res.json())
+      success("Đã lưu cấu hình đồng bộ!")
+    } catch (e) {
+      toastError(e instanceof Error ? e.message : "Không thể lưu")
+    } finally {
+      setSyncConfigSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    if (tab === "sources" && nicheData === null) fetchNicheConfig()
+  }, [tab, nicheData, fetchNicheConfig])
+
+  useEffect(() => {
+    if (tab === "sync") fetchSyncConfig()
+  }, [tab, fetchSyncConfig])
 
   useEffect(() => {
     ensureCsrfToken().then((csrfToken) => {
@@ -191,6 +449,8 @@ export default function AdminSettings() {
           <TabTrigger value="seo"><Search className="size-3.5 inline -mt-0.5 mr-1.5" />SEO & Analytics</TabTrigger>
           <TabTrigger value="system"><Settings2 className="size-3.5 inline -mt-0.5 mr-1.5" />Hệ thống</TabTrigger>
           <TabTrigger value="security"><Shield className="size-3.5 inline -mt-0.5 mr-1.5" />Bảo mật</TabTrigger>
+          <TabTrigger value="sources"><Plug className="size-3.5 inline -mt-0.5 mr-1.5" />Nguồn SP</TabTrigger>
+          <TabTrigger value="sync"><Layers className="size-3.5 inline -mt-0.5 mr-1.5" />Đồng bộ</TabTrigger>
         </TabList>
 
         <div className="mt-6 space-y-6">
@@ -518,15 +778,144 @@ export default function AdminSettings() {
             </div>
           </TabContent>
 
+          {/* ─── NGUỒN SP ─── */}
+          <TabContent value="sources">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3 px-4 py-3 bg-[#e8f5e9] border border-[#1a6b3c]/20 flex-1 mr-4">
+                  <Info className="size-4 text-[#1a6b3c] mt-0.5 shrink-0" />
+                  <div className="font-mono text-[12px] text-[#1a6b3c] space-y-0.5">
+                    <p className="font-bold">Cách 1 (AccessTrade): tìm campaign Tiki trên AT → fetch /v1/offers → có hoa hồng AT</p>
+                    <p>Cách 2 (Tiki API): gọi thẳng tiki.vn → nếu tìm thấy Tiki campaign trên AT thì vẫn wrap tracking link</p>
+                    <p className="text-[#1a6b3c]/70">Shopee keywords từ DB (tối đa 3 từ đầu). Campaign ID có thể để trống để auto-detect theo tên.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => fetchNicheConfig()}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-[#e5e1d8] font-mono text-[12px] text-[#5c403a] hover:bg-[#f4f4f1] transition-colors shrink-0"
+                >
+                  <RefreshCw className="size-3.5" />Tải lại
+                </button>
+              </div>
+
+              {nicheLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="size-6 animate-spin text-[#b51c00]" />
+                </div>
+              ) : !nicheData || nicheData.length === 0 ? (
+                <div className="bg-white border border-[#e5e1d8] p-8 text-center font-mono text-[13px] text-[#5c403a]">
+                  Chưa có ngách nào — thêm ngách tại{" "}
+                  <a href="/admin/niches/manage" className="underline text-[#b51c00]">/admin/niches/manage</a> trước
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {nicheData.map((niche) => (
+                    <NicheCard key={niche.id} niche={niche} onSave={() => fetchNicheConfig(true)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabContent>
+
+          {/* ─── ĐỒNG BỘ ─── */}
+          <TabContent value="sync">
+            <div className="space-y-6">
+              {syncConfigLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="size-6 animate-spin text-[#b51c00]" />
+                </div>
+              ) : (
+                <>
+                  <div className={sectionCls}>
+                    <h3 className={sectionTitleCls}>
+                      <Layers className="size-4 text-[#b51c00]" />
+                      Cấu hình chống block Tiki
+                    </h3>
+                    <div className="flex items-start gap-2 mb-5 p-3 bg-[#fff8e1] border border-[#fdc73a]/50">
+                      <Info className="size-3.5 text-[#6f5400] mt-0.5 shrink-0" />
+                      <p className="font-mono text-[11px] text-[#6f5400] leading-relaxed">
+                        Tiki ban IP sau ~12-15 request liên tiếp. Batch mode chia các ngách thành từng nhóm nhỏ, nghỉ giữa các nhóm để rate-limit reset. Tổng thời gian sync ≈ (số batch - 1) × batch pause + thời gian sync thực tế.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      <FieldRow
+                        label="Số ngách mỗi batch"
+                        hint={`Tổng ${syncConfig.tikiBatchSize} ngách/batch → ${Math.ceil(12 / syncConfig.tikiBatchSize)} batch cho 12 ngách`}
+                      >
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="number" min={1} max={12}
+                            value={syncConfig.tikiBatchSize}
+                            onChange={(e) => setSyncConfig((p) => ({ ...p, tikiBatchSize: Math.max(1, Math.min(12, parseInt(e.target.value) || 1)) }))}
+                            className={`${inputCls} w-20`}
+                          />
+                          <span className="font-mono text-[12px] text-[#76737b]">ngách</span>
+                        </div>
+                      </FieldRow>
+                      <FieldRow
+                        label="Nghỉ giữa các batch"
+                        hint="Thời gian chờ để IP hết bị ban trước khi chạy batch tiếp theo"
+                      >
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="number" min={1} max={60}
+                            value={syncConfig.tikiBatchPauseMin}
+                            onChange={(e) => setSyncConfig((p) => ({ ...p, tikiBatchPauseMin: Math.max(1, Math.min(60, parseFloat(e.target.value) || 1)) }))}
+                            className={`${inputCls} w-20`}
+                          />
+                          <span className="font-mono text-[12px] text-[#76737b]">phút</span>
+                        </div>
+                      </FieldRow>
+                      <FieldRow
+                        label="Delay giữa các ngách"
+                        hint="Delay trong cùng 1 batch (giữa 2 ngách kề nhau)"
+                      >
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="number" min={0} max={120}
+                            value={syncConfig.tikiInterNicheDelaySec}
+                            onChange={(e) => setSyncConfig((p) => ({ ...p, tikiInterNicheDelaySec: Math.max(0, Math.min(120, parseFloat(e.target.value) || 0)) }))}
+                            className={`${inputCls} w-20`}
+                          />
+                          <span className="font-mono text-[12px] text-[#76737b]">giây</span>
+                        </div>
+                      </FieldRow>
+                    </div>
+
+                    <div className="mt-5 p-3 bg-[#f4f4f1] border border-[#e5e1d8] font-mono text-[12px] text-[#5c403a]">
+                      Ước tính tổng thời gian sync 12 ngách:{" "}
+                      <strong className="text-[#1a1c1b]">
+                        ~{Math.round(
+                          (Math.ceil(12 / syncConfig.tikiBatchSize) - 1) * syncConfig.tikiBatchPauseMin +
+                          12 * (syncConfig.tikiInterNicheDelaySec / 60) + 18
+                        )} phút
+                      </strong>
+                      {" "}(pause: {(Math.ceil(12 / syncConfig.tikiBatchSize) - 1) * syncConfig.tikiBatchPauseMin} phút + sync: ~18 phút)
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
+                    <Button variant="ghost" icon={RotateCcw} onClick={fetchSyncConfig} disabled={syncConfigSaving}>
+                      Hoàn tác
+                    </Button>
+                    <Button variant="primary" icon={Save} onClick={saveSyncConfig} loading={syncConfigSaving} disabled={syncConfigSaving}>
+                      {syncConfigSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </TabContent>
+
           {/* ─── SAVE BAR ─── */}
-          <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
+          {tab !== "sources" && tab !== "sync" && <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
             <Button variant="ghost" icon={RotateCcw} onClick={handleDiscard}>
               Hoàn tác
             </Button>
             <Button variant="primary" icon={Save} onClick={handleSave} loading={saving} disabled={saving}>
               {saving ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
-          </div>
+          </div>}
         </div>
       </Tabs>
     </div>

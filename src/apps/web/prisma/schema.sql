@@ -9,6 +9,30 @@
 -- Enum
 CREATE TYPE "MatchStatus" AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED');
 
+-- ── Niche ────────────────────────────────────────────────────
+CREATE TABLE "Niche" (
+    "id"             TEXT         NOT NULL,
+    "name"           TEXT         NOT NULL,
+    "emoji"          TEXT         NOT NULL DEFAULT '🏷️',
+    "status"         TEXT         NOT NULL DEFAULT 'draft',
+    "description"    TEXT,
+    "metaKeywords"   TEXT,
+    "sortOrder"      INTEGER      NOT NULL DEFAULT 0,
+    "shopeeKeywords" JSONB        NOT NULL DEFAULT '[]',
+    "atCampaignIds"  JSONB        NOT NULL DEFAULT '[]',
+    "atKeywords"     JSONB        NOT NULL DEFAULT '[]',
+    "minDiscountPct" INTEGER      NOT NULL DEFAULT 0,
+    "minPrice"       INTEGER      NOT NULL DEFAULT 0,
+    "maxPrice"       INTEGER      NOT NULL DEFAULT 10000000,
+    "postPrefix"     TEXT,
+    "hashtags"       TEXT,
+    "zaloOaId"       TEXT,
+    "launchedAt"     TIMESTAMP(3),
+    "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Niche_pkey" PRIMARY KEY ("id")
+);
+
 -- ── Category ─────────────────────────────────────────────────
 CREATE TABLE "Category" (
     "id"   TEXT NOT NULL,
@@ -250,15 +274,18 @@ CREATE TABLE "AppLog" (
     "id"        TEXT         NOT NULL,
     "level"     TEXT         NOT NULL,
     "message"   TEXT         NOT NULL,
+    "context"   TEXT,
     "source"    TEXT,
-    "meta"      TEXT,
+    "app"       TEXT,
+    "trigger"   TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "AppLog_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "AppLog_level_idx"     ON "AppLog"("level");
-CREATE INDEX "AppLog_source_idx"    ON "AppLog"("source");
-CREATE INDEX "AppLog_createdAt_idx" ON "AppLog"("createdAt");
+CREATE INDEX "AppLog_level_createdAt_idx"  ON "AppLog"("level",  "createdAt");
+CREATE INDEX "AppLog_app_createdAt_idx"    ON "AppLog"("app",    "createdAt");
+CREATE INDEX "AppLog_source_createdAt_idx" ON "AppLog"("source", "createdAt");
+CREATE INDEX "AppLog_createdAt_idx"        ON "AppLog"("createdAt");
 
 -- ── RateLimit ─────────────────────────────────────────────────
 CREATE TABLE "RateLimit" (
@@ -269,6 +296,100 @@ CREATE TABLE "RateLimit" (
 );
 
 CREATE INDEX "RateLimit_resetAt_idx" ON "RateLimit"("resetAt");
+
+-- ── AtCampaign ───────────────────────────────────────────────
+CREATE TABLE "AtCampaign" (
+    "id"             TEXT         NOT NULL,
+    "name"           TEXT         NOT NULL,
+    "merchant"       TEXT         NOT NULL,
+    "url"            TEXT         NOT NULL,
+    "approval"       TEXT         NOT NULL,
+    "cookieDuration" INTEGER,
+    "status"         INTEGER      NOT NULL,
+    "lastSeenAt"     TIMESTAMP(3) NOT NULL,
+    "createdAt"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AtCampaign_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "AtCampaignNicheMatch" (
+    "id"         TEXT         NOT NULL,
+    "campaignId" TEXT         NOT NULL,
+    "nicheId"    TEXT         NOT NULL,
+    "matchedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AtCampaignNicheMatch_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "AtCampaignNicheMatch_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "AtCampaign"("id") ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX "AtCampaignNicheMatch_campaignId_nicheId_key" ON "AtCampaignNicheMatch"("campaignId", "nicheId");
+CREATE INDEX "AtCampaignNicheMatch_nicheId_idx" ON "AtCampaignNicheMatch"("nicheId");
+
+-- ── NicheIntegration ─────────────────────────────────────────
+CREATE TABLE "NicheIntegration" (
+    "id"             TEXT         NOT NULL,
+    "nicheId"        TEXT         NOT NULL,
+    "platform"       TEXT         NOT NULL,
+    "enabled"        BOOLEAN      NOT NULL DEFAULT true,
+    "atEnabled"      BOOLEAN      NOT NULL DEFAULT true,
+    "directEnabled"  BOOLEAN      NOT NULL DEFAULT true,
+    "directFallback" BOOLEAN      NOT NULL DEFAULT true,
+    "campaignId"     TEXT,
+    "updatedAt"      TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "NicheIntegration_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "NicheIntegration_nicheId_platform_key" ON "NicheIntegration"("nicheId", "platform");
+CREATE INDEX "NicheIntegration_nicheId_idx" ON "NicheIntegration"("nicheId");
+
+-- ── SyncJob ──────────────────────────────────────────────────
+CREATE TABLE "SyncJob" (
+    "id"                TEXT         NOT NULL,
+    "key"               TEXT         NOT NULL,
+    "name"              TEXT         NOT NULL,
+    "description"       TEXT,
+    "config"            TEXT         NOT NULL DEFAULT '{}',
+    "isEnabled"         BOOLEAN      NOT NULL DEFAULT true,
+    "scheduleEnabled"   BOOLEAN      NOT NULL DEFAULT false,
+    "scheduleCron"      TEXT,
+    "scheduleNextRunAt" TIMESTAMP(3),
+    "lastRunAt"         TIMESTAMP(3),
+    "lastStatus"        TEXT,
+    "createdAt"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "SyncJob_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "SyncJob_key_key" ON "SyncJob"("key");
+CREATE INDEX "SyncJob_scheduleEnabled_scheduleNextRunAt_idx"
+    ON "SyncJob"("scheduleEnabled", "scheduleNextRunAt");
+
+-- ── SyncJobRun ────────────────────────────────────────────────
+CREATE TABLE "SyncJobRun" (
+    "id"           TEXT         NOT NULL,
+    "jobId"        TEXT         NOT NULL,
+    "triggerType"  TEXT         NOT NULL DEFAULT 'manual',
+    "triggeredBy"  TEXT,
+    "status"       TEXT         NOT NULL DEFAULT 'running',
+    "startedAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt"   TIMESTAMP(3),
+    "durationMs"   INTEGER,
+    "itemsTotal"   INTEGER,
+    "itemsSuccess" INTEGER,
+    "itemsFailed"  INTEGER,
+    "source"       TEXT,
+    "niche"        TEXT,
+    "summary"      TEXT,
+    "errors"       TEXT,
+    "meta"         TEXT,
+    CONSTRAINT "SyncJobRun_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "SyncJobRun_jobId_startedAt_idx" ON "SyncJobRun"("jobId", "startedAt" DESC);
+CREATE INDEX "SyncJobRun_startedAt_idx"        ON "SyncJobRun"("startedAt" DESC);
+
+ALTER TABLE "SyncJobRun"
+    ADD CONSTRAINT "SyncJobRun_jobId_fkey"
+    FOREIGN KEY ("jobId") REFERENCES "SyncJob"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ── Seed: Platform ───────────────────────────────────────────
 INSERT INTO "Platform" ("id", "name", "baseUrl", "isActive") VALUES

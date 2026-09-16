@@ -34,9 +34,10 @@
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                 PostgreSQL Database                          │
-│  Product · PriceHistory · PlatformProduct · ProductMatch   │
-│  Coupon · ClickLog · BroadcastLog · AppSetting             │
-│  Feedback · ProductEmbedding · Platform · Category         │
+│  Niche · Product · PriceHistory · PlatformProduct          │
+│  ProductMatch · Coupon · ClickLog · BroadcastLog           │
+│  AppSetting · Feedback · ProductEmbedding · Platform       │
+│  Category · NicheIntegration                               │
 └────────────────────────┬────────────────────────────────────┘
                          │ Prisma ORM
                          ▼
@@ -47,7 +48,8 @@
 │  ├ / — trang chủ deal          ├ /admin — overview          │
 │  ├ /[niche] — ngách            ├ /admin/products            │
 │  ├ /[niche]/blog/[slug]        ├ /admin/analytics           │
-│  ├ /[niche]/compare/[slug]     ├ /admin/coupons ← NEW      │
+│  ├ /[niche]/compare/[slug]     ├ /admin/niches/manage       │
+│  └ /ma-giam-gia — vouchers     ├ /admin/coupons             │
 │  └ /ma-giam-gia — vouchers     ├ /admin/embeddings          │
 │    (platform tabs, flash sale) ├ /admin/auto-classify       │
 │                                ├ /admin/ai-config           │
@@ -149,7 +151,7 @@ ProductMatcherService (cron matching 2h sáng)
 
 ## Nguyên tắc thiết kế
 
-- **Config-driven**: thêm ngách mới = thêm entry trong `config/niches.yaml`, không sửa code
+- **Config-driven**: thêm ngách mới = thêm qua Admin UI `/admin/niches/manage`, không sửa code hay restart
 - **Multi-provider AI**: mỗi task AI có thể dùng provider khác nhau, switch runtime qua DB (AppSetting)
 - **Feature flags**: mỗi AI task có toggle enable/disable riêng → kiểm soát cost
 - **Idempotent sync**: chạy cron nhiều lần không duplicate data (upsert by composite key)

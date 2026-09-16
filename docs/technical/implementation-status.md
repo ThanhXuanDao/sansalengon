@@ -1,5 +1,5 @@
 ﻿# Implementation Status
-*Last updated: 2026-09-10 (Enhanced Scoring + AI Feature Flags + Deal Image + Price Drop Prediction + Auto-Classification + Feedback Sentiment + Embedding Matching + Coupon System Phase 1–4)*
+*Last updated: 2026-09-13 (Sync Jobs UI + SyncController HTTP endpoints + AccessTrade auto-discovery)*
 
 Tài liệu này là nguồn sự thật về những gì đã/chưa implement. Cập nhật mỗi khi hoàn thành tính năng mới.
 
@@ -11,9 +11,11 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 
 | Tính năng | File | Ghi chú |
 |---|---|---|
-| Deal sync cron (mỗi 4h) | `src/sync/deal-sync.service.ts` | Upsert sản phẩm từ Shopee + AccessTrade |
+| Deal sync cron (mỗi 4h) | `src/sync/deal-sync.service.ts` | Upsert sản phẩm từ **Shopee** + **AccessTrade** + **Tiki** + **Lazada** (enabled per-niche qua Admin → Cấu hình nguồn); auto-match AT campaign, fetch offers, tạo tracking link |
+| AccessTrade campaign auto-discovery | `src/sync/deal-sync.service.ts` | `resolveCampaignIds()`: nếu `campaign_ids` trống → `listCampaigns(approved)` → filter theo `campaign_keywords` / niche name. Cache 4h. |
 | Batch price history recording | `src/sync/deal-sync.service.ts` | Ghi khi giá thay đổi, dùng DISTINCT ON tránh N+1 |
 | Price history pruning (90 ngày) | `src/sync/deal-sync.service.ts` | Xóa records > 90 ngày sau mỗi sync |
+| SyncController HTTP endpoints | `src/sync/sync.controller.ts` | `POST /sync/deals`, `/sync/coupons`, `/sync/platform-match` — Bearer token auth (`API_INTERNAL_SECRET`). Gọi `triggerSync()` public method của từng service. |
 | Coupon sync cron (6h + 18h) | `src/sync/coupon-sync.service.ts` | AccessTrade + Shopee Affiliate API + Tiki Affiliate API + Lazada Affiliate API; dedup composite key; cần `SHOPEE_AFFILIATE_API_KEY`, `TIKI_AFFILIATE_API_KEY`, `LAZADA_AFFILIATE_API_KEY` |
 | Zalo OA broadcast (9h hàng ngày) | `src/distribute/zalo-broadcast.service.ts` | Top 5 deals, score = `discount×0.45 + click×0.30 + rating×0.25`, log DB |
 | Zalo token auto-refresh | `src/distribute/zalo-token.service.ts` | Lưu DB, cron thứ Hai 7h, refresh khi ≤14 ngày còn lại |
@@ -42,6 +44,8 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 | `Platform` | Danh sách sàn (shopee, lazada, tiki, tiktok) — seeded sẵn |
 | `PlatformProduct` | Sản phẩm tương đương trên sàn khác — unique (productId, platformId) |
 | `ProductMatch` | Kết quả matching tự động/thủ công — status PENDING/CONFIRMED/REJECTED, confidence score |
+| `Niche` | Nguồn dữ liệu ngách duy nhất — id, name, emoji, status, shopeeKeywords, atCampaignIds, atKeywords, filters, postPrefix, hashtags, zaloOaId, sortOrder |
+| `NicheIntegration` | Per-niche platform config (enabled, atEnabled, directEnabled, directFallback, campaignId) — runtime-configurable qua Admin UI, không cần restart |
 
 ### Website — Next.js (`apps/web`)
 
@@ -61,7 +65,7 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 | Navbar + dropdown danh mục | `src/components/layout/Navbar.tsx` | — | Dropdown → 6 trang ngách, link mã giảm giá |
 | Sitemap tự động | `src/app/sitemap.ts` | Giai đoạn 2 | Async, query DB, revalidate 1h |
 | robots.txt | `src/app/robots.ts` | — | Block admin + api, link sitemap |
-| Niche config shared | `src/lib/niches.ts` | — | TypeScript constants + `getNicheByCategory()` |
+| Niche config shared | `src/lib/niches.ts` | — | Async DB queries (`getActiveNiches`, `getNiche`, `getNicheByCategory`) — không còn hardcode |
 | Blog danh sách `/[niche]/blog` | `src/app/[niche]/blog/page.tsx` | Giai đoạn 2 | SSG, danh sách bài MDX, pagination, search |
 | Blog bài viết `/[niche]/blog/[slug]` | `src/app/[niche]/blog/[slug]/page.tsx` | Giai đoạn 2 | Hero + gradient overlay, article + sidebar desktop layout, ReadingProgress, MobileArticleBar |
 | Trang so sánh `/[niche]/compare/[slug]` | `src/app/[niche]/compare/[slug]/page.tsx` | Giai đoạn 3 | SSG ISR 30ph, hero product + gradient, price table, PriceCompareChart, sidebar desktop, Schema.org Product+Offers |
@@ -79,6 +83,7 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 | Click Logs | `admin/(dashboard)/click-logs/` | Bảng click, filter ngày, export CSV |
 | Analytics tổng hợp | `admin/(dashboard)/analytics/` | Revenue, top products, chart |
 | Click theo ngách | `admin/(dashboard)/niches/` + `[niche]/` | Source breakdown bar, top products, drill-down |
+| **Quản lý ngách (CRUD)** | `admin/(dashboard)/niches/manage/` + `api/admin/niches/manage/route.ts` + `[id]/route.ts` | Tạo/sửa/xoá ngách, sort order, tất cả fields qua modal form; thay thế hoàn toàn `niches.yaml` + hardcode array |
 | Facebook analytics | `admin/(dashboard)/facebook/` | Tab Analytics (click FB + chart + niche) + Tab Tạo nội dung (post generator, copy) |
 | Zalo OA analytics | `admin/(dashboard)/zalo/` | Tab Analytics + Tab Broadcasts + Tab 🔑 Token (quản lý token DB-first) |
 | Broadcast (Zalo) | `admin/(dashboard)/broadcast/` | Token status, gửi thủ công, lịch sử, xem nội dung |
@@ -98,6 +103,7 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 | **Auto-generate ảnh deal** | `api/admin/facebook-content/route.ts` + `admin/(dashboard)/facebook/page.tsx` | `dealImageUrl` dùng Pollinations.ai (miễn phí, URL-based), hiển thị preview trong tab Tạo nội dung |
 | **AI Feature Flags (cost control)** | `lib/ai-config.ts` + `api/admin/ai-config/route.ts` + `admin/(dashboard)/ai-config/page.tsx` | Toggle enable/disable từng AI task trong admin → ngăn API call → kiểm soát cost. Default: all enabled |
 | **Embedding-based Product Matching** (AI Plan Tier 2 #4) | `apps/api/src/platforms/matcher/embedding.service.ts` + `apps/web/src/app/api/admin/embeddings/route.ts` + `admin/(dashboard)/embeddings/page.tsx` | OpenAI `text-embedding-3-small` (1536d) hoặc Gemini `text-embedding-004` (768d), auto-detect từ env. Score = `cosineSim×50% + tokenOverlap×35% + editSim×15%`. Weekly cron Chủ nhật 3h. `ProductEmbedding` table lưu JSON vector. Admin page `/admin/embeddings` để trigger + xem coverage |
+| **Tiki + Lazada deal sync** | `src/sync/deal-sync.service.ts` + `src/app/api/admin/niche-config/route.ts` + `src/app/admin/(dashboard)/niches/config/page.tsx` | Cách 1 (AT campaign match) → Cách 2 fallback (Tiki public API / Lazada Affiliate API); per-niche config lưu DB (`NicheIntegration`), runtime-configurable. Tiki: không cần auth. Lazada: cần `LAZADA_APP_KEY/SECRET`. |
 | **Auto-Classification** (AI Plan Tier 3 #7) | `lib/auto-classifier.ts` + `api/admin/auto-classify/route.ts` + `admin/(dashboard)/auto-classify/page.tsx` | Zero-shot classify sản phẩm vào Category bằng AI, admin page xem + apply gợi ý, batch classify 10–50 sản phẩm. Respects `post_generation` feature flag |
 | **Feedback Sentiment** (AI Plan Tier 3 #8) | `lib/sentiment-classifier.ts` + `api/feedback/route.ts` (fire-and-forget) + `admin/(dashboard)/feedback/page.tsx` | Classify feedback → positive/negative/neutral/suggestion, badge màu trong admin. Prisma schema: `sentiment`, `sentimentScore`. Respects `post_generation` feature flag |
 | **Coupon System Phase 1–4** | xem bảng riêng bên dưới | Multi-source sync, click tracking, UX upgrade, admin CRUD |
@@ -174,12 +180,13 @@ Tài liệu này là nguồn sự thật về những gì đã/chưa implement. 
 ## Bước tiếp theo (theo thứ tự thực hiện)
 
 1. **Setup API keys** → xem `docs/operations/setup-guide.md` (bao gồm Lazada App Key mới)
-2. **Chọn AI provider** → `/admin/ai-config` → thêm ít nhất 1 API key (khuyên dùng Gemini Flash — miễn phí 1M tokens/ngày) → unlock AI post generator, AI blog writer, AI SEO, Auto-Classification, Feedback Sentiment
-3. **Generate SEO meta** → `/admin/seo` → "Generate tất cả ngách" (chạy 1 lần, tự động cache)
-4. **Seed Zalo token** → đặt `ZALO_OA_ACCESS_TOKEN` + `ZALO_OA_REFRESH_TOKEN` vào `.env` lần đầu → sau đó quản lý qua `/admin/zalo` → tab Token
-5. **Khởi tạo DB** → chạy `schema.sql` (lần đầu) hoặc `psql $DATABASE_URL -f prisma/schema.sql`
-6. **Trigger sync lần đầu** → gọi API hoặc restart API server
-7. **Tạo embedding** → `/admin/embeddings` → "Chạy ngay" sau khi set `OPENAI_API_KEY` hoặc `GOOGLE_AI_API_KEY` → cải thiện độ chính xác matching đa sàn
-8. **Viết blog đầu tiên** → `/admin/blog` hoặc tạo file TSX trong `src/content/blog/`
-9. **Review match queue** → `/admin/matches` sau khi matching cron chạy
-10. **Auto-classify sản phẩm** → `/admin/auto-classify` → chạy batch, áp dụng gợi ý AI cho sản phẩm chưa đúng danh mục
+2. **Khởi tạo DB** → chạy `schema.sql` (lần đầu): `psql $DATABASE_URL -f prisma/schema.sql`
+3. **Seed ngách** → vào `/admin/niches/manage` → "Thêm ngách" → điền id, name, shopeeKeywords, atKeywords → set `status=draft`
+4. **Chọn AI provider** → `/admin/ai-config` → thêm ít nhất 1 API key (khuyên dùng Gemini Flash — miễn phí 1M tokens/ngày)
+5. **Trigger sync lần đầu** → `/admin/jobs` → Đồng bộ sản phẩm → chọn ngách → Chạy ngay → nếu ổn thì đổi `status=active`
+6. **Seed Zalo token** → đặt `ZALO_OA_ACCESS_TOKEN` + `ZALO_OA_REFRESH_TOKEN` vào `.env` lần đầu → sau đó quản lý qua `/admin/zalo` → tab Token
+7. **Generate SEO meta** → `/admin/seo` → "Generate tất cả ngách" (chạy 1 lần, tự động cache)
+8. **Tạo embedding** → `/admin/embeddings` → "Chạy ngay" sau khi set `OPENAI_API_KEY` hoặc `GOOGLE_AI_API_KEY`
+9. **Viết blog đầu tiên** → `/admin/blog` hoặc tạo file TSX trong `src/content/blog/`
+10. **Review match queue** → `/admin/matches` sau khi matching cron chạy
+11. **Auto-classify sản phẩm** → `/admin/auto-classify` → chạy batch, áp dụng gợi ý AI cho sản phẩm chưa đúng danh mục

@@ -27,7 +27,7 @@ const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNa
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("semua")
-  const [sort, setSort] = useState<string>("number_asc")
+  const [sort, setSort] = useState<string>("discount_desc")
   const [numberRange, setNumberRange] = useState<{ from: number; to: number } | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 

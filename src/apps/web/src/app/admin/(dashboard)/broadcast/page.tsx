@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   Radio,
 } from "lucide-react"
-import { NICHES } from "@/lib/niches"
+import type { NicheConfig } from "@/lib/niches"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import { Button, PageSpinner, EmptyState, useToast } from "@/components/admin/ui"
 
@@ -113,11 +113,13 @@ function TokenCard({
 }
 
 function SendPanel({
+  niches,
   onSend,
   sending,
   preview,
   onClearPreview,
 }: {
+  niches: NicheConfig[]
   onSend: (nicheId?: string) => void
   sending: boolean
   preview: { text: string; logId?: string; error?: string } | null
@@ -139,7 +141,7 @@ function SendPanel({
           className="border border-[#e5e1e9] bg-white font-mono text-[13px] px-3 py-2 focus:ring-2 focus:ring-[#b51c00] focus:outline-none"
         >
           <option value="all">Tất cả ngách</option>
-          {NICHES.map((n) => (
+          {niches.map((n) => (
             <option key={n.id} value={n.id}>
               {n.emoji} {n.name}
             </option>
@@ -187,9 +189,9 @@ function SendPanel({
   )
 }
 
-function HistoryRow({ log }: { log: BroadcastLog }) {
+function HistoryRow({ log, niches }: { log: BroadcastLog; niches: NicheConfig[] }) {
   const [expanded, setExpanded] = useState(false)
-  const niche = NICHES.find((n) => n.id === log.nicheId)
+  const niche = niches.find((n) => n.id === log.nicheId)
   const dateStr = new Date(log.sentAt).toLocaleString("vi-VN", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
@@ -249,6 +251,7 @@ function HistoryRow({ log }: { log: BroadcastLog }) {
 
 export default function BroadcastPage() {
   const { error: toastError } = useToast()
+  const [niches, setNiches] = useState<NicheConfig[]>([])
   const [token, setToken] = useState<TokenStatus | null>(null)
   const [logs, setLogs] = useState<BroadcastLog[]>([])
   const [logsLoading, setLogsLoading] = useState(true)
@@ -261,6 +264,12 @@ export default function BroadcastPage() {
   const fetchToken = useCallback(async () => {
     const res = await fetch("/api/broadcast/token")
     if (res.ok) setToken(await res.json())
+  }, [])
+
+  useEffect(() => {
+    fetch("/api/admin/niches/manage").then(async (r) => {
+      if (r.ok) { const j = await r.json(); setNiches(j.data ?? []) }
+    }).catch(() => {})
   }, [])
 
   const fetchLogs = useCallback(async () => {
@@ -358,6 +367,7 @@ export default function BroadcastPage() {
 
       {/* Send panel */}
       <SendPanel
+        niches={niches}
         onSend={handleSend}
         sending={sending}
         preview={preview}
@@ -396,7 +406,7 @@ export default function BroadcastPage() {
               </thead>
               <tbody>
                 {logs.map((log) => (
-                  <HistoryRow key={log.id} log={log} />
+                  <HistoryRow key={log.id} log={log} niches={niches} />
                 ))}
               </tbody>
             </table>

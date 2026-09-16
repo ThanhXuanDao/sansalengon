@@ -11,44 +11,68 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl
-  const level  = searchParams.get("level")  || null   // "error"|"warn"|"info"|"debug"
-  const q      = searchParams.get("q")      || null
-  const source = searchParams.get("source") || null
-  const range  = searchParams.get("range")  || "today" // "today"|"7d"|"30d"|"all"
-  const page   = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
+  const level   = searchParams.get("level")   || null
+  const q       = searchParams.get("q")       || null
+  const source  = searchParams.get("source")  || null
+  const app     = searchParams.get("app")     || null
+  const trigger = searchParams.get("trigger") || null
+  const range   = searchParams.get("range")   || "today"
+  const page    = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
 
   const since = rangeSince(range)
 
   const where = {
-    ...(level  ? { level }  : {}),
-    ...(source ? { source } : {}),
-    ...(q      ? { message: { contains: q, mode: "insensitive" as const } } : {}),
-    ...(since  ? { createdAt: { gte: since } } : {}),
+    ...(level   ? { level }   : {}),
+    ...(source  ? { source }  : {}),
+    ...(app     ? { app }     : {}),
+    ...(trigger ? { trigger } : {}),
+    ...(q       ? { message: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(since   ? { createdAt: { gte: since } } : {}),
   }
 
-  const [total, logs, counts] = await Promise.all([
+  // Base where without level filter — for level count chips
+  const whereNoLevel = {
+    ...(source  ? { source }  : {}),
+    ...(app     ? { app }     : {}),
+    ...(trigger ? { trigger } : {}),
+    ...(q       ? { message: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(since   ? { createdAt: { gte: since } } : {}),
+  }
+
+  const [total, logs, levelGroups, appGroups] = await Promise.all([
     prisma.appLog.count({ where }),
     prisma.appLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip:  (page - 1) * PAGE_SIZE,
       take:  PAGE_SIZE,
-      select: { id: true, level: true, message: true, context: true, source: true, createdAt: true },
+      select: { id: true, level: true, message: true, context: true, source: true, app: true, trigger: true, createdAt: true },
     }),
-    // Level counts for the current filter (excluding level filter itself)
+    // Level counts (excluding level filter)
     prisma.appLog.groupBy({
       by: ["level"],
+      where: whereNoLevel,
+      _count: { _all: true },
+    }),
+    // App counts (excluding app filter) — for app filter chips
+    prisma.appLog.groupBy({
+      by: ["app"],
       where: {
-        ...(source ? { source } : {}),
-        ...(q      ? { message: { contains: q, mode: "insensitive" as const } } : {}),
-        ...(since  ? { createdAt: { gte: since } } : {}),
+        ...(level   ? { level }   : {}),
+        ...(source  ? { source }  : {}),
+        ...(trigger ? { trigger } : {}),
+        ...(q       ? { message: { contains: q, mode: "insensitive" as const } } : {}),
+        ...(since   ? { createdAt: { gte: since } } : {}),
       },
       _count: { _all: true },
     }),
   ])
 
   const levelCounts = Object.fromEntries(
-    counts.map((c) => [c.level, c._count._all])
+    levelGroups.map((c) => [c.level, c._count._all])
+  )
+  const appCounts = Object.fromEntries(
+    appGroups.map((c) => [c.app ?? "unknown", c._count._all])
   )
 
   return NextResponse.json({
@@ -57,6 +81,7 @@ export async function GET(request: NextRequest) {
     page,
     pages: Math.ceil(total / PAGE_SIZE),
     levelCounts,
+    appCounts,
   })
 }
 
@@ -69,9 +94,13 @@ export async function DELETE(request: NextRequest) {
 
   const { searchParams } = request.nextUrl
   const level = searchParams.get("level") || null
+  const app   = searchParams.get("app")   || null
 
   const { count } = await prisma.appLog.deleteMany({
-    where: level ? { level } : {},
+    where: {
+      ...(level ? { level } : {}),
+      ...(app   ? { app }   : {}),
+    },
   })
 
   return NextResponse.json({ deleted: count })

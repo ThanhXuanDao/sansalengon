@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ChevronRight, ExternalLink, TrendingDown, CheckCircle2, ShoppingBag, Tag } from "lucide-react"
 import { prisma } from "@/lib/prisma"
-import { getNiche, NICHES } from "@/lib/niches"
+import { getActiveNiches, getNiche } from "@/lib/niches"
 import { formatPrice } from "@/lib/utils"
 import { getOrGenerateCompareSeo } from "@/lib/seo-generator"
 import PriceCompareChart from "@/components/compare/PriceCompareChart"
@@ -17,23 +17,29 @@ const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").
 export const revalidate = 1800
 
 export async function generateStaticParams() {
-  const products = await prisma.product.findMany({
-    select: { id: true, categoryId: true, category: { select: { slug: true } } },
-  }).catch(() => [])
-
-  const params: { niche: string; slug: string }[] = []
-  for (const p of products) {
-    const niche = NICHES.find((n) => n.categorySlug === p.category.slug)
-    if (niche) params.push({ niche: niche.id, slug: p.id })
+  try {
+    const [products, niches] = await Promise.all([
+      prisma.product.findMany({
+        select: { id: true, categoryId: true, category: { select: { slug: true } } },
+      }),
+      getActiveNiches(),
+    ])
+    const params: { niche: string; slug: string }[] = []
+    for (const p of products) {
+      const niche = niches.find((n) => n.categorySlug === p.category.slug)
+      if (niche) params.push({ niche: niche.id, slug: p.id })
+    }
+    return params
+  } catch {
+    return []
   }
-  return params
 }
 
 export async function generateMetadata(
   { params }: { params: Promise<{ niche: string; slug: string }> },
 ): Promise<Metadata> {
   const { niche: nicheId, slug } = await params
-  const niche = getNiche(nicheId)
+  const niche = await getNiche(nicheId)
   if (!niche) return {}
 
   const product = await prisma.product.findUnique({ where: { id: slug }, select: { name: true } }).catch(() => null)
@@ -74,7 +80,7 @@ export default async function ComparePage(
   { params }: { params: Promise<{ niche: string; slug: string }> },
 ) {
   const { niche: nicheId, slug } = await params
-  const niche = getNiche(nicheId)
+  const niche = await getNiche(nicheId)
   if (!niche) notFound()
 
   const product = await prisma.product.findUnique({

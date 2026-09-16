@@ -11,8 +11,6 @@ src/
 │   └── web/          Next.js frontend — hiển thị deal, admin panel, click tracking
 ├── packages/
 │   └── db/prisma/    Schema database (PostgreSQL)
-├── config/
-│   └── niches.yaml   Cấu hình ngách — thêm ngách mới ở đây
 └── .env.example      Biến môi trường cần thiết
 ```
 
@@ -41,8 +39,8 @@ pnpm dev
 
 ## Thêm ngách mới
 
-Chỉnh sửa `config/niches.yaml`, thêm 1 block mới với `status: active`.  
-Không cần sửa code.
+Vào **Admin → Quản lý ngách** (`/admin/niches/manage`) → "Thêm ngách" → điền form → set status = active.  
+Không cần sửa code hay restart.
 
 ## API keys cần có
 

@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { Plus, Search, Copy, Pencil, Trash2, SortAsc, LayoutGrid } from "lucide-react"
-import { Star } from "lucide-react"
-import CategoryIcon from "@/components/ui/CategoryIcon"
+import Image from "next/image"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { Plus, Search, Copy, Pencil, Trash2, ImageIcon } from "lucide-react"
+import { Star, AlertTriangle } from "lucide-react"
 import { fetchProducts, deleteProduct, updateProduct } from "@/lib/services/products"
 import { useCategories } from "@/hooks/useCategories"
 import { formatPrice } from "@/lib/utils"
@@ -13,69 +11,130 @@ import AdminPageShell from "@/components/admin/AdminPageShell"
 import {
   Button,
   Badge,
-  Pagination,
-  PageSpinner,
-  EmptyState,
   ConfirmModal,
   useToast,
+  AdminFilterBar,
+  FilterSelect,
+  DataTable,
+  DataTableRow,
+  DataTableCell,
+  DataTablePagination,
+  ProductFormModal,
 } from "@/components/admin/ui"
+import type { TableColumn, SortState } from "@/components/admin/ui"
 import type { Product } from "@/types"
 
 type ProductWithClicks = Product & { _count?: { clicks: number } }
 
+const FEATURED_OPTIONS = [
+  { value: "all",      label: "Tất cả" },
+  { value: "featured", label: "Nổi bật" },
+  { value: "normal",   label: "Bình thường" },
+]
+
+const SOLDOUT_OPTIONS = [
+  { value: "all",     label: "Tất cả" },
+  { value: "instock", label: "Còn hàng" },
+  { value: "soldout", label: "Hết hàng" },
+]
+
+const COLUMNS: TableColumn[] = [
+  { key: "number",   label: "#",         width: "56px" },
+  { key: "name",     label: "Sản phẩm" },
+  { key: "category", label: "Danh mục" },
+  { key: "price",    label: "Giá",      align: "right",  sortable: true },
+  { key: "rating",   label: "Rating",   align: "center", sortable: true },
+  { key: "clicks",   label: "Clicks",   align: "right" },
+  { key: "featured", label: "Nổi bật",  align: "center" },
+  { key: "soldout",  label: "Tồn kho",  align: "center" },
+  { key: "actions",  label: "Thao tác", align: "right",  width: "100px" },
+]
+
+const SORT_MAP: Record<string, { asc: string; desc: string }> = {
+  price:  { asc: "price_asc",  desc: "price_desc" },
+  rating: { asc: "rating_asc", desc: "rating_desc" },
+}
+
 export default function AdminProducts() {
   const { success, error: toastError } = useToast()
-  const searchParams = useSearchParams()
-  const [activeCategory, setActiveCategory] = useState("semua")
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "")
-  const paramsQ = searchParams.get("q") || ""
-  if (paramsQ && paramsQ !== searchQuery) {
-    setSearchQuery(paramsQ)
-  }
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const pageSize = 10
-  const [sort, setSort] = useState("newest")
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
-  const [deleting, setDeleting] = useState(false)
-
   const { data: dbCategories } = useCategories()
-  const categories = useMemo(() => {
-    const all: { slug: string; name: string; icon: React.ReactNode }[] = [
-      { slug: "semua", name: "All", icon: <LayoutGrid className="size-3" aria-hidden="true" /> },
-    ]
+
+  const [search, setSearch]     = useState("")
+  const [category, setCategory] = useState("semua")
+  const [featured, setFeatured] = useState("all")
+  const [soldout, setSoldout]   = useState("all")
+  const [tableSort, setTableSort] = useState<SortState | undefined>(undefined)
+
+  const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal]       = useState(0)
+  const [loading, setLoading]   = useState(true)
+
+  const [page, setPage]         = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [deleting, setDeleting]         = useState(false)
+
+  const [createOpen, setCreateOpen]       = useState(false)
+  const [editProductId, setEditProductId] = useState<string | undefined>(undefined)
+
+  const categoryOptions = useMemo(() => {
+    const base = [{ value: "semua", label: "Tất cả danh mục" }]
     if (dbCategories) {
-      for (const cat of dbCategories) {
-        all.push({ slug: cat.slug, name: cat.name, icon: <CategoryIcon icon={cat.icon} className="size-3" /> })
-      }
+      for (const cat of dbCategories) base.push({ value: cat.slug, label: cat.name })
     }
-    return all
+    return base
   }, [dbCategories])
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      try {
-        const result = await fetchProducts(
-          activeCategory === "semua" ? undefined : activeCategory,
-          sort
-        )
-        setProducts(result.data)
-      } catch {
-        setProducts([])
-      } finally {
-        setLoading(false)
-      }
+  const effectiveSort = tableSort
+    ? (tableSort.dir === "asc" ? SORT_MAP[tableSort.key]?.asc : SORT_MAP[tableSort.key]?.desc) ?? "newest"
+    : "newest"
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const skip = (page - 1) * pageSize
+      const result = await fetchProducts(
+        category === "semua" ? undefined : category,
+        effectiveSort,
+        skip,
+        pageSize,
+        undefined,
+        undefined,
+        search || undefined,
+      )
+      setProducts(result.data)
+      setTotal(result.total)
+    } catch {
+      setProducts([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
     }
-    load()
-  }, [activeCategory, sort])
+  }, [category, effectiveSort, page, pageSize, search])
 
-  const filtered = searchQuery
-    ? products.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : products
+  useEffect(() => { load() }, [load])
 
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+  // Client-side featured / soldout filters (API doesn't expose these params)
+  const filtered = useMemo(() => {
+    let result = products
+    if (featured === "featured") result = result.filter((p) => p.isFeatured)
+    if (featured === "normal")   result = result.filter((p) => !p.isFeatured)
+    if (soldout === "soldout")   result = result.filter((p) => p.isSoldOut)
+    if (soldout === "instock")   result = result.filter((p) => !p.isSoldOut)
+    return result
+  }, [products, featured, soldout])
+
+  const handleSearch = () => { setPage(1); load() }
+
+  const handleSort = (key: string) => {
+    if (!SORT_MAP[key]) return
+    setTableSort((prev) => {
+      if (prev?.key === key) return { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+      return { key, dir: "desc" }
+    })
+    setPage(1)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -83,6 +142,7 @@ export default function AdminProducts() {
     try {
       await deleteProduct(deleteTarget.id)
       setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id))
+      setTotal((t) => t - 1)
       success(`Đã xóa "${deleteTarget.name}"`)
       setDeleteTarget(null)
     } catch {
@@ -109,9 +169,7 @@ export default function AdminProducts() {
         isFeatured: product.isFeatured,
         isSoldOut: !product.isSoldOut,
       })
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, isSoldOut: updated.isSoldOut } : p))
-      )
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isSoldOut: updated.isSoldOut } : p)))
     } catch {
       toastError("Không thể cập nhật trạng thái")
     }
@@ -123,191 +181,170 @@ export default function AdminProducts() {
         title="Sản phẩm"
         subtitle="Quản lý sản phẩm và liên kết affiliate."
         actions={
-          <Button variant="primary" icon={Plus} as={Link} href="/admin/products/new">
+          <Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>
             Thêm sản phẩm
           </Button>
         }
       />
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white border border-[#e5e1d8] p-4">
-        <div className="w-full sm:hidden relative flex items-center">
-          <Search className="size-5 absolute left-3 text-[#5c403a]" aria-hidden="true" />
-          <input
-            id="admin-products-search"
-            name="q"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
-            placeholder="Tìm sản phẩm..."
-            aria-label="Search products"
-            className="w-full bg-transparent border-0 border-b border-[#e5beb6] focus:border-[#b51c00] focus:ring-0 pl-10 pr-4 py-2 font-sans text-[16px] text-[#1a1c1b] placeholder:text-[#5c403a]/50"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
-          {categories.map((cat) => {
-            const isActive = cat.slug === activeCategory
-            return (
-              <button
-                key={cat.slug}
-                onClick={() => { setActiveCategory(cat.slug); setPage(1) }}
-                className={`flex items-center gap-1 px-4 py-1.5 rounded-full font-mono text-[11px] whitespace-nowrap transition-all active:translate-y-0.5 active:translate-x-0.5 focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none ${
-                  isActive
-                    ? "bg-[#1a1c1b] text-[#FAFAF7]"
-                    : "border border-[#e5e1d8] text-[#1a1c1b] hover:bg-[#f4f4f1]"
-                }`}
-              >
-                {cat.icon}
-                {cat.name}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="w-full sm:w-auto flex justify-end">
-          <Button
-            variant="ghost"
-            icon={SortAsc}
-            onClick={() => setSort(sort === "newest" ? "price_asc" : "newest")}
-          >
-            {sort === "newest" ? "Mới nhất" : "Giá"}
+      <AdminFilterBar
+        search={{
+          value: search,
+          onChange: (v) => { setSearch(v); setPage(1) },
+          placeholder: "Tên sản phẩm, ID...",
+          id: "products-search",
+        }}
+        filters={
+          <>
+            <FilterSelect
+              label="Danh mục"
+              value={category}
+              onChange={(v) => { setCategory(v); setPage(1) }}
+              options={categoryOptions}
+              id="filter-category"
+            />
+            <FilterSelect
+              label="Nổi bật"
+              value={featured}
+              onChange={(v) => { setFeatured(v); setPage(1) }}
+              options={FEATURED_OPTIONS}
+              id="filter-featured"
+            />
+            <FilterSelect
+              label="Tồn kho"
+              value={soldout}
+              onChange={(v) => { setSoldout(v); setPage(1) }}
+              options={SOLDOUT_OPTIONS}
+              id="filter-soldout"
+            />
+          </>
+        }
+        actions={
+          <Button variant="secondary" icon={Search} onClick={handleSearch}>
+            Tìm
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="bg-white border border-[#e5e1d8] overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[800px]">
-          <thead>
-            <tr className="bg-[#f4f4f1]/50">
-              {["#", "Sản phẩm", "Danh mục", "Giá", "Rating", "Hoa hồng", "Clicks", "Trạng thái", "Thao tác"].map((h) => (
-                <th
-                  key={h}
-                  className={`py-4 px-6 font-mono text-[13px] leading-[16px] tracking-[0.05em] text-[#5c403a] font-bold uppercase ${
-                    h === "Giá" || h === "Clicks" || h === "Thao tác" ? "text-right" : h === "Trạng thái" ? "text-center" : ""
-                  }`}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-dashed divide-[#e5e1d8]">
-            {loading ? (
-              <tr>
-                <td colSpan={9} className="py-16">
-                  <PageSpinner />
-                </td>
-              </tr>
-            ) : paginated.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="py-4">
-                  <EmptyState
-                    icon={Search}
-                    title="Không tìm thấy sản phẩm"
-                    description="Thử điều chỉnh tìm kiếm hoặc bộ lọc."
-                  />
-                </td>
-              </tr>
-            ) : paginated.map((product) => (
-              <tr key={product.id} className="group hover:bg-[#FAFAF7] transition-colors border-b border-dashed border-[#e5e1d8]">
-                <td className="py-4 px-6 align-middle">
-                  <span className="font-mono text-[13px] text-[#5c403a]">#{product.number}</span>
-                </td>
-                <td className="py-4 px-6">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="relative size-12 bg-[#e2e3e0] shrink-0 flex items-center justify-center font-mono text-xs text-[#5c403a] overflow-hidden clip-bevel-md"
-                    >
-                      {product.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-sans text-[16px] leading-[24px] font-bold text-[#1a1c1b]">{product.name}</p>
-                      <p className="font-mono text-[11px] text-[#5c403a] mt-1">ID: {product.id}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4 px-6 align-middle">
-                  <span className="font-sans text-[16px] leading-[24px] text-[#1a1c1b]">{product.category?.name || "Chưa phân loại"}</span>
-                </td>
-                <td className="py-4 px-6 align-middle text-right">
-                  <span className="font-mono text-[16px] font-bold text-[#1a1c1b] bg-[#FFC93C] px-2 py-0.5">
-                    {formatPrice(product.price)}
-                  </span>
-                </td>
-                <td className="py-4 px-6 align-middle text-center">
-                  <div className="flex items-center justify-center gap-0.5">
-                    {product.rating > 0 ? (
-                      [1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} className={`size-3 ${s <= product.rating ? "text-[#f59e0b] fill-[#f59e0b]" : "text-[#e2e3e0]"}`} aria-hidden="true" />
-                      ))
-                    ) : (
-                      <span className="font-mono text-[11px] text-[#906f69]">—</span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-4 px-6 align-middle text-right">
-                  <span className="font-mono text-[16px] font-bold text-[#b51c00]">
-                    {formatPrice(product.commission)}
-                  </span>
-                </td>
-                <td className="py-4 px-6 align-middle text-right">
-                  <span className="font-mono text-[16px] font-bold text-[#b51c00]">{(product as ProductWithClicks)._count?.clicks ?? 0}</span>
-                </td>
-                <td className="py-4 px-6 align-middle text-center">
-                  <div className="flex flex-col items-center gap-1">
-                    <Badge tone={product.isFeatured ? "green" : "gray"}>
-                      {product.isFeatured ? "Nổi bật" : "Thường"}
-                    </Badge>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={product.isSoldOut}
-                        onChange={() => handleToggleSoldOut(product)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-8 h-4 bg-[#e2e3e0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[0.5px] after:left-[0.5px] after:bg-white after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#ba1a1a] relative" />
-                      <span className="font-mono text-[10px] uppercase text-[#5c403a]">{product.isSoldOut ? "Hết hàng" : "Còn hàng"}</span>
-                    </label>
-                  </div>
-                </td>
-                <td className="py-4 px-6 align-middle text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={Copy}
-                      onClick={() => handleCopyLink(product.shopeeUrl)}
-                      aria-label="Sao chép liên kết"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={Pencil}
-                      as={Link}
-                      href={`/admin/products/${product.id}`}
-                      aria-label="Sửa sản phẩm"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={Trash2}
-                      onClick={() => setDeleteTarget(product)}
-                      aria-label="Xóa sản phẩm"
-                      className="hover:text-[#ba1a1a] hover:bg-[#ffdad6]/20"
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={COLUMNS}
+        loading={loading}
+        empty={!loading && filtered.length === 0}
+        emptyIcon={Search}
+        emptyTitle="Không tìm thấy sản phẩm"
+        emptyDescription="Thử điều chỉnh bộ lọc hoặc từ khoá tìm kiếm."
+        sort={tableSort}
+        onSort={handleSort}
+      >
+        {filtered.map((product) => (
+          <DataTableRow key={product.id}>
+            {/* # */}
+            <DataTableCell>
+              <span className="font-mono text-[13px] text-[#5c403a]">#{product.number}</span>
+            </DataTableCell>
 
-      <Pagination
+            {/* Sản phẩm */}
+            <DataTableCell>
+              <div className="flex items-center gap-3">
+                <div className="relative size-10 shrink-0 bg-[#e2e3e0] overflow-hidden clip-bevel-sm">
+                  {product.imageUrl ? (
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.imageAlt || product.name}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                    />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <ImageIcon className="size-4 text-[#5c403a]/40" aria-hidden="true" />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-sans text-[14px] text-[#1a1c1b] truncate max-w-[240px]">{product.name}</p>
+                  <p className="font-mono text-[11px] text-[#5c403a] mt-0.5">ID: {product.id.slice(0, 8)}…</p>
+                </div>
+              </div>
+            </DataTableCell>
+
+            {/* Danh mục */}
+            <DataTableCell>
+              <span className="font-sans text-[14px] text-[#1a1c1b]">
+                {product.category?.name || <span className="text-[#906f69]">Chưa phân loại</span>}
+              </span>
+            </DataTableCell>
+
+            {/* Giá */}
+            <DataTableCell align="right">
+              <span className="font-mono text-[13px] font-bold text-[#1a1c1b] bg-[#FFC93C] px-2 py-0.5 tabular-nums">
+                {formatPrice(product.price)}
+              </span>
+            </DataTableCell>
+
+            {/* Rating */}
+            <DataTableCell align="center">
+              {product.rating > 0 ? (
+                <div className="flex items-center justify-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={`size-3 ${s <= product.rating ? "text-[#f59e0b] fill-[#f59e0b]" : "text-[#e2e3e0]"}`} aria-hidden="true" />
+                  ))}
+                </div>
+              ) : (
+                <span className="font-mono text-[11px] text-[#906f69]">—</span>
+              )}
+            </DataTableCell>
+
+            {/* Clicks */}
+            <DataTableCell align="right">
+              <span className="font-mono text-[13px] tabular-nums text-[#1a1c1b]">
+                {(product as ProductWithClicks)._count?.clicks ?? 0}
+              </span>
+            </DataTableCell>
+
+            {/* Nổi bật */}
+            <DataTableCell align="center">
+              <Badge tone={product.isFeatured ? "green" : "gray"}>
+                {product.isFeatured ? "Nổi bật" : "Bình thường"}
+              </Badge>
+            </DataTableCell>
+
+            {/* Tồn kho */}
+            <DataTableCell align="center">
+              <label className="flex items-center gap-1.5 cursor-pointer justify-center">
+                <input
+                  type="checkbox"
+                  checked={product.isSoldOut}
+                  onChange={() => handleToggleSoldOut(product)}
+                  className="sr-only peer"
+                />
+                <div className="relative w-8 h-4 bg-[#e2e3e0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[0.5px] after:left-[0.5px] after:bg-white after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#ba1a1a]" />
+                <span className="font-mono text-[10px] uppercase text-[#5c403a]">
+                  {product.isSoldOut ? "Hết hàng" : "Còn hàng"}
+                </span>
+              </label>
+            </DataTableCell>
+
+            {/* Thao tác */}
+            <DataTableCell align="right">
+              <div className="flex items-center justify-end gap-0.5">
+                <Button variant="ghost" size="sm" icon={Copy}   onClick={() => handleCopyLink(product.shopeeUrl)} aria-label="Sao chép liên kết" />
+                <Button variant="ghost" size="sm" icon={Pencil} onClick={() => setEditProductId(product.id)} aria-label="Sửa" />
+                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setDeleteTarget(product)} aria-label="Xóa" className="hover:text-[#ba1a1a] hover:bg-[#ffdad6]/20" />
+              </div>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTable>
+
+      <DataTablePagination
         page={page}
-        total={filtered.length}
+        total={total}
         pageSize={pageSize}
-        onChange={setPage}
+        onPageChange={(p) => setPage(p)}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+        label="sản phẩm"
       />
 
       <ConfirmModal
@@ -315,10 +352,27 @@ export default function AdminProducts() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Xóa sản phẩm"
+        icon={AlertTriangle}
         message={`Bạn có chắc muốn xóa "${deleteTarget?.name}"? Hành động này không thể hoàn tác.`}
         confirmLabel="Xóa"
+        confirmIcon={Trash2}
         danger
         loading={deleting}
+      />
+
+      <ProductFormModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSaved={() => { load() }}
+      />
+
+      <ProductFormModal
+        open={Boolean(editProductId)}
+        onClose={() => setEditProductId(undefined)}
+        productId={editProductId}
+        onSaved={(updated) => {
+          setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)))
+        }}
       />
     </div>
   )

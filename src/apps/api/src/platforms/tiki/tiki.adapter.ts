@@ -1,9 +1,17 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { PlatformAdapter, NormalizedProduct, PriceUpdate } from "../platform.adapter"
+import { BotSafeFetcher } from "../../shared/bot-safe-fetcher"
 
 const BASE_URL = "https://tiki.vn/api/v2"
-const TIMEOUT_MS = 10_000
-const USER_AGENT = "Mozilla/5.0 (compatible; PriceBot/1.0)"
+
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Accept": "application/json, text/plain, */*",
+  "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+  "Referer": "https://tiki.vn/",
+  "Origin": "https://tiki.vn",
+  "x-guest-token": "",
+}
 
 interface TikiProduct {
   id: number
@@ -23,6 +31,13 @@ interface TikiProduct {
 export class TikiAdapter extends PlatformAdapter {
   readonly platformId = "tiki"
   private readonly log = new Logger(TikiAdapter.name)
+  private readonly fetcher = new BotSafeFetcher({
+    baseDelayMs: 800,
+    jitterFactor: 0.5,
+    blockBackoffMs: 3000,
+    timeoutMs: 15_000,
+    loggerName: "TikiAdapter",
+  })
 
   async searchByName(query: string, limit = 10): Promise<NormalizedProduct[]> {
     const url = new URL(`${BASE_URL}/products`)
@@ -64,22 +79,7 @@ export class TikiAdapter extends PlatformAdapter {
   }
 
   private async get(url: string): Promise<any> {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": USER_AGENT,
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      })
-
-      if (res.status === 429) throw new Error("Tiki rate limit exceeded")
-      if (!res.ok) throw new Error(`Tiki API error: ${res.status}`)
-
-      return await res.json()
-    } catch (e) {
-      this.log.warn(`Tiki fetch error: ${(e as Error).message} — ${url}`)
-      return null
-    }
+    const { data } = await this.fetcher.fetchJson(url, BROWSER_HEADERS)
+    return data
   }
 }
