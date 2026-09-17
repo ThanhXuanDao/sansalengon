@@ -33,6 +33,7 @@ export async function PUT(
       postPrefix,
       hashtags,
       zaloOaId,
+      syncEnabled,
     } = body
 
     const niche = await prisma.niche.update({
@@ -53,6 +54,7 @@ export async function PUT(
         ...(postPrefix !== undefined && { postPrefix }),
         ...(hashtags !== undefined && { hashtags }),
         ...(zaloOaId !== undefined && { zaloOaId }),
+        ...(syncEnabled !== undefined && { syncEnabled }),
       },
     })
 

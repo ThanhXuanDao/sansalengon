@@ -19,7 +19,7 @@ const PlatformPriceBar = dynamic(() => import("@/components/compare/PlatformPric
 interface ProductCardProps {
   product: Product
   variant?: "highlight" | "compact"
-  onBuy?: (productId: string, shopeeUrl: string) => void
+  onBuy?: (productId: string) => void
   viewCount?: number // click count in recent window — shows 🔥 badge if > 0
 }
 
@@ -89,7 +89,7 @@ export default function ProductCard({
 
   const handleBuy = () => {
     if (isSoldOut) return
-    onBuy?.(product.id, product.shopeeUrl)
+    onBuy?.(product.id)
   }
 
   return (

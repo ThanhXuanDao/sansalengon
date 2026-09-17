@@ -95,7 +95,7 @@ export default async function ComparePage(
     {
       platformId: "shopee",
       platformName: "Shopee",
-      platformUrl: product.shopeeUrl,
+      platformUrl: product.productUrl,
       currentPrice: product.price,
       originalPrice: product.discountPct
         ? Math.round(product.price / (1 - product.discountPct / 100))

@@ -31,6 +31,7 @@ import {
   Workflow,
   Antenna,
   Settings2,
+  Globe,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { getCsrfToken } from "@/lib/utils"
@@ -44,6 +45,7 @@ const navItems = [
   { href: "/admin/niches", label: "Ngách sản phẩm", icon: Layers },
   { href: "/admin/niches/manage", label: "Quản lý ngách", icon: Settings2 },
   { href: "/admin/campaigns", label: "AT Campaigns", icon: Antenna },
+  { href: "/admin/sources",   label: "Nguồn đồng bộ", icon: Globe },
   { href: "/admin/coupons", label: "Mã giảm giá", icon: Ticket },
   { href: "/admin/feedback", label: "Phản hồi", icon: MessageSquare },
   { href: "/admin/ai-config", label: "Cấu hình AI", icon: Bot },
@@ -351,8 +353,8 @@ export default function AdminDashboardLayout({
         )}
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-[#FAFAF7]">
-          <div className="w-full px-6 md:px-8 py-6 pb-12">
+        <main className="flex-1 overflow-hidden flex flex-col bg-[#FAFAF7]">
+          <div className="flex-1 min-h-0 flex flex-col w-full px-6 md:px-8 pt-6 pb-4 overflow-y-auto">
             {children}
           </div>
         </main>

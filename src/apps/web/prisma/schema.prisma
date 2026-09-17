@@ -17,7 +17,7 @@ model Product {
   discountPct      Int?
   imageUrl         String
   imageAlt         String
-  shopeeUrl        String
+  productUrl       String
   affiliateUrl     String?
   source           String            @default("shopee")
   externalId       String?
@@ -126,6 +126,7 @@ model Niche {
   postPrefix     String?
   hashtags       String?
   zaloOaId       String?
+  syncEnabled    Boolean   @default(true)       // false = bỏ qua ngách này khi sync
   launchedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -295,6 +296,11 @@ model AtCampaign {
   approval       String                    // "successful" | "pending" | "rejected"
   cookieDuration Int?
   status         Int
+  campaignType   String   @default("product")  // "product" | "app" | "link" | "website"
+  ctaTitle       String?
+  ctaDescription String?
+  ctaImageUrl    String?
+  ctaLabel       String?
   lastSeenAt     DateTime                  // lần sync gần nhất thấy campaign này
   createdAt      DateTime @default(now())
 
@@ -311,6 +317,21 @@ model AtCampaignNicheMatch {
 
   @@unique([campaignId, nicheId])
   @@index([nicheId])
+}
+
+// ── Website scraper source configs ───────────────────────────
+// Mỗi row = 1 website nguồn — config scraper, không chứa logic scraping
+
+model SyncSource {
+  id          String   @id @default(cuid())
+  name        String                        // tên hiển thị
+  slug        String   @unique              // ID URL-safe
+  baseUrl     String
+  enabled     Boolean  @default(true)
+  config      String   @default("{}")       // JSON: selectors, pagination, rateLimit, etc.
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // ── Per-niche platform integration config ────────────────────

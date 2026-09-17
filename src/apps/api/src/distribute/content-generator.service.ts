@@ -11,7 +11,7 @@ export interface ProductForBroadcast {
   price: number;
   discountPct: number | null;
   imageUrl: string;
-  shopeeUrl: string;
+  productUrl: string;
   rating: number;
   category: { name: string; slug: string };
 }

@@ -11,7 +11,7 @@ export async function GET(
 
   const product = await prisma.product.findUnique({
     where: { id },
-    select: { shopeeUrl: true, affiliateUrl: true, isSoldOut: true },
+    select: { productUrl: true, affiliateUrl: true, isSoldOut: true },
   })
 
   if (!product) {
@@ -27,7 +27,7 @@ export async function GET(
     .create({ data: { productId: id, source, referer } })
     .catch(() => {})
 
-  // Ưu tiên affiliateUrl (Shopee short link có tracking) — fallback về shopeeUrl
-  const destination = product.affiliateUrl || product.shopeeUrl
+  // Ưu tiên affiliateUrl (AT/affiliate tracking link) — fallback về productUrl gốc
+  const destination = product.affiliateUrl || product.productUrl
   return NextResponse.redirect(destination, { status: 302 })
 }

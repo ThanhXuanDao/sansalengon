@@ -7,7 +7,11 @@ export interface Product {
   discountPct: number | null
   imageUrl: string
   imageAlt: string
-  shopeeUrl: string
+  productUrl: string
+  affiliateUrl: string | null
+  source: string
+  externalId?: string | null
+  lastSyncedAt?: string | null
   categoryId: string
   category: { id: string; name: string; slug: string }
   isFeatured: boolean

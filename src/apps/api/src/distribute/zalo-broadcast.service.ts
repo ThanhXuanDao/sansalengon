@@ -170,7 +170,7 @@ export class ZaloBroadcastService {
       price: p.price,
       discountPct: p.discountPct,
       imageUrl: p.imageUrl,
-      shopeeUrl: p.shopeeUrl,
+      productUrl: p.productUrl,
       rating: p.rating,
       category: { name: p.category.name, slug: p.category.slug },
     }));

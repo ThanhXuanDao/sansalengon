@@ -6,7 +6,6 @@ import Link from "next/link"
 import { BookOpen, ChevronRight, Tag } from "lucide-react"
 import Navbar from "@/components/layout/Navbar"
 import { useProducts } from "@/hooks/useProducts"
-import { logClick } from "@/lib/services/click"
 import type { NicheConfig } from "@/lib/niches"
 import type { Product } from "@/types"
 import type { Coupon } from "@/components/coupons/CouponCard"
@@ -41,9 +40,8 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
   )
   const total = data.total || initialProducts.total
 
-  const handleBuyProduct = useCallback((productId: string, shopeeUrl: string) => {
-    window.open(shopeeUrl, "_blank")
-    logClick(productId, "website").catch(() => {})
+  const handleBuyProduct = useCallback((productId: string) => {
+    window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
   }, [])
 
   const handleSortChange = useCallback((s: string) => setSort(s), [])

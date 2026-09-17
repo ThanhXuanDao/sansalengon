@@ -64,7 +64,7 @@ CREATE TABLE "Product" (
     "discountPct" INTEGER,
     "imageUrl"    TEXT      NOT NULL,
     "imageAlt"    TEXT      NOT NULL,
-    "shopeeUrl"    TEXT NOT NULL,
+    "productUrl"   TEXT NOT NULL,
     "affiliateUrl" TEXT,
     "source"       TEXT NOT NULL DEFAULT 'shopee',
     "externalId"   TEXT,

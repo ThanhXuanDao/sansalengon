@@ -27,7 +27,7 @@ interface DataTableProps {
   sort?: SortState
   onSort?: (key: string) => void
   children: ReactNode
-  stickyHeader?: boolean
+  className?: string
 }
 
 const alignClass = {
@@ -46,6 +46,7 @@ export function DataTable({
   sort,
   onSort,
   children,
+  className = "",
 }: DataTableProps) {
   const colSpan = columns.length
 
@@ -55,10 +56,11 @@ export function DataTable({
   }
 
   return (
-    <div className="bg-white border border-[#e5e1d8] overflow-x-auto">
+    <div className={`bg-white border border-[#e5e1d8] flex flex-col flex-1 min-h-0 overflow-hidden ${className}`}>
+      <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0">
       <table className="w-full text-left border-collapse min-w-[600px]">
-        <thead>
-          <tr className="bg-[#f4f4f1]/60 border-b border-[#e5e1d8]">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-[#f4f4f1] border-b border-[#e5e1d8]">
             {columns.map((col) => {
               const isSorted = sort?.key === col.key
               const align = col.align ?? "left"
@@ -107,6 +109,7 @@ export function DataTable({
           ) : children}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

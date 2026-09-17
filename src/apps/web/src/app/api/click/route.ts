@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      select: { id: true, shopeeUrl: true },
+      select: { id: true, productUrl: true },
     })
 
     if (!product) {
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ shopeeUrl: product.shopeeUrl })
+    return NextResponse.json({ productUrl: product.productUrl })
   } catch {
     return NextResponse.json(
       { error: "Invalid request body" },

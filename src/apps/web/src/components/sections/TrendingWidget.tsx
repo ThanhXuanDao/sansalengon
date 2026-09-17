@@ -5,7 +5,6 @@ import Image from "next/image"
 import { Flame, ChevronLeft, ChevronRight, Eye, ImageOff } from "lucide-react"
 import { useTrending, type TrendingProduct } from "@/hooks/useTrending"
 import { useFormatPrice } from "@/lib/currency-context"
-import { logClick } from "@/lib/services/click"
 
 // ── Individual card ──────────────────────────────────────────────────────────
 
@@ -94,7 +93,7 @@ function TrendingCardSkeleton() {
 // ── Widget ───────────────────────────────────────────────────────────────────
 
 interface TrendingWidgetProps {
-  onBuyProduct?: (productId: string, shopeeUrl: string) => void
+  onBuyProduct?: (productId: string) => void
 }
 
 export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
@@ -107,9 +106,8 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   }
 
   const handleBuy = (product: TrendingProduct) => {
-    window.open(product.shopeeUrl, "_blank")
-    logClick(product.id, "website").catch(() => {})
-    onBuyProduct?.(product.id, product.shopeeUrl)
+    window.open(`/api/affiliate/redirect/${product.id}?src=website`, "_blank")
+    onBuyProduct?.(product.id)
   }
 
   // Don't render anything if no data and not loading

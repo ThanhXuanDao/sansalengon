@@ -57,7 +57,7 @@ export async function createProduct(data: {
   discountPct?: number | null
   imageUrl: string
   imageAlt?: string
-  shopeeUrl: string
+  productUrl: string
   categoryId: string
   isFeatured?: boolean
   isSoldOut?: boolean
@@ -82,7 +82,8 @@ export async function updateProduct(
     discountPct?: number | null
     imageUrl: string
     imageAlt?: string
-    shopeeUrl: string
+    productUrl: string
+    affiliateUrl?: string | null
     categoryId: string
     isFeatured?: boolean
     isSoldOut?: boolean

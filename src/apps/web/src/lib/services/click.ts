@@ -3,7 +3,7 @@ export type ClickSource = "website" | "zalo" | "facebook" | "direct"
 export async function logClick(
   productId: string,
   source: ClickSource = "website"
-): Promise<{ shopeeUrl: string }> {
+): Promise<{ productUrl: string }> {
   const res = await fetch("/api/click", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

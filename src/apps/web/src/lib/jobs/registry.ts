@@ -15,11 +15,10 @@ const NICHE_OPTIONS_FALLBACK = [{ value: "all", label: "Tất cả ngách" }]
 export const NICHE_OPTIONS = NICHE_OPTIONS_FALLBACK
 
 const PRODUCT_SOURCE_OPTIONS = [
-  { value: "all",         label: "Tất cả nguồn (Shopee + AccessTrade + Tiki + Lazada)" },
-  { value: "shopee",      label: "Shopee Affiliate — keyword search, short link" },
-  { value: "accesstrade", label: "AccessTrade — campaign offers, tracking link" },
-  { value: "tiki",        label: "Tiki — Cách 1 (AT campaign) + Cách 2 (public API)" },
-  { value: "lazada",      label: "Lazada — Cách 1 (AT campaign) + Cách 2 (Open Platform)" },
+  { value: "all",         label: "Tất cả nguồn (Shopee + Lazada + AccessTrade)" },
+  { value: "shopee",      label: "Shopee — Affiliate API hoặc qua AT tracking" },
+  { value: "lazada",      label: "Lazada — Affiliate API hoặc qua AT tracking" },
+  { value: "accesstrade", label: "AccessTrade — theo campaign (product / app / link)" },
 ]
 
 const COUPON_SOURCE_OPTIONS = [
@@ -34,7 +33,7 @@ export const JOB_DEFINITIONS: JobDefinition[] = [
   {
     key: "product_sync",
     name: "Đồng bộ sản phẩm",
-    description: "Lấy sản phẩm từ 4 nguồn song song: Shopee Affiliate API (short link, có hoa hồng Shopee) → AccessTrade /v1/offers (campaign đã duyệt, có hoa hồng AT) → Tiki Cách 1 AT / Cách 2 public API → Lazada Cách 1 AT / Cách 2 Open Platform. Đồng thời upsert danh sách AT campaigns vào DB (xem Admin → AT Campaigns). Cập nhật giá, ghi PriceHistory, dedup theo source+externalId.",
+    description: "Lấy sản phẩm từ 3 đầu mối: Shopee (Affiliate API hoặc qua AT tracking) → Lazada (Affiliate API hoặc qua AT tracking) → AccessTrade (campaign theo loại: product/app/link). Đồng thời upsert danh sách AT campaigns vào DB (xem Admin → AT Campaigns). Cập nhật giá, ghi PriceHistory, dedup theo source+externalId.",
     category: "sync",
     icon: "RefreshCw",
     defaultConfig: { niche: "all", source: "all" },
@@ -212,7 +211,7 @@ export function getJobDefinition(key: string): JobDefinition | undefined {
 // Default schedules per job key (cron expressions)
 export const JOB_DEFAULT_SCHEDULES: Record<string, { cron: string; enabled: boolean }> = {
   // Sync — schedule khớp NestJS @Cron (web job là backup + manual trigger)
-  product_sync:   { cron: "0 */4 * * *",   enabled: true  },  // mỗi 4h (0h,4h,8h,12h,16h,20h)
+  product_sync:   { cron: "*/30 * * * *",  enabled: true  },  // mỗi 30 phút
   coupon_sync:    { cron: "0 6,18 * * *",  enabled: true  },  // 6h & 18h
   platform_match: { cron: "0 2 * * *",     enabled: true  },  // hằng ngày 2h
   // Maintenance

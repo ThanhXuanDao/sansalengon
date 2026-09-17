@@ -172,14 +172,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
   const body = await request.json()
-  const { name, price, commission, rating, discountPct, imageUrl, imageAlt, shopeeUrl, categoryId, isFeatured, isSoldOut } = body
+  const { name, price, commission, rating, discountPct, imageUrl, imageAlt, productUrl, categoryId, isFeatured, isSoldOut } = body
 
-  if (!name || !price || !imageUrl || !shopeeUrl || !categoryId) {
+  if (!name || !price || !imageUrl || !productUrl || !categoryId) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
 
   const product = await prisma.product.create({
-    data: { name, price: Number(price), commission: commission ? Number(commission) : 0, rating: rating ? Number(rating) : 0, discountPct: discountPct ? Number(discountPct) : null, imageUrl, imageAlt: imageAlt || name, shopeeUrl, categoryId, isFeatured: isFeatured || false, isSoldOut: isSoldOut || false },
+    data: { name, price: Number(price), commission: commission ? Number(commission) : 0, rating: rating ? Number(rating) : 0, discountPct: discountPct ? Number(discountPct) : null, imageUrl, imageAlt: imageAlt || name, productUrl, categoryId, isFeatured: isFeatured || false, isSoldOut: isSoldOut || false },
     include: { category: true },
   })
   return NextResponse.json({ data: product }, { status: 201 })

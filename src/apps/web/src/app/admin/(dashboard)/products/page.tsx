@@ -38,9 +38,34 @@ const SOLDOUT_OPTIONS = [
   { value: "soldout", label: "Hết hàng" },
 ]
 
+const SOURCE_OPTIONS = [
+  { value: "all",         label: "Tất cả nguồn" },
+  { value: "tiki",        label: "Tiki" },
+  { value: "shopee",      label: "Shopee" },
+  { value: "accesstrade", label: "AccessTrade" },
+  { value: "lazada",      label: "Lazada" },
+]
+
+const SOURCE_STYLE: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  tiki:        { label: "Tiki",        bg: "bg-[#e3f2fd]", text: "text-[#0d5cb6]", border: "border-[#0d5cb6]/20" },
+  shopee:      { label: "Shopee",      bg: "bg-[#fff3e0]", text: "text-[#c05800]", border: "border-[#c05800]/20" },
+  accesstrade: { label: "AccessTrade", bg: "bg-[#f3e8ff]", text: "text-[#7c3aed]", border: "border-[#7c3aed]/20" },
+  lazada:      { label: "Lazada",      bg: "bg-[#e8f5e9]", text: "text-[#1a6b3c]", border: "border-[#1a6b3c]/20" },
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const s = SOURCE_STYLE[source] ?? { label: source, bg: "bg-[#f4f4f1]", text: "text-[#5c403a]", border: "border-[#e5e1d8]" }
+  return (
+    <span className={`inline-block px-2 py-0.5 font-mono text-[10px] border ${s.bg} ${s.text} ${s.border}`}>
+      {s.label}
+    </span>
+  )
+}
+
 const COLUMNS: TableColumn[] = [
   { key: "number",   label: "#",         width: "56px" },
   { key: "name",     label: "Sản phẩm" },
+  { key: "source",   label: "Nguồn",    align: "center", width: "110px" },
   { key: "category", label: "Danh mục" },
   { key: "price",    label: "Giá",      align: "right",  sortable: true },
   { key: "rating",   label: "Rating",   align: "center", sortable: true },
@@ -63,6 +88,7 @@ export default function AdminProducts() {
   const [category, setCategory] = useState("semua")
   const [featured, setFeatured] = useState("all")
   const [soldout, setSoldout]   = useState("all")
+  const [sourceFilter, setSourceFilter] = useState("all")
   const [tableSort, setTableSort] = useState<SortState | undefined>(undefined)
 
   const [products, setProducts] = useState<Product[]>([])
@@ -118,12 +144,13 @@ export default function AdminProducts() {
   // Client-side featured / soldout filters (API doesn't expose these params)
   const filtered = useMemo(() => {
     let result = products
-    if (featured === "featured") result = result.filter((p) => p.isFeatured)
-    if (featured === "normal")   result = result.filter((p) => !p.isFeatured)
-    if (soldout === "soldout")   result = result.filter((p) => p.isSoldOut)
-    if (soldout === "instock")   result = result.filter((p) => !p.isSoldOut)
+    if (featured === "featured")    result = result.filter((p) => p.isFeatured)
+    if (featured === "normal")      result = result.filter((p) => !p.isFeatured)
+    if (soldout === "soldout")      result = result.filter((p) => p.isSoldOut)
+    if (soldout === "instock")      result = result.filter((p) => !p.isSoldOut)
+    if (sourceFilter !== "all")     result = result.filter((p) => p.source === sourceFilter)
     return result
-  }, [products, featured, soldout])
+  }, [products, featured, soldout, sourceFilter])
 
   const handleSearch = () => { setPage(1); load() }
 
@@ -164,7 +191,7 @@ export default function AdminProducts() {
         price: product.price,
         imageUrl: product.imageUrl,
         imageAlt: product.imageAlt,
-        shopeeUrl: product.shopeeUrl,
+        productUrl: product.productUrl,
         categoryId: product.categoryId,
         isFeatured: product.isFeatured,
         isSoldOut: !product.isSoldOut,
@@ -176,7 +203,7 @@ export default function AdminProducts() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 h-full">
       <AdminPageShell
         title="Sản phẩm"
         subtitle="Quản lý sản phẩm và liên kết affiliate."
@@ -216,6 +243,13 @@ export default function AdminProducts() {
               onChange={(v) => { setSoldout(v); setPage(1) }}
               options={SOLDOUT_OPTIONS}
               id="filter-soldout"
+            />
+            <FilterSelect
+              label="Nguồn"
+              value={sourceFilter}
+              onChange={(v) => { setSourceFilter(v); setPage(1) }}
+              options={SOURCE_OPTIONS}
+              id="filter-source"
             />
           </>
         }
@@ -267,6 +301,11 @@ export default function AdminProducts() {
                   <p className="font-mono text-[11px] text-[#5c403a] mt-0.5">ID: {product.id.slice(0, 8)}…</p>
                 </div>
               </div>
+            </DataTableCell>
+
+            {/* Nguồn */}
+            <DataTableCell align="center">
+              <SourceBadge source={product.source} />
             </DataTableCell>
 
             {/* Danh mục */}
@@ -329,7 +368,7 @@ export default function AdminProducts() {
             {/* Thao tác */}
             <DataTableCell align="right">
               <div className="flex items-center justify-end gap-0.5">
-                <Button variant="ghost" size="sm" icon={Copy}   onClick={() => handleCopyLink(product.shopeeUrl)} aria-label="Sao chép liên kết" />
+                <Button variant="ghost" size="sm" icon={Copy}   onClick={() => handleCopyLink(product.productUrl)} aria-label="Sao chép liên kết" />
                 <Button variant="ghost" size="sm" icon={Pencil} onClick={() => setEditProductId(product.id)} aria-label="Sửa" />
                 <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setDeleteTarget(product)} aria-label="Xóa" className="hover:text-[#ba1a1a] hover:bg-[#ffdad6]/20" />
               </div>

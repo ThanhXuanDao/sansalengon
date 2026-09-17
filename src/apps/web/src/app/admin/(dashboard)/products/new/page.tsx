@@ -29,10 +29,10 @@ export default function NewProduct() {
   const handleSave = async () => {
     const name = nameRef.current?.value
     const categoryId = categoryRef.current?.value
-    const shopeeUrl = linkRef.current?.value
+    const productUrl = linkRef.current?.value
     const priceText = priceRef.current?.value
 
-    if (!name || !categoryId || !shopeeUrl || !priceText) {
+    if (!name || !categoryId || !productUrl || !priceText) {
       toastError("Vui lòng điền đầy đủ thông tin bắt buộc")
       return
     }
@@ -61,7 +61,7 @@ export default function NewProduct() {
         discountPct: discountVal > 0 ? discountVal : null,
         imageUrl: trimmedUrl || "https://picsum.photos/seed/" + Date.now() + "/400/400",
         imageAlt: name,
-        shopeeUrl,
+        productUrl,
         categoryId,
         isFeatured: status,
         isSoldOut,

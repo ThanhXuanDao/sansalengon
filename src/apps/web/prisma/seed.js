@@ -214,6 +214,40 @@ const NICHE_TIKI_INTEGRATIONS = NICHES.map((n) => ({
   campaignId: null,
 }))
 
+const SYNC_SOURCES = [
+  {
+    id: "syncsrc_tiki",
+    name: "Tiki",
+    slug: "tiki",
+    baseUrl: "https://tiki.vn",
+    enabled: true,
+    description: "Tiki — gọi thẳng Tiki public API, wrap AT tracking link",
+    config: JSON.stringify({
+      tikiBatchSize: 2,
+      tikiBatchPauseMin: 15,
+      tikiInterNicheDelaySec: 15,
+      tikiMaxPages: 2,
+      // Category IDs Tiki — dùng slug ngách làm key, giá trị là mảng số.
+      // Ngách không có entry → tự động dùng keyword search.
+      // Kiểm tra ID tại: tiki.vn/api/v2/products?category=<id>
+      categoryIds: {
+        electronics: [4221],
+        beauty:      [1520],
+        home:        [1883],
+        sports:      [1975],
+        kids:        [2549],
+        food:        [4384],
+        books:       [8322],
+        health:      [2322],
+        fashion:     [931, 1703, 1686],
+        pets:        [5451],
+        gaming:      [2667, 12672],
+        tools:       [1974],
+      },
+    }),
+  },
+]
+
 async function main() {
   console.log(`Seeding ${NICHES.length} niches...`)
   for (const niche of NICHES) {
@@ -235,6 +269,7 @@ async function main() {
     await prisma.nicheIntegration.upsert({
       where: { nicheId_platform: { nicheId: intg.nicheId, platform: intg.platform } },
       update: {}, // bảo toàn config user đã chỉnh
+      update: {},
       create: {
         id:             intg.id,
         nicheId:        intg.nicheId,
@@ -248,6 +283,16 @@ async function main() {
       },
     })
     console.log(`  ✓ tiki integration → ${intg.nicheId}`)
+  }
+
+  console.log(`Seeding ${SYNC_SOURCES.length} sync sources...`)
+  for (const src of SYNC_SOURCES) {
+    await prisma.syncSource.upsert({
+      where: { slug: src.slug },
+      update: {}, // bảo toàn config user đã chỉnh
+      create: src,
+    })
+    console.log(`  ✓ SyncSource: ${src.name} (${src.slug})`)
   }
 
   console.log("Seed done.")

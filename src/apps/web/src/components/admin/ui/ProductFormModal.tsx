@@ -21,7 +21,7 @@ const EMPTY_FORM = {
   imageUrl: "",
   name: "",
   categoryId: "",
-  shopeeUrl: "",
+  productUrl: "",
   price: "",
   commission: "",
   discountPct: "",
@@ -58,7 +58,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
           imageUrl: p.imageUrl,
           name: p.name,
           categoryId: p.categoryId,
-          shopeeUrl: p.shopeeUrl,
+          productUrl: p.productUrl,
           price: p.price.toLocaleString("vi-VN"),
           commission: p.commission.toLocaleString("vi-VN"),
           discountPct: p.discountPct ? String(p.discountPct) : "",
@@ -87,7 +87,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
       toastError("Tên sản phẩm không được trống")
       return
     }
-    if (!form.shopeeUrl.trim()) {
+    if (!form.productUrl.trim()) {
       toastError("Liên kết affiliate không được trống")
       return
     }
@@ -103,7 +103,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
       discountPct: discountVal > 0 ? discountVal : null,
       imageUrl: trimmedUrl,
       imageAlt: form.name.trim(),
-      shopeeUrl: form.shopeeUrl.trim(),
+      productUrl: form.productUrl.trim(),
       categoryId: form.categoryId || categories?.[0]?.id || "",
       isFeatured: form.isFeatured,
       isSoldOut: form.isSoldOut,
@@ -240,8 +240,8 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
             <input
               id="pf-link"
               type="url"
-              value={form.shopeeUrl}
-              onChange={(e) => set("shopeeUrl", e.target.value)}
+              value={form.productUrl}
+              onChange={(e) => set("productUrl", e.target.value)}
               className="w-full border border-[#e5e1d8] bg-white px-3 py-2 font-mono text-[13px] text-[#1a1c1b] focus:outline-none focus:border-[#b51c00] focus:ring-1 focus:ring-[#b51c00]"
             />
           </div>

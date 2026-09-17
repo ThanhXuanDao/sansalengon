@@ -9,7 +9,7 @@ import { useNiches } from "@/lib/niche-context"
 
 interface HeroProps {
   featuredProducts?: Product[]
-  onBuyProduct?: (productId: string, shopeeUrl: string) => void
+  onBuyProduct?: (productId: string) => void
   isFeaturedLoading?: boolean
   storeName?: string
   tagline?: string
@@ -25,7 +25,9 @@ const defaultFeatured: Product[] = [
     discountPct: null,
     imageUrl: "https://picsum.photos/seed/camera/400/400",
     imageAlt: "Smart home security camera",
-    shopeeUrl: "#",
+    productUrl: "#",
+    affiliateUrl: null,
+    source: "shopee",
     categoryId: "cat1",
     category: { id: "cat1", name: "Điện tử", slug: "dien-tu" },
     isFeatured: true,
@@ -42,7 +44,9 @@ const defaultFeatured: Product[] = [
     discountPct: null,
     imageUrl: "https://picsum.photos/seed/earbuds/400/400",
     imageAlt: "Wireless earbuds with ANC",
-    shopeeUrl: "#",
+    productUrl: "#",
+    affiliateUrl: null,
+    source: "shopee",
     categoryId: "cat3",
     category: { id: "cat3", name: "Gia dụng", slug: "gia-dung" },
     isFeatured: true,
@@ -59,7 +63,9 @@ const defaultFeatured: Product[] = [
     discountPct: null,
     imageUrl: "https://picsum.photos/seed/smartwatch/400/400",
     imageAlt: "Modern smartwatch",
-    shopeeUrl: "#",
+    productUrl: "#",
+    affiliateUrl: null,
+    source: "shopee",
     categoryId: "cat1",
     category: { id: "cat1", name: "Điện tử", slug: "dien-tu" },
     isFeatured: true,
@@ -77,7 +83,9 @@ const defaultFeatured: Product[] = [
     imageUrl:
       "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=2487&auto=format&fit=crop",
     imageAlt: "Minimalist desk lamp",
-    shopeeUrl: "#",
+    productUrl: "#",
+    affiliateUrl: null,
+    source: "shopee",
     categoryId: "cat3",
     category: { id: "cat3", name: "Gia dụng", slug: "gia-dung" },
     isFeatured: true,
@@ -98,9 +106,9 @@ export default function Hero({
   const displayProducts = featuredProducts?.length ? featuredProducts : defaultFeatured
   const gridProducts = displayProducts.slice(0, 4)
 
-  const handleCardClick = (productId: string, shopeeUrl: string) => {
-    if (!onBuyProduct || shopeeUrl === "#") return
-    onBuyProduct(productId, shopeeUrl)
+  const handleCardClick = (productId: string) => {
+    if (!onBuyProduct || productId === "#") return
+    onBuyProduct(productId)
   }
 
   return (
@@ -219,7 +227,7 @@ export default function Hero({
                 {gridProducts.map((product, index) => (
                   <GalleryGridCell key={product.id} index={index}>
                     <button
-                      onClick={() => handleCardClick(product.id, product.shopeeUrl)}
+                      onClick={() => handleCardClick(product.id)}
                       className="group relative size-full cursor-pointer text-left overflow-hidden rounded-xl"
                       aria-label={`Xem ${product.name}`}
                     >

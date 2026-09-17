@@ -65,41 +65,49 @@ const AT_OFFERS_API = "https://api.accesstrade.vn/v1/offers";
 const TIKI_SEARCH_API = "https://tiki.vn/api/v2/products";
 const TIKI_PRODUCT_BASE = "https://tiki.vn";
 
-// Tiki category IDs đã xác nhận trả về sản phẩm đúng ngành.
-// Niches KHÔNG có trong map → keyword search (keyword_seeds[0]).
-// Confirmed working: electronics(4221), beauty(1520), home(1883),
-//   sports(1975), kids(2549), food(4384), books(8322)
-//   fashion: array [931, 1703, 1686] = thời trang nữ + giày nữ + giày nam
-// Confirmed broken (total=0): pets(13768), tools(11659), gaming(6216), health(6757)
-// NOTE: home was 1703 (now "Giày - Dép nữ" — Tiki repurposed it), correct ID is 1883
-const TIKI_CATEGORY_IDS: Record<string, number | number[]> = {
-  electronics: 4221,          // Thiết bị điện tử & Điện lạnh
-  beauty:      1520,          // Làm Đẹp & Sức Khỏe
-  home:        1883,          // Nhà Cửa - Đời Sống
-  sports:      1975,          // Thể Thao & Dã Ngoại
-  kids:        2549,          // Mẹ & Bé
-  food:        4384,          // Thực Phẩm & Đồ Uống
-  books:       8322,          // Sách, Văn Phòng & Quà Tặng
-  fashion:     [931, 1703, 1686], // Thời trang nữ + Giày-Dép nữ + Giày-Dép nam
-  // pets, tools, gaming, health: category IDs không có data → keyword search
-};
+// Tiki category IDs được cấu hình trong SyncSource (slug="tiki") config.categoryIds.
+// Key = niche slug, value = mảng category ID Tiki.
+// Niches không có entry → keyword search tự động.
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Rotate UA between sync passes so retry uses a different browser fingerprint
-const TIKI_UA_POOL = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+// UA pool paired with matching Sec-CH-UA hints — rotate per-batch to vary fingerprint
+const TIKI_UA_POOL: Array<{ ua: string; chUA: string; platform: string }> = [
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    chUA: '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    platform: '"Windows"',
+  },
+  {
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    chUA: '"Google Chrome";v="124", "Chromium";v="124", "Not.A/Brand";v="24"',
+    platform: '"macOS"',
+  },
+  {
+    ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+    chUA: '"Microsoft Edge";v="126", "Chromium";v="126", "Not.A/Brand";v="24"',
+    platform: '"Windows"',
+  },
+  {
+    ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    chUA: '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    platform: '"macOS"',
+  },
 ];
 
 function buildTikiHeaders(uaIndex: number): Record<string, string> {
+  const profile = TIKI_UA_POOL[uaIndex % TIKI_UA_POOL.length];
   return {
-    "User-Agent": TIKI_UA_POOL[uaIndex % TIKI_UA_POOL.length],
+    "User-Agent": profile.ua,
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
     "Referer": "https://tiki.vn/",
     "Origin": "https://tiki.vn",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-CH-UA": profile.chUA,
+    "Sec-CH-UA-Mobile": "?0",
+    "Sec-CH-UA-Platform": profile.platform,
   };
 }
 
@@ -121,6 +129,8 @@ export class DealSyncService {
   private atCampaignsCache: { campaigns: AccessTradeCampaign[]; fetchedAt: number } | null = null;
   // UA rotation index — incremented before retry pass so blocked niches use different fingerprint
   private tikiUaIndex = 0;
+  // Set to true khi phát hiện IP bị Tiki ban toàn bộ trong một run
+  private tikiIpBanned = false;
   private readonly AT_CAMPAIGNS_CACHE_TTL = 4 * 60 * 60 * 1000;
   // Concurrency guard + status snapshot for web polling
   private syncRunning = false;
@@ -174,6 +184,7 @@ export class DealSyncService {
 
     const t0 = Date.now();
     const reports: SyncReport[] = [];
+    this.tikiIpBanned = false; // reset mỗi run
 
     const runNiche = async (niche: NicheConfig): Promise<SyncReport> =>
       this.syncNiche(niche, source).catch(async (e): Promise<SyncReport> => {
@@ -184,31 +195,59 @@ export class DealSyncService {
         return { niche: niche.id, fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: 0, bySource: {} };
       });
 
-    const isTikiSync = source === "all" || source === "tiki";
+    const isTikiSync = source === "all" || source === "tiki" || source === "accesstrade";
     if (isTikiSync && targets.length > 1) {
-      // Batched mode: group niches into batches, long pause between batches to avoid Tiki IP ban.
-      // Config is read from AppSetting (key "sync_config") — fallback to safe defaults.
+      // Paged cursor mode: mỗi run chỉ lấy 1 page/ngách → request rate thấp, không cần batch pause.
+      // Trang tiếp theo được lưu trong SyncSource.config.pageState, cập nhật sau mỗi run.
       const cfg = await this.readTikiSyncConfig();
-      const batchPauseMs = cfg.tikiBatchPauseMin * 60_000;
       const interNicheMs = cfg.tikiInterNicheDelaySec * 1_000;
 
-      this.log.log(
-        `[Tiki] Batch sync: ${targets.length} niches, batch=${cfg.tikiBatchSize}, pause=${cfg.tikiBatchPauseMin}min, inter-niche=${cfg.tikiInterNicheDelaySec}s`
-      );
+      // Niche resume cursor: nếu run trước bị gián đoạn (IP ban), lần này bắt đầu từ
+      // niche đầu tiên bị fail → đảm bảo mọi ngách đều được sync dần qua các run.
+      let rotatedTargets = [...targets];
+      if (cfg.nicheResumeFromId) {
+        const resumeIdx = rotatedTargets.findIndex((n) => n.id === cfg.nicheResumeFromId);
+        if (resumeIdx > 0) {
+          rotatedTargets = [...rotatedTargets.slice(resumeIdx), ...rotatedTargets.slice(0, resumeIdx)];
+          this.log.log(`[Tiki] Resuming from niche "${cfg.nicheResumeFromId}" (rotated ${resumeIdx} position(s))`);
+        }
+      }
 
-      for (let batchStart = 0; batchStart < targets.length; batchStart += cfg.tikiBatchSize) {
-        const batchNum = Math.floor(batchStart / cfg.tikiBatchSize) + 1;
-        const totalBatches = Math.ceil(targets.length / cfg.tikiBatchSize);
-        if (batchStart > 0) {
-          this.log.log(`[Tiki] Batch ${batchNum}/${totalBatches}: pausing ${cfg.tikiBatchPauseMin}min to let rate-limit reset...`);
-          await sleep(batchPauseMs);
+      this.log.log(`[Tiki] Paged sync: ${rotatedTargets.length} niches, inter-niche=${cfg.tikiInterNicheDelaySec}s`);
+
+      // Abort chỉ khi 2 ngách liên tiếp đều bị block hoàn toàn — tránh false-positive do
+      // 1 niche đơn lẻ bị rate-limit tạm thời khiến skip các niche sau.
+      let consecutiveBlocked = 0;
+      let firstFailedNicheId: string | null = null;
+
+      for (let i = 0; i < rotatedTargets.length; i++) {
+        if (i > 0) {
+          if (consecutiveBlocked >= 2) {
+            const remaining = rotatedTargets.length - i;
+            if (!firstFailedNicheId) firstFailedNicheId = rotatedTargets[i].id;
+            this.log.error(`[Tiki] IP ban confirmed (2 consecutive blocked) — aborting ${remaining} remaining niche(s).`);
+            await this.slog.error(`[Tiki] IP bị ban (2 ngách liên tiếp) — bỏ qua ${remaining} ngách còn lại`, SRC, { remaining }, trigger);
+            break;
+          }
+          await sleep(interNicheMs);
+          this.tikiUaIndex++; // rotate UA fingerprint mỗi ngách
         }
-        const batch = targets.slice(batchStart, batchStart + cfg.tikiBatchSize);
-        this.log.log(`[Tiki] Batch ${batchNum}/${totalBatches}: syncing ${batch.map((n) => n.name).join(", ")}`);
-        for (let i = 0; i < batch.length; i++) {
-          if (i > 0) await sleep(interNicheMs);
-          reports.push(await runNiche(batch[i]));
+        this.tikiIpBanned = false; // reset trước mỗi niche để đo per-niche
+        reports.push(await runNiche(rotatedTargets[i]));
+        if (this.tikiIpBanned) {
+          consecutiveBlocked++;
+          if (!firstFailedNicheId) firstFailedNicheId = rotatedTargets[i].id;
+        } else {
+          consecutiveBlocked = 0;
         }
+      }
+
+      // Lưu cursor để run tiếp theo biết bắt đầu từ đâu
+      await this.saveTikiNicheResumeFrom(firstFailedNicheId);
+      if (firstFailedNicheId) {
+        this.log.log(`[Tiki] Next run will resume from niche "${firstFailedNicheId}"`);
+      } else {
+        this.log.log(`[Tiki] All niches completed — resume cursor cleared`);
       }
     } else {
       for (const niche of targets) {
@@ -271,7 +310,7 @@ export class DealSyncService {
     ]);
     const [shopeeProducts, atProducts, tikiProducts, lazadaProducts] = await Promise.all([
       runSource("shopee")      ? this.fetchShopeeProducts(niche)                        : Promise.resolve([]),
-      runSource("accesstrade") ? this.fetchAccessTradeProducts(niche)                   : Promise.resolve([]),
+      runSource("accesstrade") ? this.fetchAccessTradeProducts(niche, source, tikiIntegration) : Promise.resolve([]),
       runSource("tiki")        ? this.fetchTikiProducts(niche, tikiIntegration)         : Promise.resolve([]),
       runSource("lazada")      ? this.fetchLazadaProducts(niche, lazadaIntegration)     : Promise.resolve([]),
     ]);
@@ -361,14 +400,81 @@ export class DealSyncService {
     return new Map(rows.map((r) => [r.productId, r.price]));
   }
 
-  private async readTikiSyncConfig(): Promise<{ tikiBatchSize: number; tikiBatchPauseMin: number; tikiInterNicheDelaySec: number }> {
-    const defaults = { tikiBatchSize: 3, tikiBatchPauseMin: 10, tikiInterNicheDelaySec: 10 };
+  private async readSourceSettings(): Promise<{ shopeeMode: "affiliate" | "at"; lazadaMode: "affiliate" | "at" }> {
+    const defaults = { shopeeMode: "affiliate" as const, lazadaMode: "affiliate" as const };
     try {
-      const row = await this.prisma.appSetting.findUnique({ where: { key: "sync_config" } });
+      const row = await this.prisma.appSetting.findUnique({ where: { key: "source_settings" } });
       if (!row) return defaults;
-      return { ...defaults, ...JSON.parse(row.value) };
+      const parsed = JSON.parse(row.value);
+      return {
+        shopeeMode: parsed.shopeeMode === "at" ? "at" : "affiliate",
+        lazadaMode: parsed.lazadaMode === "at" ? "at" : "affiliate",
+      };
     } catch {
       return defaults;
+    }
+  }
+
+  private async readTikiSyncConfig(): Promise<{
+    tikiBatchSize: number;
+    tikiBatchPauseMin: number;
+    tikiInterNicheDelaySec: number;
+    tikiMaxPages: number;
+    categoryIds: Record<string, number[]>;
+    pageState: Record<string, { currentPage: number; totalPages: number }>;
+    nicheResumeFromId: string | null;
+  }> {
+    const defaults = {
+      tikiBatchSize: 2,
+      tikiBatchPauseMin: 15,
+      tikiInterNicheDelaySec: 15,
+      tikiMaxPages: 2,
+      categoryIds: {} as Record<string, number[]>,
+      pageState: {} as Record<string, { currentPage: number; totalPages: number }>,
+      nicheResumeFromId: null as string | null,
+    };
+    try {
+      const row = await this.prisma.syncSource.findUnique({ where: { slug: "tiki" } });
+      if (!row) return defaults;
+      return { ...defaults, ...JSON.parse(row.config) };
+    } catch {
+      return defaults;
+    }
+  }
+
+  private async saveTikiPageState(
+    pageState: Record<string, { currentPage: number; totalPages: number }>,
+  ): Promise<void> {
+    try {
+      const row = await this.prisma.syncSource.findUnique({ where: { slug: "tiki" } });
+      if (!row) return;
+      const config = JSON.parse(row.config as string);
+      config.pageState = pageState;
+      await this.prisma.syncSource.update({
+        where: { slug: "tiki" },
+        data: { config: JSON.stringify(config) },
+      });
+    } catch (e: any) {
+      this.log.warn(`[Tiki] Failed to save page state: ${e.message}`);
+    }
+  }
+
+  private async saveTikiNicheResumeFrom(nicheId: string | null): Promise<void> {
+    try {
+      const row = await this.prisma.syncSource.findUnique({ where: { slug: "tiki" } });
+      if (!row) return;
+      const config = JSON.parse(row.config as string);
+      if (nicheId === null) {
+        delete config.nicheResumeFromId;
+      } else {
+        config.nicheResumeFromId = nicheId;
+      }
+      await this.prisma.syncSource.update({
+        where: { slug: "tiki" },
+        data: { config: JSON.stringify(config) },
+      });
+    } catch (e: any) {
+      this.log.warn(`[Tiki] Failed to save niche resume point: ${e.message}`);
     }
   }
 
@@ -429,6 +535,45 @@ export class DealSyncService {
     return results;
   }
 
+  private async fetchShopeeWithAtTracking(niche: NicheConfig, campaign: AccessTradeCampaign): Promise<FetchedProduct[]> {
+    const results: FetchedProduct[] = [];
+    const keywords = niche.shopee?.keyword_seeds ?? [];
+
+    for (const keyword of keywords) {
+      try {
+        const { nodes } = await this.shopee.productSearch({ keyword, pageSize: 20, sort: "SALES_DESC" });
+
+        for (const node of nodes) {
+          let affiliateUrl = node.productLink;
+          try {
+            const link = await this.accesstrade.createTrackingLink({
+              campaignId: campaign.id,
+              urls: [node.productLink],
+              subIds: { sub1: niche.id, sub2: "shopee-at" },
+            });
+            affiliateUrl = link.shortLink ?? link.affiliateLink;
+          } catch { /* keep original URL */ }
+
+          results.push({
+            externalId: String(node.itemId),
+            source: "shopee",
+            name: node.productName,
+            imageUrl: node.imageUrl ?? "",
+            shopUrl: node.productLink,
+            affiliateUrl,
+            currentPrice: Math.round(node.priceMin * 100),
+            originalPrice: node.priceMax > node.priceMin ? Math.round(node.priceMax * 100) : null,
+            commissionRate: Number(node.commissionRate),
+            rating: null,
+          });
+        }
+      } catch (e: any) {
+        this.log.warn(`[${niche.name}] Shopee+AT search failed for "${keyword}": ${e.message}`);
+      }
+    }
+    return results;
+  }
+
   private passesFilter(p: Pick<FetchedProduct, "currentPrice">, filters: { min_price: number; max_price: number }): boolean {
     // currentPrice is stored as cents (VND × 100); filter bounds are in VND — multiply to match
     return p.currentPrice >= filters.min_price * 100 && p.currentPrice <= filters.max_price * 100;
@@ -450,7 +595,7 @@ export class DealSyncService {
         name: p.name,
         imageUrl: p.imageUrl,
         imageAlt: p.name,
-        shopeeUrl: p.shopUrl,
+        productUrl: p.shopUrl,
         affiliateUrl: p.affiliateUrl,
         price: p.currentPrice,
         commission: Math.round(p.commissionRate),
@@ -469,14 +614,37 @@ export class DealSyncService {
       this.atCampaignsCache = { campaigns, fetchedAt: Date.now() };
       this.log.log(`AccessTrade: ${campaigns.length} approved campaigns loaded`);
       await this.slog.info(`Tải danh sách campaign AccessTrade`, SRC, { count: campaigns.length });
-      // Persist to DB for admin visibility and offline debugging
       await this.upsertCampaignsToDB(campaigns);
       return campaigns;
     } catch (e: any) {
-      this.log.warn(`Failed to load AccessTrade campaigns: ${e.message}`);
-      await this.slog.warn(`Không thể tải danh sách campaign AccessTrade`, SRC, { error: e.message });
-      return this.atCampaignsCache?.campaigns ?? [];
+      this.log.warn(`Failed to load AccessTrade campaigns: ${e.message} — falling back to DB`);
+      await this.slog.warn(`Không thể tải danh sách campaign AccessTrade, dùng dữ liệu DB`, SRC, { error: e.message });
+      // Fallback: đọc từ DB thay vì RAM cache (RAM bị xóa khi restart)
+      const dbRows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } });
+      const campaigns: AccessTradeCampaign[] = dbRows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        merchant: r.merchant,
+        url: r.url,
+        approval: r.approval,
+        scope: null,
+        cookieDuration: r.cookieDuration ?? null,
+        status: r.status,
+      }));
+      if (campaigns.length > 0) {
+        this.atCampaignsCache = { campaigns, fetchedAt: Date.now() - this.AT_CAMPAIGNS_CACHE_TTL + 5 * 60 * 1000 };
+      }
+      return campaigns;
     }
+  }
+
+  // Các platform lớn trên AT đều là "tracking type" — không có product feed qua /v1/offers.
+  // Detect khi lần đầu lưu vào DB; update sau không override để bảo toàn setting thủ công.
+  private detectCampaignType(name: string, merchant: string): string {
+    const lower = `${name} ${merchant}`.toLowerCase();
+    const trackingPlatforms = ["tiki", "lazada", "shopee", "sendo", "tiktok", "tiki.vn"];
+    if (trackingPlatforms.some((p) => lower.includes(p))) return "tracking";
+    return "product";
   }
 
   private async upsertCampaignsToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
@@ -495,6 +663,8 @@ export class DealSyncService {
               cookieDuration: c.cookieDuration ?? null,
               status: c.status,
               lastSeenAt: now,
+              // Auto-promote sang "tracking" nếu detect được — không tự demote (bảo toàn setting thủ công)
+              ...(this.detectCampaignType(c.name, c.merchant) === "tracking" && { campaignType: "tracking" }),
             },
             create: {
               id: c.id,
@@ -505,6 +675,7 @@ export class DealSyncService {
               cookieDuration: c.cookieDuration ?? null,
               status: c.status,
               lastSeenAt: now,
+              campaignType: this.detectCampaignType(c.name, c.merchant),
             },
           }),
         ),
@@ -566,17 +737,95 @@ export class DealSyncService {
     }
   }
 
-  private async fetchAccessTradeProducts(niche: NicheConfig): Promise<FetchedProduct[]> {
+  private async fetchAccessTradeProducts(niche: NicheConfig, source: SyncSource = "accesstrade", tikiIntegration?: NicheIntegration | null): Promise<FetchedProduct[]> {
     const accessKey = this.cfg.get<string>("ACCESSTRADE_ACCESS_KEY");
     if (!accessKey) return [];
 
-    const campaignIds = await this.resolveCampaignIds(niche);
-    if (campaignIds.length === 0) return [];
-
     const allCampaigns = await this.getApprovedCampaigns();
-    const campaigns = allCampaigns.filter((c) => campaignIds.includes(c.id));
 
-    const results = await this.fetchOffersForCampaigns(campaigns, niche);
+    // Load campaignType từ DB — AT API không trả về loại này
+    const dbTypes = await this.prisma.atCampaign.findMany({
+      select: { id: true, campaignType: true },
+    });
+    const typeMap = new Map(dbTypes.map((r) => [r.id, r.campaignType ?? "product"]));
+
+    // "tracking" campaigns: fetch từ API nguồn rồi wrap AT link — match toàn bộ ngách
+    const trackingCampaigns = allCampaigns.filter((c) => typeMap.get(c.id) === "tracking");
+
+    // "product" campaigns: lấy từ AT /v1/offers, match theo keyword ngách
+    const campaignIds = await this.resolveCampaignIds(niche);
+    const feedCampaigns = allCampaigns.filter(
+      (c) => campaignIds.includes(c.id) && typeMap.get(c.id) !== "tracking",
+    );
+
+    const results: FetchedProduct[] = [];
+
+    if (trackingCampaigns.length > 0) {
+      const srcSettings = await this.readSourceSettings();
+
+      // Lấy tikiIntegration nếu chưa được truyền vào (source="accesstrade" không load trước)
+      const resolvedTikiIntegration = tikiIntegration !== undefined
+        ? tikiIntegration
+        : await this.loadNicheIntegration(niche.id, "tiki");
+
+      for (const campaign of trackingCampaigns) {
+        const nameLower = `${campaign.name} ${campaign.merchant}`.toLowerCase();
+
+        if (nameLower.includes("tiki")) {
+          // Chỉ skip khi fetchTikiProducts() thực sự đang xử lý niche này (integration active).
+          // Nếu integration null/disabled, fetchTikiProducts() trả [] → phải fetch ở đây.
+          const tikiRunsExternally = (source === "all" || source === "tiki") && resolvedTikiIntegration?.enabled;
+          if (tikiRunsExternally) {
+            this.log.debug(`[${niche.name}] Tracking/Tiki skip — tiki source already running separately`);
+          } else {
+            // source="accesstrade": Tiki không chạy riêng → fetch ở đây
+            // Dùng tikiIntegration (từ DB) nếu có để lấy platformCategoryIds; fallback integration rỗng
+            const integration: NicheIntegration = {
+              enabled: true, atEnabled: true, directEnabled: true,
+              directFallback: false, campaignId: campaign.id,
+            };
+            const r = await this.fetchTikiDirect(niche, integration);
+            this.log.log(`[${niche.name}] Tracking/Tiki (${campaign.name}): ${r.length} products`);
+            results.push(...r);
+          }
+
+        } else if (nameLower.includes("shopee")) {
+          // Shopee: chỉ fetch nếu shopeeMode = "at" (Option 2)
+          // Nếu "affiliate" → bỏ qua, Shopee Affiliate API lo riêng
+          if (srcSettings.shopeeMode === "at") {
+            const r = await this.fetchShopeeWithAtTracking(niche, campaign);
+            this.log.log(`[${niche.name}] Tracking/Shopee AT (${campaign.name}): ${r.length} products`);
+            results.push(...r);
+          } else {
+            this.log.debug(`[${niche.name}] Tracking/Shopee skipped — shopeeMode=affiliate`);
+          }
+
+        } else if (nameLower.includes("lazada")) {
+          // Lazada: chỉ fetch nếu lazadaMode = "at" (Option 2)
+          // Khi source="all"/"lazada", fetchLazadaProducts() đã xử lý riêng → skip ở đây
+          if (source === "all" || source === "lazada") {
+            this.log.debug(`[${niche.name}] Tracking/Lazada skip — lazada source already running separately`);
+          } else if (srcSettings.lazadaMode === "at") {
+            const integration: NicheIntegration = {
+              enabled: true, atEnabled: false, directEnabled: true,
+              directFallback: false, campaignId: campaign.id,
+            };
+            const r = await this.fetchLazadaDirect(niche, integration);
+            this.log.log(`[${niche.name}] Tracking/Lazada AT (${campaign.name}): ${r.length} products`);
+            results.push(...r);
+          } else {
+            this.log.debug(`[${niche.name}] Tracking/Lazada skipped — lazadaMode=affiliate`);
+          }
+        }
+        // Thêm nguồn tracking khác tại đây khi cần
+      }
+    }
+
+    // Product feed type
+    if (feedCampaigns.length > 0) {
+      const feedResults = await this.fetchOffersForCampaigns(feedCampaigns, niche);
+      results.push(...feedResults);
+    }
 
     if (results.length > 0) {
       await this.slog.info(`Lấy sản phẩm AccessTrade hoàn tất`, SRC, {
@@ -836,123 +1085,138 @@ export class DealSyncService {
         ) ?? null;
 
     const fetcher = new BotSafeFetcher({
-      baseDelayMs: 1200,
+      baseDelayMs: 3000,
       jitterFactor: 0.4,
-      blockBackoffMs: 6000,
+      blockBackoffMs: 8000,
       loggerName: `DealSync/Tiki/${niche.name}`,
     });
     const tikiHeaders = buildTikiHeaders(this.tikiUaIndex);
 
-    const categoryEntry = TIKI_CATEGORY_IDS[niche.id] ?? null;
-    const categoryIds: number[] | null = categoryEntry == null
-      ? null
-      : Array.isArray(categoryEntry) ? categoryEntry : [categoryEntry];
+    const tikiConfig = await this.readTikiSyncConfig();
+    const configuredIds: number[] = tikiConfig.categoryIds[niche.id] ?? [];
+    const categoryIds: number[] | null = configuredIds.length > 0 ? configuredIds : null;
 
-    // MAX_PAGES: tối đa số trang Tiki mỗi lần sync.
-    // Tiki sort=discount_rate:desc → trang đầu = deal ngon nhất.
-    // Early-stop khi discount rate page hiện tại < min_discount_pct của ngách.
-    const MAX_PAGES = 3; // = 120 sản phẩm/ngách tối đa
-    const PAGE_DELAY_MS = 2_000; // delay giữa các trang trong cùng ngách
+    // Rolling page cursor — mỗi run lấy đúng 1 trang, trang tiếp theo được lưu trong SyncSource.config.pageState.
+    // Key: "{nicheId}_{categoryId}" hoặc "{nicheId}_kw_{keyword}"
+    const pageState = { ...tikiConfig.pageState };
+
+    const CAT_DELAY_MS = 3_000; // delay giữa các category trong cùng ngách
 
     if (categoryIds) {
-      // ─── Category search với pagination — hỗ trợ nhiều category IDs ───
-      // Confirmed working IDs only — không fallback keyword khi trả 0
-      // để tránh extra requests cascade block cho các ngách sau.
-      for (const categoryId of categoryIds) {
-        let totalAvailable = 0;
+      // ─── Category search — 1 page/category/run theo cursor ───
+      let blockedCount = 0;
+      for (let ci = 0; ci < categoryIds.length; ci++) {
+        if (ci > 0) await sleep(CAT_DELAY_MS);
+        const categoryId = categoryIds[ci];
+        const stateKey = `${niche.id}_${categoryId}`;
+        const cat = pageState[stateKey];
 
-        for (let page = 1; page <= MAX_PAGES; page++) {
-          if (page > 1) await sleep(PAGE_DELAY_MS);
-          await fetcher.delay();
+        // Tính trang cần fetch:
+        // • Chưa có state → page 1 (lần đầu tiên)
+        // • Đã hết page (currentPage >= totalPages) → về lại page 1 và refresh totalPages
+        // • Ngược lại → trang kế tiếp
+        const targetPage = !cat || cat.currentPage >= cat.totalPages ? 1 : cat.currentPage + 1;
+        const isReset = !cat || cat.currentPage >= cat.totalPages;
 
-          const url = new URL(TIKI_SEARCH_API);
-          url.searchParams.set("limit", "40");
-          url.searchParams.set("sort", "discount_rate:desc");
-          url.searchParams.set("category", String(categoryId));
-          url.searchParams.set("page", String(page));
+        await fetcher.delay();
 
-          const { data: body, blocked } = await fetcher.fetchJson(url.toString(), tikiHeaders);
-          if (blocked) {
-            this.log.warn(`[${niche.name}] Tiki category ${categoryId} blocked at page ${page}`);
-            break;
-          }
-          if (!body) break;
+        const url = new URL(TIKI_SEARCH_API);
+        url.searchParams.set("limit", "40");
+        url.searchParams.set("sort", "discount_rate:desc");
+        url.searchParams.set("category", String(categoryId));
+        url.searchParams.set("page", String(targetPage));
 
-          const paging = (body as any)?.paging ?? {};
-          totalAvailable = paging.total ?? totalAvailable;
-          // Tiki không luôn trả về last_page — tính từ total nếu thiếu
-          const lastPage: number = paging.last_page ?? (totalAvailable > 0 ? Math.ceil(totalAvailable / 40) : page);
-          const items: any[] = (body as any)?.data ?? [];
-          if (items.length === 0) break;
+        const { data: body, blocked } = await fetcher.fetchJson(url.toString(), tikiHeaders);
+        if (blocked) {
+          blockedCount++;
+          this.log.warn(`[${niche.name}] Tiki category ${categoryId} BLOCKED (page ${targetPage})`);
+          continue;
+        }
+        if (!body) continue;
 
-          // Early-stop: nếu discount rate cao nhất trang này < min_discount_pct → không còn deal ngon
-          const minDiscountNeeded = niche.filters.min_discount_pct;
-          const pageMaxDiscount = Math.max(...items.map((i: any) => Number(i.discount_rate ?? 0)));
-          await this.attachTikiTrackingLinks(items, results, tikiCampaign, niche);
+        const paging = (body as any)?.paging ?? {};
+        const totalAvailable: number = paging.total ?? 0;
+        const totalPages: number = paging.last_page ?? (totalAvailable > 0 ? Math.ceil(totalAvailable / 40) : targetPage);
+        const items: any[] = (body as any)?.data ?? [];
 
-          if (page >= lastPage) break; // hết trang
-          if (minDiscountNeeded > 0 && pageMaxDiscount < minDiscountNeeded) {
-            this.log.debug(`[${niche.name}] Early-stop at page ${page}: max discount ${pageMaxDiscount}% < threshold ${minDiscountNeeded}%`);
-            break;
-          }
+        if (items.length === 0) {
+          this.log.debug(`[${niche.name}] Tiki category ${categoryId} page ${targetPage}: 0 items`);
+          pageState[stateKey] = { currentPage: targetPage, totalPages: Math.max(totalPages, 1) };
+          continue;
         }
 
-        if (totalAvailable > 0) {
-          this.log.log(`[${niche.name}] Tiki category ${categoryId}: ${results.length} fetched so far / ${totalAvailable} total`);
-        }
-        if (categoryIds.length > 1) await sleep(PAGE_DELAY_MS); // delay giữa các category
+        await this.attachTikiTrackingLinks(items, results, tikiCampaign, niche);
+
+        pageState[stateKey] = { currentPage: targetPage, totalPages };
+        this.log.log(
+          `[${niche.name}] Tiki cat ${categoryId}: page ${targetPage}/${totalPages}` +
+          `${isReset ? " (reset)" : ""}, ${items.length} items (${totalAvailable} total)`,
+        );
       }
+
+      // Tất cả categories đều bị block → IP ban toàn bộ
+      if (blockedCount === categoryIds.length && results.length === 0) {
+        this.tikiIpBanned = true;
+        this.log.error(`[Tiki] IP BAN detected on niche "${niche.name}" — all ${categoryIds.length} categories returned HTML. IP is rate-limited.`);
+      }
+      await this.saveTikiPageState(pageState);
       return results;
     }
 
     // ─── Keyword search: chỉ cho niches không có category ID xác nhận ───
-    // 1 keyword mỗi niche để giảm tổng request rate.
     const keywords = niche.shopee?.keyword_seeds?.slice(0, 1) ?? [niche.name];
 
+    let kwBlockedCount = 0;
     for (const keyword of keywords) {
-      const minDiscountNeeded = niche.filters.min_discount_pct;
+      const stateKey = `${niche.id}_kw_${keyword}`;
+      const kw = pageState[stateKey];
+      const targetPage = !kw || kw.currentPage >= kw.totalPages ? 1 : kw.currentPage + 1;
+      const isReset = !kw || kw.currentPage >= kw.totalPages;
 
-      for (let page = 1; page <= MAX_PAGES; page++) {
-        if (page > 1) await sleep(PAGE_DELAY_MS);
-        await fetcher.delay();
+      await fetcher.delay();
 
-        const url = new URL(TIKI_SEARCH_API);
-        url.searchParams.set("q", keyword);
-        url.searchParams.set("limit", "40");
-        url.searchParams.set("sort", "discount_rate:desc");
-        url.searchParams.set("page", String(page));
+      const url = new URL(TIKI_SEARCH_API);
+      url.searchParams.set("q", keyword);
+      url.searchParams.set("limit", "40");
+      url.searchParams.set("sort", "discount_rate:desc");
+      url.searchParams.set("page", String(targetPage));
 
-        const { data: body, blocked } = await fetcher.fetchJson(url.toString(), tikiHeaders);
-        if (!body || blocked) {
-          if (blocked) this.log.warn(`[${niche.name}] Tiki keyword "${keyword}" blocked at page ${page}`);
-          break;
+      const { data: body, blocked } = await fetcher.fetchJson(url.toString(), tikiHeaders);
+      if (!body || blocked) {
+        if (blocked) {
+          kwBlockedCount++;
+          this.log.warn(`[${niche.name}] Tiki keyword "${keyword}" BLOCKED (page ${targetPage})`);
         }
-
-        const items: any[] = (body as any)?.data ?? [];
-        if (items.length === 0) {
-          this.log.debug(`[${niche.name}] Tiki keyword "${keyword}" returned 0 at page ${page} — possible soft-block`);
-          break;
-        }
-
-        const paging = (body as any)?.paging ?? {};
-        const kwTotal: number = paging.total ?? 0;
-        const kwLastPage: number = paging.last_page ?? (kwTotal > 0 ? Math.ceil(kwTotal / 40) : page);
-
-        if (page === 1) {
-          this.log.log(`[${niche.name}] Tiki keyword "${keyword}": ${items.length} fetched / ${kwTotal} total`);
-        }
-
-        const pageMaxDiscount = Math.max(...items.map((i: any) => Number(i.discount_rate ?? 0)));
-        await this.attachTikiTrackingLinks(items, results, tikiCampaign, niche);
-
-        if (page >= kwLastPage) break;
-        if (minDiscountNeeded > 0 && pageMaxDiscount < minDiscountNeeded) {
-          this.log.debug(`[${niche.name}] Keyword early-stop at page ${page}: max discount ${pageMaxDiscount}% < threshold ${minDiscountNeeded}%`);
-          break;
-        }
+        continue;
       }
+
+      const items: any[] = (body as any)?.data ?? [];
+      if (items.length === 0) {
+        this.log.debug(`[${niche.name}] Tiki keyword "${keyword}" page ${targetPage}: 0 items`);
+        pageState[stateKey] = { currentPage: targetPage, totalPages: Math.max(kw?.totalPages ?? 1, 1) };
+        continue;
+      }
+
+      const paging = (body as any)?.paging ?? {};
+      const kwTotal: number = paging.total ?? 0;
+      const totalPages: number = paging.last_page ?? (kwTotal > 0 ? Math.ceil(kwTotal / 40) : targetPage);
+
+      await this.attachTikiTrackingLinks(items, results, tikiCampaign, niche);
+
+      pageState[stateKey] = { currentPage: targetPage, totalPages };
+      this.log.log(
+        `[${niche.name}] Tiki kw "${keyword}": page ${targetPage}/${totalPages}` +
+        `${isReset ? " (reset)" : ""}, ${items.length} items (${kwTotal} total)`,
+      );
     }
 
+    // Tất cả keywords đều bị block AND không có kết quả → IP ban thực sự
+    if (kwBlockedCount === keywords.length && results.length === 0) {
+      this.tikiIpBanned = true;
+      this.log.error(`[Tiki] IP BAN detected on niche "${niche.name}" — all ${keywords.length} keyword(s) returned HTML. IP is rate-limited.`);
+    }
+
+    await this.saveTikiPageState(pageState);
     return results;
   }
 
@@ -1024,7 +1288,7 @@ export class DealSyncService {
 
   async loadActiveNiches(): Promise<NicheConfig[]> {
     const rows = await this.prisma.niche.findMany({
-      where: { status: "active" },
+      where: { status: "active", syncEnabled: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     return rows.map((r) => ({

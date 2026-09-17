@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       postPrefix,
       hashtags,
       zaloOaId,
+      syncEnabled,
     } = body
 
     if (!id || !name) {
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
         postPrefix: postPrefix ?? null,
         hashtags: hashtags ?? null,
         zaloOaId: zaloOaId ?? null,
+        syncEnabled: syncEnabled ?? true,
       },
     })
 

@@ -1,21 +1,24 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Plus, Pencil, Trash2, Search, LayoutGrid } from "lucide-react"
 import CategoryIcon, { CATEGORY_ICONS } from "@/components/ui/CategoryIcon"
 import { ensureCsrfToken } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import {
   Button,
   Alert,
-  Spinner,
-  EmptyState,
   Input,
   Select,
   Modal,
   ConfirmModal,
   useToast,
+  AdminFilterBar,
+  DataTable,
+  DataTableRow,
+  DataTableCell,
 } from "@/components/admin/ui"
+import type { TableColumn } from "@/components/admin/ui"
 
 interface Category {
   id: string
@@ -24,19 +27,29 @@ interface Category {
   icon?: string
 }
 
+const COLUMNS: TableColumn[] = [
+  { key: "icon",    label: "Icon",     width: "64px" },
+  { key: "name",    label: "Tên" },
+  { key: "slug",    label: "Slug" },
+  { key: "actions", label: "Thao tác", align: "right", width: "100px" },
+]
+
 export default function AdminCategories() {
   const { success, error: toastError } = useToast()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [formName, setFormName] = useState("")
-  const [formSlug, setFormSlug] = useState("")
-  const [formIcon, setFormIcon] = useState("LayoutGrid")
-  const [saving, setSaving] = useState(false)
+  const [categories, setCategories]   = useState<Category[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [fetchError, setFetchError]   = useState<string | null>(null)
+  const [search, setSearch]           = useState("")
+
+  const [showForm, setShowForm]       = useState(false)
+  const [editingId, setEditingId]     = useState<string | null>(null)
+  const [formName, setFormName]       = useState("")
+  const [formSlug, setFormSlug]       = useState("")
+  const [formIcon, setFormIcon]       = useState("LayoutGrid")
+  const [saving, setSaving]           = useState(false)
+
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const [deleting, setDeleting]         = useState(false)
 
   const fetchCategories = useCallback(async () => {
     setLoading(true)
@@ -54,6 +67,14 @@ export default function AdminCategories() {
   }, [])
 
   useEffect(() => { fetchCategories() }, [fetchCategories])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return categories
+    return categories.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+    )
+  }, [categories, search])
 
   function handleEdit(cat: Category) {
     setEditingId(cat.id)
@@ -95,7 +116,9 @@ export default function AdminCategories() {
         }
         success("Đã cập nhật danh mục")
       } else {
-        const slug = formSlug.trim() || formName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
+        const slug =
+          formSlug.trim() ||
+          formName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")
         const res = await fetch("/api/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
@@ -140,10 +163,10 @@ export default function AdminCategories() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 h-full">
       <AdminPageShell
         title="Danh mục"
-        subtitle="Quản lý danh mục sản phẩm."
+        subtitle={`Quản lý danh mục sản phẩm. ${categories.length > 0 ? `${categories.length} danh mục.` : ""}`}
         actions={
           <Button variant="primary" icon={Plus} onClick={handleNew}>
             Thêm danh mục
@@ -153,60 +176,73 @@ export default function AdminCategories() {
 
       {fetchError && <Alert tone="error">{fetchError}</Alert>}
 
-      {/* Table */}
-      <div className="bg-white border border-[#e5e1d8] overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Spinner size="md" />
-          </div>
-        ) : categories.length === 0 ? (
-          <EmptyState
-            icon={Plus}
-            title="Chưa có danh mục nào"
-            description="Tạo danh mục đầu tiên để bắt đầu phân loại sản phẩm."
-            action={<Button variant="primary" icon={Plus} onClick={handleNew}>Thêm danh mục</Button>}
-          />
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dashed border-[#e5e1d8] bg-[#f4f4f1]">
-                {["Icon", "Tên", "Slug", "Thao tác"].map((h) => (
-                  <th key={h} className="py-3 px-6 text-left font-mono text-[12px] leading-[16px] tracking-[0.05em] text-[#5c403a] uppercase">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((cat) => (
-                <tr key={cat.id} className="border-b border-dashed border-[#e5e1d8] hover:bg-[#f4f4f1]/50 transition-colors">
-                  <td className="py-4 px-6">
-                    <CategoryIcon icon={cat.icon} className="size-5 text-[#1a1c1b]" />
-                  </td>
-                  <td className="py-4 px-6 font-sans text-[16px] font-bold text-[#1a1c1b]">{cat.name}</td>
-                  <td className="py-4 px-6 font-mono text-[13px] text-[#906f69]">/category/{cat.slug}</td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={Pencil}
-                        onClick={() => handleEdit(cat)}
-                        aria-label={`Sửa ${cat.name}`}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={Trash2}
-                        onClick={() => setDeleteTarget(cat)}
-                        aria-label={`Xóa ${cat.name}`}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <AdminFilterBar
+        search={{
+          value: search,
+          onChange: (v) => setSearch(v),
+          placeholder: "Tên hoặc slug...",
+          id: "categories-search",
+        }}
+        actions={
+          <Button variant="secondary" icon={Search} onClick={() => {}}>
+            Tìm
+          </Button>
+        }
+      />
+
+      <DataTable
+        columns={COLUMNS}
+        loading={loading}
+        empty={!loading && filtered.length === 0}
+        emptyIcon={LayoutGrid}
+        emptyTitle={search ? "Không tìm thấy danh mục" : "Chưa có danh mục nào"}
+        emptyDescription={
+          search
+            ? "Thử tìm với từ khoá khác."
+            : "Tạo danh mục đầu tiên để bắt đầu phân loại sản phẩm."
+        }
+      >
+        {filtered.map((cat) => (
+          <DataTableRow key={cat.id}>
+            {/* Icon */}
+            <DataTableCell>
+              <CategoryIcon icon={cat.icon} className="size-5 text-[#1a1c1b]" />
+            </DataTableCell>
+
+            {/* Tên */}
+            <DataTableCell>
+              <span className="font-sans text-[14px] font-semibold text-[#1a1c1b]">
+                {cat.name}
+              </span>
+            </DataTableCell>
+
+            {/* Slug */}
+            <DataTableCell>
+              <span className="font-mono text-[12px] text-[#906f69]">/category/{cat.slug}</span>
+            </DataTableCell>
+
+            {/* Thao tác */}
+            <DataTableCell align="right">
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={Pencil}
+                  onClick={() => handleEdit(cat)}
+                  aria-label={`Sửa ${cat.name}`}
+                />
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Trash2}
+                  onClick={() => setDeleteTarget(cat)}
+                  aria-label={`Xóa ${cat.name}`}
+                />
+              </div>
+            </DataTableCell>
+          </DataTableRow>
+        ))}
+      </DataTable>
 
       {/* Add / Edit Modal */}
       <Modal
@@ -216,8 +252,15 @@ export default function AdminCategories() {
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={handleCloseForm} disabled={saving}>Hủy</Button>
-            <Button variant="primary" onClick={handleSave} loading={saving} disabled={!formName.trim()}>
+            <Button variant="ghost" onClick={handleCloseForm} disabled={saving}>
+              Hủy
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              loading={saving}
+              disabled={!formName.trim()}
+            >
               {editingId ? "Cập nhật" : "Thêm mới"}
             </Button>
           </>
@@ -245,7 +288,9 @@ export default function AdminCategories() {
             onChange={(e) => setFormIcon(e.target.value)}
           >
             {CATEGORY_ICONS.map((name) => (
-              <option key={name} value={name}>{name}</option>
+              <option key={name} value={name}>
+                {name}
+              </option>
             ))}
           </Select>
           <div className="flex items-center gap-2 pt-1">

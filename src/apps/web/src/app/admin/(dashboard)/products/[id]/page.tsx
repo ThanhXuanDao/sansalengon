@@ -9,6 +9,27 @@ import { useCategories } from "@/hooks/useCategories"
 import type { Product } from "@/types"
 import { useToast } from "@/components/admin/ui"
 
+const SOURCE_STYLE: Record<string, { label: string; bg: string; text: string }> = {
+  tiki:        { label: "Tiki",        bg: "bg-[#e3f2fd]", text: "text-[#0d5cb6]" },
+  shopee:      { label: "Shopee",      bg: "bg-[#fff3e0]", text: "text-[#c05800]" },
+  accesstrade: { label: "AccessTrade", bg: "bg-[#f3e8ff]", text: "text-[#7c3aed]" },
+  lazada:      { label: "Lazada",      bg: "bg-[#e8f5e9]", text: "text-[#1a6b3c]" },
+}
+
+function SourceChip({ source, externalId }: { source: string; externalId?: string | null }) {
+  const s = SOURCE_STYLE[source] ?? { label: source, bg: "bg-[#f4f4f1]", text: "text-[#5c403a]" }
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span className={`inline-block px-3 py-1 font-mono text-[12px] font-bold uppercase ${s.bg} ${s.text}`}>
+        {s.label}
+      </span>
+      {externalId && (
+        <span className="font-mono text-[10px] text-[#906f69]">ID: {externalId.slice(0, 16)}</span>
+      )}
+    </div>
+  )
+}
+
 export default function EditProduct() {
   const router = useRouter()
   const params = useParams()
@@ -27,7 +48,8 @@ export default function EditProduct() {
 
   const nameRef = useRef<HTMLInputElement>(null)
   const categoryRef = useRef<HTMLSelectElement>(null)
-  const linkRef = useRef<HTMLInputElement>(null)
+  const productUrlRef = useRef<HTMLInputElement>(null)
+  const affiliateUrlRef = useRef<HTMLInputElement>(null)
   const priceRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -51,7 +73,8 @@ export default function EditProduct() {
     if (!product) return
     const name = nameRef.current?.value || product.name
     const categoryId = categoryRef.current?.value || product.categoryId
-    const shopeeUrl = linkRef.current?.value || product.shopeeUrl
+    const productUrl = productUrlRef.current?.value || product.productUrl
+    const affiliateUrl = affiliateUrlRef.current?.value || product.affiliateUrl || ""
     const priceText = priceRef.current?.value || String(product.price)
 
     const trimmedUrl = imageUrl.trim()
@@ -79,7 +102,8 @@ export default function EditProduct() {
         discountPct: discountVal > 0 ? discountVal : null,
         imageUrl: trimmedUrl || product.imageUrl,
         imageAlt: name,
-        shopeeUrl,
+        productUrl,
+        affiliateUrl: affiliateUrl || null,
         categoryId,
         isFeatured,
         isSoldOut,
@@ -130,9 +154,15 @@ export default function EditProduct() {
           </header>
 
           <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); handleSave() }}>
-            <div>
-              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1">Item No.</label>
-              <p className="font-mono text-[16px] leading-[24px] font-bold">#{product.id}</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1">Item No.</label>
+                <p className="font-mono text-[16px] leading-[24px] font-bold">#{product.id}</p>
+              </div>
+              <div className="text-right">
+                <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1">Nguồn</label>
+                <SourceChip source={product.source} externalId={product.externalId} />
+              </div>
             </div>
 
             <div>
@@ -191,9 +221,17 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="affiliateLink">Affiliate Link</label>
-              <input ref={linkRef} id="affiliateLink" type="url" defaultValue={product.shopeeUrl}
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="productUrl">Link gốc sản phẩm</label>
+              <input ref={productUrlRef} id="productUrl" type="url" defaultValue={product.productUrl}
                 className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
+            </div>
+
+            <div>
+              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="affiliateUrl">Link affiliate</label>
+              <input ref={affiliateUrlRef} id="affiliateUrl" type="url" defaultValue={product.affiliateUrl ?? ""}
+                placeholder="https://shope.ee/... hoặc AT tracking link"
+                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] placeholder:text-[#5c403a]/30 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
+              <p className="font-mono text-[11px] text-[#76737b] mt-1">Link dùng cho nút &quot;Mua ngay&quot; — nếu để trống sẽ dùng link gốc</p>
             </div>
 
             <div>

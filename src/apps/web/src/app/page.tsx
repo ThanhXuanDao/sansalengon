@@ -8,7 +8,6 @@ import { useProducts } from "@/hooks/useProducts"
 import { useMostClickedProducts } from "@/hooks/useMostClickedProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { useSettings } from "@/hooks/useSettings"
-import { logClick } from "@/lib/services/click"
 import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeedbackSection from "@/components/sections/FeedbackSection"
 import { buildNumberRanges } from "@/lib/utils"
@@ -57,9 +56,8 @@ export default function Home() {
   const numberRanges = useMemo(() => buildNumberRanges(displayTotal), [displayTotal])
 
   const handleBuyProduct = useCallback(
-    (productId: string, shopeeUrl: string) => {
-      window.open(shopeeUrl, "_blank")
-      logClick(productId, "website").catch(() => {})
+    (productId: string) => {
+      window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
     },
     []
   )

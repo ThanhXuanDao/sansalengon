@@ -58,6 +58,7 @@ export class AccessTradePublisherClient {
       const requestUrl = this.buildUrl("/campaigns", {
         page: input.page,
         limit: input.limit,
+        approval: input.approval === "all" ? undefined : (input.approval ?? "successful"),
       });
 
       await this.rateLimit.acquire();
@@ -125,7 +126,7 @@ export class AccessTradePublisherClient {
         body: JSON.stringify({
           campaign_id: input.campaignId,
           urls: input.urls,
-          url_enc: true,
+          url_enc: false,
           utm_source: input.utmSource,
           utm_medium: input.utmMedium,
           utm_campaign: input.utmCampaign,

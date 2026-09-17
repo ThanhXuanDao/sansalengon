@@ -11,7 +11,7 @@ export async function GET(
 
   const product = await prisma.product.findUnique({
     where: { id },
-    select: { id: true, name: true, price: true, shopeeUrl: true },
+    select: { id: true, name: true, price: true, productUrl: true },
   })
 
   if (!product) {
@@ -28,7 +28,7 @@ export async function GET(
   const shopeeEntry = {
     platformId: "shopee",
     platformName: "Shopee",
-    platformUrl: product.shopeeUrl,
+    platformUrl: product.productUrl,
     currentPrice: product.price,
     originalPrice: null as number | null,
     inStock: true,

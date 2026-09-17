@@ -6,7 +6,8 @@ export interface TrendingProduct {
   price: number
   discountPct: number | null
   imageUrl: string
-  shopeeUrl: string
+  productUrl: string
+  affiliateUrl: string | null
   rating: number
   viewCount: number
   category: { name: string; slug: string }
