@@ -55,7 +55,7 @@ export class LazadaAdapter extends PlatformAdapter {
     if (!item) throw new Error(`Lazada: product ${platformProductId} not found`)
 
     return {
-      price: Math.round(parseFloat(item.price) * 100),
+      price: Math.round(parseFloat(item.price)),
       inStock: true,
     }
   }
@@ -79,9 +79,9 @@ export class LazadaAdapter extends PlatformAdapter {
       platformProductId: String(item.item_id),
       platformUrl: item.item_url,
       name: item.name,
-      price: Math.round(parseFloat(item.price) * 100),
+      price: Math.round(parseFloat(item.price)),
       originalPrice: item.original_price
-        ? Math.round(parseFloat(item.original_price) * 100)
+        ? Math.round(parseFloat(item.original_price))
         : undefined,
       imageUrl: item.image,
       rating: item.rating_score ? parseFloat(item.rating_score) : undefined,

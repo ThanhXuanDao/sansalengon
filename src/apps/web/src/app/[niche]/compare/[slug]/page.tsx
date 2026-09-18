@@ -132,7 +132,7 @@ export default async function ComparePage(
     offers: platforms.map((p) => ({
       "@type": "Offer",
       url: p.platformUrl,
-      price: (p.currentPrice / 100).toFixed(2),
+      price: p.currentPrice.toString(),
       priceCurrency: "VND",
       availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       seller: { "@type": "Organization", name: p.platformName },

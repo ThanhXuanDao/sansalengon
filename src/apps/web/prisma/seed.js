@@ -154,6 +154,19 @@ const NICHE_TIKI_INTEGRATIONS = NICHES.map((n) => ({
   campaignId: null,
 }))
 
+// NicheIntegration: CellphoneS chỉ có sản phẩm cho electronics và gaming.
+const NICHE_CELLPHONES_INTEGRATIONS = [
+  { id: "electronics_cellphones", nicheId: "electronics", platform: "cellphones" },
+  { id: "gaming_cellphones",      nicheId: "gaming",      platform: "cellphones" },
+].map((n) => ({
+  ...n,
+  enabled: true,
+  atEnabled: false,
+  directEnabled: true,
+  directFallback: false,
+  campaignId: null,
+}))
+
 const SYNC_SOURCES = [
   {
     id: "syncsrc_shopee",
@@ -240,6 +253,27 @@ const SYNC_SOURCES = [
         gaming:      [2667, 12672],
         tools:       [1974],
       },
+    }),
+  },
+  {
+    id: "syncsrc_cellphones",
+    name: "CellphoneS",
+    slug: "cellphones",
+    baseUrl: "https://cellphones.com.vn",
+    enabled: false,
+    description: "CellphoneS — GraphQL API, wrap AT tracking link",
+    config: JSON.stringify({
+      // atCampaignId: "<AT campaign ID>" — để trống thì auto-match theo tên "cellphones"
+      // CellphoneS dùng AT tracking link (at_wrap strategy)
+      // Danh sách category ID CellphoneS cho từng ngách:
+      //   mobile:3, laptop:380, tablet:4, audio:220, smartwatch:610
+      cpsCategories: {
+        electronics: ["3", "220", "610", "4"],  // mobile, audio, smartwatch, tablet
+        gaming:      ["380"],                    // laptop (bao gồm gaming laptop)
+      },
+      cpsPageSize: 20,
+      cpsMaxPages: 2,
+      cpsProvinceId: 30, // HCM
     }),
   },
   {
@@ -337,6 +371,26 @@ async function main() {
       },
     })
     console.log(`  ✓ tiki integration → ${intg.nicheId}`)
+  }
+
+  console.log(`Seeding ${NICHE_CELLPHONES_INTEGRATIONS.length} CellphoneS integrations...`)
+  for (const intg of NICHE_CELLPHONES_INTEGRATIONS) {
+    await prisma.nicheIntegration.upsert({
+      where: { nicheId_platform: { nicheId: intg.nicheId, platform: intg.platform } },
+      update: {},
+      create: {
+        id:             intg.id,
+        nicheId:        intg.nicheId,
+        platform:       intg.platform,
+        enabled:        intg.enabled,
+        atEnabled:      intg.atEnabled,
+        directEnabled:  intg.directEnabled,
+        directFallback: intg.directFallback,
+        campaignId:     intg.campaignId,
+        updatedAt:      new Date(),
+      },
+    })
+    console.log(`  ✓ cellphones integration → ${intg.nicheId}`)
   }
 
   console.log(`Seeding ${SYNC_SOURCES.length} sync sources...`)

@@ -33,8 +33,7 @@ interface PriceFormatOpts {
 }
 
 export function formatPrice(price: number, opts?: PriceFormatOpts): string {
-  // Prices are stored as cents (VND × 100) — divide before display
-  const amount = Math.round(price / 100)
+  const amount = Math.round(price)
   const symbol = opts?.currencySymbol ?? "₫"
   const position = opts?.currencyPosition ?? "after"
   // vi-VN uses "." as thousands separator; swap if settings differ

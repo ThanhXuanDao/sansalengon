@@ -15,4 +15,10 @@ export interface SyncSourceConfig {
   tikiMaxPages?: number
   pageState?: Record<string, { currentPage: number; totalPages: number }>
   nicheResumeFromId?: string | null
+  // CellphoneS-specific
+  // Key = niche slug, value = mảng string category ID CellphoneS
+  cpsCategories?: Record<string, string[]>
+  cpsPageSize?: number
+  cpsMaxPages?: number
+  cpsProvinceId?: number
 }

@@ -28,7 +28,7 @@ interface NicheIntegration {
 
 interface FetchedProduct {
   externalId: string;
-  source: "shopee" | "accesstrade" | "tiki" | "lazada";
+  source: "shopee" | "accesstrade" | "tiki" | "lazada" | "cellphones";
   name: string;
   imageUrl: string;
   shopUrl: string;
@@ -59,6 +59,19 @@ const SRC = "deal-sync";
 const AT_OFFERS_API = "https://api.accesstrade.vn/v1/offers";
 const TIKI_SEARCH_API = "https://tiki.vn/api/v2/products";
 const TIKI_PRODUCT_BASE = "https://tiki.vn";
+
+const CPS_GRAPHQL_URL = "https://api.cellphones.com.vn/v2/graphql/query";
+const CPS_PRODUCT_BASE = "https://cellphones.com.vn";
+const CPS_IMAGE_CDN = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product";
+const CPS_DEFAULT_PROVINCE_ID = 30; // HCM city
+
+// Default CellphoneS category IDs per niche slug.
+// Key = niche slug, value = string[] of category IDs.
+// Niches không có entry → CellphoneS bỏ qua ngách đó.
+const CPS_DEFAULT_CATEGORIES: Record<string, string[]> = {
+  electronics: ["3", "220", "610", "4"],  // mobile, audio, smartwatch, tablet
+  gaming:      ["380"],                   // laptop (includes gaming models)
+};
 
 // Tiki category IDs được cấu hình trong SyncSource (slug="tiki") config.categoryIds.
 // Key = niche slug, value = mảng category ID Tiki.
@@ -362,9 +375,10 @@ export class DealSyncService {
 
     const runSource = (s: string) => source === s;
 
-    const [tikiIntegration, lazadaIntegration] = await Promise.all([
-      runSource("tiki")   ? this.loadNicheIntegration(niche.id, "tiki")   : Promise.resolve(null),
-      runSource("lazada") ? this.loadNicheIntegration(niche.id, "lazada") : Promise.resolve(null),
+    const [tikiIntegration, lazadaIntegration, cellphonesIntegration] = await Promise.all([
+      runSource("tiki")        ? this.loadNicheIntegration(niche.id, "tiki")        : Promise.resolve(null),
+      runSource("lazada")      ? this.loadNicheIntegration(niche.id, "lazada")      : Promise.resolve(null),
+      runSource("cellphones")  ? this.loadNicheIntegration(niche.id, "cellphones")  : Promise.resolve(null),
     ]);
 
     // at_feed: lấy sản phẩm từ AT product feed thay vì fetch trực tiếp từ platform
@@ -375,10 +389,11 @@ export class DealSyncService {
       this.log.log(`[${source}] Ngách: ${niche.name} — AT product feed: ${atFeedProducts.length} sản phẩm`);
     }
 
-    const [shopeeProducts, tikiProducts, lazadaProducts] = await Promise.all([
-      runSource("shopee")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Shopee...`),  this.fetchShopeeProducts(niche))         : Promise.resolve([]),
-      runSource("tiki")        ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Tiki...`),    this.fetchTikiProducts(niche, tikiIntegration))  : Promise.resolve([]),
-      runSource("lazada")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Lazada...`),  this.fetchLazadaProducts(niche, lazadaIntegration)) : Promise.resolve([]),
+    const [shopeeProducts, tikiProducts, lazadaProducts, cellphonesProducts] = await Promise.all([
+      runSource("shopee")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Shopee...`),      this.fetchShopeeProducts(niche))         : Promise.resolve([]),
+      runSource("tiki")        ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Tiki...`),        this.fetchTikiProducts(niche, tikiIntegration))  : Promise.resolve([]),
+      runSource("lazada")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Lazada...`),      this.fetchLazadaProducts(niche, lazadaIntegration)) : Promise.resolve([]),
+      runSource("cellphones") && cellphonesIntegration?.enabled ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy CellphoneS...`), this.fetchCellphonesProducts(niche, cellphonesIntegration, atCampaign ?? null)) : Promise.resolve([]),
     ]);
 
     const bySourceRaw: Record<string, FetchedProduct[]> = {
@@ -386,8 +401,9 @@ export class DealSyncService {
       accesstrade: atFeedProducts,
       tiki:        tikiProducts,
       lazada:      lazadaProducts,
+      cellphones:  cellphonesProducts,
     };
-    const fetched = [...shopeeProducts, ...atFeedProducts, ...tikiProducts, ...lazadaProducts];
+    const fetched = [...shopeeProducts, ...atFeedProducts, ...tikiProducts, ...lazadaProducts, ...cellphonesProducts];
     const lastPriceMap = await this.fetchLastRecordedPrices(niche.id);
 
     const priceHistoryBatch: { productId: string; price: number }[] = [];
@@ -446,7 +462,9 @@ export class DealSyncService {
       .map(([s, c]) => `${s}:${c.fetched}`)
       .join(" ")
     this.log.log(`[${source}] Ngách: ${niche.name} — hoàn tất: ${srcSummary || "0 sản phẩm"} | newDeals=${report.newDeals} priceChanges=${report.priceChanges} (${report.durationMs}ms)`);
-    await this.slog.info(`Đồng bộ ngách "${niche.name}" hoàn tất`, SRC, report);
+    if (report.fetched > 0) {
+      await this.slog.info(`Đồng bộ ngách "${niche.name}" hoàn tất`, SRC, report);
+    }
     return report;
   }
 
@@ -565,9 +583,9 @@ export class DealSyncService {
             affiliateUrl = shortLink;
           } catch { /* fallback to original link */ }
 
-          const currentPrice = Math.round(node.priceMin * 100);
+          const currentPrice = Math.round(node.priceMin);
           const originalPrice = node.priceMax > node.priceMin
-            ? Math.round(node.priceMax * 100)
+            ? Math.round(node.priceMax)
             : null;
           results.push({
             externalId: String(node.itemId),
@@ -622,8 +640,8 @@ export class DealSyncService {
             imageUrl: node.imageUrl ?? "",
             shopUrl: node.productLink,
             affiliateUrl,
-            currentPrice: Math.round(node.priceMin * 100),
-            originalPrice: node.priceMax > node.priceMin ? Math.round(node.priceMax * 100) : null,
+            currentPrice: Math.round(node.priceMin),
+            originalPrice: node.priceMax > node.priceMin ? Math.round(node.priceMax) : null,
             commissionRate: Number(node.commissionRate),
             rating: null,
           });
@@ -992,13 +1010,12 @@ export class DealSyncService {
       const shopUrl = item.url ?? item.product_url ?? item.link ?? item.landing_url ?? "";
       if (!shopUrl) return null;
 
-      // AccessTrade prices are typically in VND (not divided by 100 like Shopee cents)
       const rawPrice = Number(item.price ?? item.sale_price ?? item.current_price ?? 0);
       if (rawPrice <= 0) return null;
-      const currentPrice = Math.round(rawPrice * 100); // store as cents
+      const currentPrice = Math.round(rawPrice);
 
       const rawOriginal = item.original_price ?? item.price_before_discount ?? item.regular_price ?? null;
-      const originalPrice = rawOriginal ? Math.round(Number(rawOriginal) * 100) : null;
+      const originalPrice = rawOriginal ? Math.round(Number(rawOriginal)) : null;
 
       const externalId = String(
         item.id ?? item.product_id ?? item.offer_id ??
@@ -1117,7 +1134,7 @@ export class DealSyncService {
       imageUrl: item.imageUrl,
       shopUrl: item.platformUrl,
       affiliateUrl: item.platformUrl, // overwritten by AT tracking link nếu có
-      currentPrice: item.price,       // LazadaAdapter đã lưu dạng cents (price × 100)
+      currentPrice: item.price,
       originalPrice: item.originalPrice ?? null,
       commissionRate: 0,
       rating: item.rating ?? null,
@@ -1402,11 +1419,11 @@ export class DealSyncService {
 
       const price = Number(item.price ?? 0);
       if (price <= 0) return null;
-      const currentPrice = Math.round(price * 100); // lưu dạng cents như các source khác
+      const currentPrice = Math.round(price);
 
       // Check multiple price fields — Tiki uses different keys depending on API version/endpoint
       const listPrice = Number(item.list_price ?? item.original_price ?? item.price_before_discount ?? item.real_price ?? 0);
-      const originalPrice = listPrice > price ? Math.round(listPrice * 100) : null;
+      const originalPrice = listPrice > price ? Math.round(listPrice) : null;
       // Prefer Tiki's discount_rate; if 0 or absent the sync loop will recompute from originalPrice
       const apiDiscountRate = (item.discount_rate != null && Number(item.discount_rate) > 0)
         ? Number(item.discount_rate)
@@ -1428,6 +1445,170 @@ export class DealSyncService {
         discountPct: apiDiscountRate,
         commissionRate: 0,
         rating: item.rating_average ? Number(item.rating_average) : null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // ── CellphoneS integration ──────────────────────────────────────────────────
+
+  private async fetchCellphonesProducts(
+    niche: NicheConfig,
+    integration: NicheIntegration | null,
+    atCampaign: import("../affiliate/accesstrade/types").AccessTradeCampaign | null,
+  ): Promise<FetchedProduct[]> {
+    if (!integration?.enabled) return [];
+
+    // Load per-niche category config từ SyncSource.config hoặc dùng default
+    const dbSource = await this.prisma.syncSource.findUnique({ where: { slug: "cellphones" } });
+    const cfg = dbSource?.config
+      ? (() => { try { return JSON.parse(dbSource.config as string) as import("./sync.constants").SyncSourceConfig } catch { return {} } })()
+      : {};
+
+    const categoryMap: Record<string, string[]> = cfg.cpsCategories ?? CPS_DEFAULT_CATEGORIES;
+    const categoryIds: string[] = categoryMap[niche.id] ?? [];
+    if (categoryIds.length === 0) return [];
+
+    const pageSize = cfg.cpsPageSize ?? 20;
+    const maxPages = cfg.cpsMaxPages ?? 2;
+    const provinceId = cfg.cpsProvinceId ?? CPS_DEFAULT_PROVINCE_ID;
+
+    const results: FetchedProduct[] = [];
+
+    for (const categoryId of categoryIds) {
+      for (let page = 1; page <= maxPages; page++) {
+        if (page > 1) await sleep(1500);
+        try {
+          const items = await this.fetchCpsCategory(categoryId, page, pageSize, provinceId);
+          if (items.length === 0) break;
+
+          for (const item of items) {
+            const parsed = this.normalizeCpsProduct(item);
+            if (parsed) results.push(parsed);
+          }
+
+          if (items.length < pageSize) break; // last page
+        } catch (e: any) {
+          this.log.warn(`[CellphoneS] Category ${categoryId} page ${page} error: ${e.message}`);
+          await this.slog.warn(`CellphoneS fetch lỗi`, SRC, {
+            niche: niche.id, categoryId, page, error: e.message,
+          });
+          break;
+        }
+      }
+      await sleep(1200);
+    }
+
+    this.log.log(`[CellphoneS] Ngách: ${niche.name} — ${results.length} sản phẩm`);
+
+    // Wrap AT tracking link batch sau khi collect đủ — cùng pattern KingFood
+    if (atCampaign && results.length > 0) {
+      this.log.log(`[CellphoneS] Tạo AT tracking link cho ${results.length} sản phẩm...`);
+      let wrapped = 0;
+      for (const p of results) {
+        try {
+          const link = await this.accesstrade.createTrackingLink({
+            campaignId: atCampaign.id,
+            urls: [p.shopUrl],
+            subIds: { sub1: niche.id, sub2: "cps" },
+          });
+          p.affiliateUrl = link.shortLink ?? link.affiliateLink;
+          wrapped++;
+        } catch { /* keep raw URL */ }
+      }
+      this.log.log(`[CellphoneS] Wrap AT link: ${wrapped}/${results.length} thành công`);
+      await this.slog.info(
+        `[CellphoneS] Wrap AT link: ${wrapped}/${results.length} — campaign "${atCampaign.name}"`,
+        SRC, { campaign: atCampaign.name, wrapped, total: results.length },
+      );
+    }
+
+    return results;
+  }
+
+  private async fetchCpsCategory(
+    categoryId: string,
+    page: number,
+    size: number,
+    provinceId: number,
+  ): Promise<any[]> {
+    const query = `
+      query GetProductsByCateId {
+        products(
+          filter: {
+            static: {
+              categories: ["${categoryId}"]
+              province_id: ${provinceId}
+              stock: { from: 1 }
+              company_stock_id: [46, 152, 4920]
+            }
+          }
+          page: ${page}
+          size: ${size}
+          sort: [{ view: desc }]
+        ) {
+          general { product_id name sku url_path review { average_rating } }
+          filterable { price special_price display_price thumbnail stock }
+        }
+      }
+    `;
+
+    const resp = await fetch(CPS_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": CPS_PRODUCT_BASE,
+        "Referer": `${CPS_PRODUCT_BASE}/`,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      },
+      body: JSON.stringify({ query, variables: {} }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!resp.ok) throw new Error(`CPS HTTP ${resp.status}`);
+    const body = await resp.json() as any;
+    if (body.errors?.length) throw new Error(body.errors[0].message);
+    return body.data?.products ?? [];
+  }
+
+  private normalizeCpsProduct(item: any): FetchedProduct | null {
+    try {
+      const g = item.general;
+      const f = item.filterable;
+      if (!g || !f) return null;
+
+      const name = String(g.name ?? "").trim();
+      if (!name) return null;
+
+      const urlPath = String(g.url_path ?? "").trim();
+      if (!urlPath) return null;
+
+      // Dùng display_price (giá hiển thị sau khuyến mãi) hoặc special_price, fallback về price
+      const rawPrice = Number(f.display_price || f.special_price || f.price || 0);
+      if (rawPrice <= 0) return null;
+      const currentPrice = Math.round(rawPrice);
+      const rawOriginal = Number(f.price || 0);
+      const originalPrice = rawOriginal > rawPrice ? Math.round(rawOriginal) : null;
+
+      const thumbnail = String(f.thumbnail ?? "").trim();
+      const imageUrl = thumbnail ? `${CPS_IMAGE_CDN}${thumbnail}` : "";
+
+      const shopUrl = `${CPS_PRODUCT_BASE}/${urlPath}`;
+      const externalId = String(g.product_id ?? g.sku ?? urlPath);
+
+      return {
+        externalId,
+        source: "cellphones",
+        name: name.slice(0, 255),
+        imageUrl,
+        shopUrl,
+        affiliateUrl: shopUrl,
+        currentPrice,
+        originalPrice,
+        commissionRate: 0,
+        rating: g.review?.average_rating ? Number(g.review.average_rating) : null,
       };
     } catch {
       return null;
