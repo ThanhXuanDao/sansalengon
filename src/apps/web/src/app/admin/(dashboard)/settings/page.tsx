@@ -1,11 +1,10 @@
-"use client"
+﻿"use client"
 
 import {
   Globe, Palette, Search, Settings2, Shield, Save, RotateCcw,
   BarChart3, Phone, AlertTriangle, Info,
-  Loader2, Plug,
 } from "lucide-react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ensureCsrfToken } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import { Button, PageSpinner, useToast, Tabs, TabList, TabTrigger, TabContent, ImageUpload } from "@/components/admin/ui"
@@ -90,50 +89,6 @@ export default function AdminSettings() {
   const [changingPassword, setChangingPassword] = useState(false)
   const originalRef = useRef<Settings>(defaultSettings)
   const { success, error: toastError } = useToast()
-
-  // ── Source settings ───────────────────────────────────────────────────────────
-  interface SourceSettings { shopeeMode: "affiliate" | "at"; lazadaMode: "affiliate" | "at" }
-  const defaultSourceSettings: SourceSettings = { shopeeMode: "affiliate", lazadaMode: "affiliate" }
-  const [sourceSettings, setSourceSettings] = useState<SourceSettings>(defaultSourceSettings)
-  const [sourceSettingsLoading, setSourceSettingsLoading] = useState(false)
-  const [sourceSettingsSaving, setSourceSettingsSaving] = useState(false)
-
-  const fetchSourceSettings = useCallback(async () => {
-    setSourceSettingsLoading(true)
-    try {
-      const csrf = await ensureCsrfToken()
-      const res = await fetch("/api/admin/source-settings", { headers: { "x-csrf-token": csrf } })
-      if (res.ok) setSourceSettings({ ...defaultSourceSettings, ...(await res.json()) })
-    } catch { /* keep defaults */ }
-    finally { setSourceSettingsLoading(false) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const saveSourceSettings = async () => {
-    setSourceSettingsSaving(true)
-    try {
-      const csrf = await ensureCsrfToken()
-      const res = await fetch("/api/admin/source-settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
-        body: JSON.stringify(sourceSettings),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `HTTP ${res.status}`)
-      }
-      setSourceSettings(await res.json())
-      success("Đã lưu cấu hình nguồn!")
-    } catch (e) {
-      toastError(e instanceof Error ? e.message : "Không thể lưu")
-    } finally {
-      setSourceSettingsSaving(false)
-    }
-  }
-
-  useEffect(() => {
-    if (tab === "sources") fetchSourceSettings()
-  }, [tab, fetchSourceSettings])
 
   useEffect(() => {
     ensureCsrfToken().then((csrfToken) => {
@@ -226,7 +181,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell title="Cài đặt" subtitle="Cấu hình ứng dụng, thương hiệu, SEO và hệ thống." />
 
       <Tabs value={tab} onChange={setTab}>
@@ -236,7 +191,6 @@ export default function AdminSettings() {
           <TabTrigger value="seo"><Search className="size-3.5 inline -mt-0.5 mr-1.5" />SEO & Analytics</TabTrigger>
           <TabTrigger value="system"><Settings2 className="size-3.5 inline -mt-0.5 mr-1.5" />Hệ thống</TabTrigger>
           <TabTrigger value="security"><Shield className="size-3.5 inline -mt-0.5 mr-1.5" />Bảo mật</TabTrigger>
-          <TabTrigger value="sources"><Plug className="size-3.5 inline -mt-0.5 mr-1.5" />Nguồn SP</TabTrigger>
         </TabList>
 
         <div className="mt-6 space-y-6">
@@ -564,77 +518,15 @@ export default function AdminSettings() {
             </div>
           </TabContent>
 
-          {/* ─── NGUỒN SP ─── */}
-          <TabContent value="sources">
-            <div className="space-y-6">
-
-              {/* Platform source mode */}
-              <div className={sectionCls}>
-                <h3 className={sectionTitleCls}>
-                  <Plug className="size-4 text-[#b51c00]" />
-                  Nguồn lấy sản phẩm — Shopee &amp; Lazada
-                </h3>
-                {sourceSettingsLoading ? (
-                  <div className="flex items-center gap-2 py-4">
-                    <Loader2 className="size-4 animate-spin text-[#b51c00]" />
-                    <span className="font-mono text-[12px] text-[#5c403a]">Đang tải...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {(["shopee", "lazada"] as const).map((platform) => {
-                      const modeKey = `${platform}Mode` as "shopeeMode" | "lazadaMode"
-                      const currentMode = sourceSettings[modeKey]
-                      const label = platform === "shopee" ? "Shopee" : "Lazada"
-                      return (
-                        <div key={platform} className="py-3 border-b border-dashed border-[#e5e1d8] last:border-0 last:pb-0">
-                          <p className="font-mono text-[13px] font-bold text-[#1a1c1b] mb-2">{label}</p>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setSourceSettings((s) => ({ ...s, [modeKey]: "affiliate" }))}
-                              className={`flex-1 flex flex-col items-start px-4 py-3 border text-left transition-colors ${currentMode === "affiliate" ? "border-[#b51c00] bg-[#fff8f6]" : "border-[#e5e1d8] hover:bg-[#f4f4f1]"}`}
-                            >
-                              <span className="font-mono text-[12px] font-bold text-[#1a1c1b]">Option 1 — {label} Affiliate API</span>
-                              <span className="font-mono text-[11px] text-[#5c403a] mt-0.5">Dùng SDK affiliate của {label} — cần API key riêng</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setSourceSettings((s) => ({ ...s, [modeKey]: "at" }))}
-                              className={`flex-1 flex flex-col items-start px-4 py-3 border text-left transition-colors ${currentMode === "at" ? "border-[#b51c00] bg-[#fff8f6]" : "border-[#e5e1d8] hover:bg-[#f4f4f1]"}`}
-                            >
-                              <span className="font-mono text-[12px] font-bold text-[#1a1c1b]">Option 2 — Qua AT tracking</span>
-                              <span className="font-mono text-[11px] text-[#5c403a] mt-0.5">Wrap URL bằng AccessTrade tracking link (như Tiki) — hoa hồng AT</span>
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                    <div className="flex justify-end pt-2">
-                      <button
-                        onClick={saveSourceSettings}
-                        disabled={sourceSettingsSaving}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-[#1a1c1b] text-white font-mono text-[12px] hover:bg-[#b51c00] transition-colors disabled:opacity-50"
-                      >
-                        {sourceSettingsSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                        {sourceSettingsSaving ? "Đang lưu..." : "Lưu"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </TabContent>
-
           {/* ─── SAVE BAR ─── */}
-          {tab !== "sources" && <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
+          <div className="flex justify-end items-center gap-4 pt-4 border-t border-dashed border-[#e5e1d8]">
             <Button variant="ghost" icon={RotateCcw} onClick={handleDiscard}>
               Hoàn tác
             </Button>
             <Button variant="primary" icon={Save} onClick={handleSave} loading={saving} disabled={saving}>
               {saving ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
-          </div>}
+          </div>
         </div>
       </Tabs>
     </div>

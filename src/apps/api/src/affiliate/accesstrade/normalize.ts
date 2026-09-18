@@ -75,6 +75,41 @@ export function normalizeAccessTradeCampaign(input: unknown): AccessTradeCampaig
   };
 }
 
+/**
+ * Batch version — maps each origin URL to its affiliate link.
+ * AT returns success_link[] in the same order as the input urls[].
+ * Falls back to the origin URL for any entry that fails to parse.
+ */
+export function normalizeAccessTradeTrackingLinks(
+  payload: unknown,
+  campaignId: string,
+  originUrls: string[],
+): Map<string, string> {
+  const result = new Map<string, string>()
+  const unwrapped = unwrapData(payload)
+  if (!isRecord(unwrapped)) return result
+
+  const rawLinks = Array.isArray(unwrapped.success_link)
+    ? unwrapped.success_link
+    : Array.isArray(unwrapped.successLink)
+      ? unwrapped.successLink
+      : []
+
+  rawLinks.forEach((link, i) => {
+    const origin = firstText(isRecord(link) ? (link.url_origin ?? link.urlOrigin) : null) ?? originUrls[i]
+    if (!origin) return
+    const affUrl = isRecord(link) ? firstText(link.aff_link, link.affiliateLink, link.short_link, link.shortLink) : null
+    result.set(origin, affUrl ?? origin)
+  })
+
+  // For any input URL with no response entry, map to itself (safe fallback)
+  for (const url of originUrls) {
+    if (!result.has(url)) result.set(url, url)
+  }
+
+  return result
+}
+
 export function normalizeAccessTradeTrackingLink(payload: unknown, campaignId: string, originUrl: string): AccessTradeTrackingLink {
   const unwrapped = unwrapData(payload);
   if (!isRecord(unwrapped)) throw new AccessTradeApiError("schema_drift", "Tracking link payload is not an object");

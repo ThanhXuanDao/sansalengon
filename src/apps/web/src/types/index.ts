@@ -27,9 +27,3 @@ export interface Category {
   slug: string
   icon?: string
 }
-
-export interface ClickLog {
-  id: string
-  productId: string
-  clickedAt: string
-}

@@ -57,7 +57,7 @@ export function DataTable({
 
   return (
     <div className={`bg-white border border-[#e5e1d8] flex flex-col flex-1 min-h-0 overflow-hidden ${className}`}>
-      <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0">
+      <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0 relative">
       <table className="w-full text-left border-collapse min-w-[600px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-[#f4f4f1] border-b border-[#e5e1d8]">

@@ -169,7 +169,7 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
             <p className="font-mono text-xs text-ink/50 leading-relaxed">
               <strong className="text-ink/70">Về trang {niche.name}:</strong>{" "}
               Hệ thống tự động thu thập và cập nhật deal {niche.name.toLowerCase()} từ
-              Shopee, Lazada và hơn 50 thương hiệu mỗi 4 giờ. Biểu đồ lịch sử giá
+              Shopee, Lazada, KingFoodMart và hơn 50 thương hiệu mỗi 4 giờ. Biểu đồ lịch sử giá
               30 ngày giúp bạn phát hiện "sale ảo". Mã giảm giá được kiểm tra hàng ngày
               và tự động xóa khi hết hạn.
             </p>

@@ -87,10 +87,10 @@ export default function NichesAnalyticsPage() {
   const topNiche = sorted[0]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
-        title="Ngách sản phẩm"
-        subtitle="Phân tích lượt click phân theo danh mục sản phẩm và kênh phân phối."
+        title="Phân tích ngành hàng"
+        subtitle="Phân tích lượt click phân theo ngành hàng và kênh phân phối."
         actions={
           <SegmentedControl
             value={period}
@@ -109,8 +109,13 @@ export default function NichesAnalyticsPage() {
           loading={loading}
         />
         <StatCard
-          label="Ngách dẫn đầu"
-          value={loading ? "…" : topNiche ? `${topNiche.emoji} ${topNiche.name}` : "—"}
+          label="Ngành dẫn đầu"
+          value={loading ? "…" : topNiche ? (
+            <span className="flex items-center gap-1.5 text-[18px] font-bold leading-snug">
+              <span className="text-[20px] leading-none">{topNiche.emoji}</span>
+              {topNiche.name}
+            </span>
+          ) : "—"}
           icon={TrendingUp}
           loading={loading}
         />

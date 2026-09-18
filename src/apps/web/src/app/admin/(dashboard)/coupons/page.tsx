@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import {
@@ -191,7 +191,7 @@ export default function AdminCouponsPage() {
   const hasMore = coupons.length < total
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
         title="Mã giảm giá"
         subtitle={`${total} coupon trong hệ thống`}

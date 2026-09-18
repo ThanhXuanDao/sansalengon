@@ -13,8 +13,6 @@ import {
   Search,
   Menu,
   X,
-  Tags,
-  MousePointerClick,
   MessageSquare,
   Radio,
   Layers,
@@ -40,12 +38,10 @@ import { ToastProvider } from "@/components/admin/ui"
 const navItems = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/products", label: "Sản phẩm", icon: Package },
-  { href: "/admin/categories", label: "Danh mục", icon: Tags },
-  { href: "/admin/click-logs", label: "Lịch sử click", icon: MousePointerClick },
-  { href: "/admin/niches", label: "Ngách sản phẩm", icon: Layers },
-  { href: "/admin/niches/manage", label: "Quản lý ngách", icon: Settings2 },
+  { href: "/admin/niches", label: "Phân tích ngành hàng", icon: Layers },
+  { href: "/admin/niches/manage", label: "Ngành hàng", icon: Settings2 },
   { href: "/admin/campaigns", label: "AT Campaigns", icon: Antenna },
-  { href: "/admin/sources",   label: "Nguồn đồng bộ", icon: Globe },
+  { href: "/admin/sources",   label: "Đồng bộ nguồn",  icon: Globe },
   { href: "/admin/coupons", label: "Mã giảm giá", icon: Ticket },
   { href: "/admin/feedback", label: "Phản hồi", icon: MessageSquare },
   { href: "/admin/ai-config", label: "Cấu hình AI", icon: Bot },
@@ -58,7 +54,7 @@ const navItems = [
   { href: "/admin/facebook", label: "Facebook", icon: Share2 },
   { href: "/admin/zalo", label: "Zalo OA", icon: MessageCircle },
   { href: "/admin/broadcast", label: "Phát sóng", icon: Radio },
-  { href: "/admin/jobs",     label: "Sync Jobs",    icon: Workflow },
+  { href: "/admin/jobs",     label: "Tác vụ xử lý", icon: Workflow },
   { href: "/admin/logs",     label: "System Logs",  icon: ScrollText },
   { href: "/admin/settings", label: "Cài đặt", icon: Settings },
 ]
@@ -116,6 +112,12 @@ export default function AdminDashboardLayout({
   const [profileOpen, setProfileOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const html = document.documentElement
+    html.style.overflow = 'hidden'
+    return () => { html.style.overflow = '' }
+  }, [])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -354,7 +356,7 @@ export default function AdminDashboardLayout({
 
         {/* Page Content */}
         <main className="flex-1 overflow-hidden flex flex-col bg-[#FAFAF7]">
-          <div className="flex-1 min-h-0 flex flex-col w-full px-6 md:px-8 pt-6 pb-4 overflow-y-auto">
+          <div className="flex-1 min-h-0 flex flex-col w-full px-6 md:px-8 pt-6 pb-4 overflow-hidden">
             {children}
           </div>
         </main>

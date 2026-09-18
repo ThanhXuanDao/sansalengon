@@ -29,7 +29,7 @@ export default function AdminHelpPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell title="Trợ giúp" subtitle="Tài liệu hướng dẫn sử dụng SanSaleNgon affiliate portal." />
 
       <div className="grid gap-6">

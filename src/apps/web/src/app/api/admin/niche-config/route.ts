@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
     id: n.id,
     name: n.name,
     status: n.status,
-    keywordSeeds: (n.shopeeKeywords as string[]) ?? [],
     platforms: {
       tiki:   toPlatformConfig(integrationMap.get(`${n.id}:tiki`) ?? null),
       lazada: toPlatformConfig(integrationMap.get(`${n.id}:lazada`) ?? null),

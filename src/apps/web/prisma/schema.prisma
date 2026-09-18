@@ -115,13 +115,6 @@ model Niche {
   description    String?                     // SEO meta description
   metaKeywords   String?                     // SEO meta keywords
   sortOrder      Int       @default(0)
-  // Sync config (replaces niches.yaml)
-  shopeeKeywords Json      @default("[]")    // string[]
-  atCampaignIds  Json      @default("[]")    // string[] — explicit override
-  atKeywords     Json      @default("[]")    // string[] — auto-match keywords
-  minDiscountPct Int       @default(0)
-  minPrice       Int       @default(0)
-  maxPrice       Int       @default(10000000)
   // Content / broadcast
   postPrefix     String?
   hashtags       String?
@@ -323,15 +316,22 @@ model AtCampaignNicheMatch {
 // Mỗi row = 1 website nguồn — config scraper, không chứa logic scraping
 
 model SyncSource {
-  id          String   @id @default(cuid())
-  name        String                        // tên hiển thị
-  slug        String   @unique              // ID URL-safe
-  baseUrl     String
-  enabled     Boolean  @default(true)
-  config      String   @default("{}")       // JSON: selectors, pagination, rateLimit, etc.
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String    @id @default(cuid())
+  name              String
+  slug              String    @unique
+  baseUrl           String
+  enabled           Boolean   @default(true)
+  config            String    @default("{}")
+  description       String?
+  scheduleCron      String?
+  scheduleEnabled   Boolean   @default(false)
+  scheduleNextRunAt DateTime?
+  lastRunAt         DateTime?
+  lastRunStatus     String?   // "success" | "failed" | "running"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([scheduleEnabled, scheduleNextRunAt])
 }
 
 // ── Per-niche platform integration config ────────────────────

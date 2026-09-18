@@ -17,7 +17,7 @@ export async function PUT(
 
   try {
     const body = await request.json()
-    const { name, slug, baseUrl, enabled, config, description } = body
+    const { name, slug, baseUrl, enabled, config, description, scheduleCron, scheduleEnabled } = body
 
     const source = await prisma.syncSource.update({
       where: { id },
@@ -28,6 +28,8 @@ export async function PUT(
         ...(enabled !== undefined && { enabled }),
         ...(config !== undefined && { config: typeof config === "string" ? config : JSON.stringify(config) }),
         ...(description !== undefined && { description: description || null }),
+        ...(scheduleCron !== undefined && { scheduleCron: scheduleCron || null }),
+        ...(scheduleEnabled !== undefined && { scheduleEnabled: Boolean(scheduleEnabled) }),
       },
     })
 

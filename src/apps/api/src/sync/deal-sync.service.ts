@@ -1,5 +1,4 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Cron } from "@nestjs/schedule";
 import { PrismaClient } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { ShopeeAffiliateClient } from "../affiliate/shopee/client";
@@ -10,17 +9,13 @@ import type { NormalizedProduct } from "../platforms/platform.adapter";
 import { AppLogService } from "../shared/app-log.service";
 import type { Trigger } from "../shared/app-log.service";
 import { BotSafeFetcher } from "../shared/bot-safe-fetcher";
+import { ScraperSyncService } from "../scraper/scraper-sync.service";
 
 interface NicheConfig {
   id: string;
   name: string;
   status: string;
   shopee?: { keyword_seeds: string[] };
-  accesstrade?: {
-    campaign_ids: string[];
-    campaign_keywords?: string[]; // auto-match nếu campaign_ids trống
-  };
-  filters: { min_discount_pct: number; min_price: number; max_price: number };
 }
 
 interface NicheIntegration {
@@ -45,7 +40,7 @@ interface FetchedProduct {
   rating: number | null;
 }
 
-type SyncSource = "all" | "shopee" | "accesstrade" | "tiki" | "lazada";
+import type { AffiliateStrategy, SyncSourceConfig } from "./sync.constants"
 
 export interface SourceCount { fetched: number; skipped: number }
 
@@ -142,21 +137,22 @@ export class DealSyncService {
     private readonly accesstrade: AccessTradePublisherClient,
     private readonly lazada: LazadaAdapter,
     private readonly appLog: AppLogService,
+    private readonly scraperSync: ScraperSyncService,
   ) {}
 
   private get slog() { return this.appLog.scope("api-sync"); }
 
-  @Cron("0 */4 * * *")
-  async syncAllNiches() {
-    if (this.syncRunning) {
-      this.log.warn("[Cron] Sync already in progress — skipping scheduled run");
-      return;
-    }
-    await this.triggerSync(undefined, "all", "cron");
+  // Returns all enabled SyncSource slugs from DB — used by controller for validation
+  async getValidSourceSlugs(): Promise<string[]> {
+    const rows = await this.prisma.syncSource.findMany({
+      where: { enabled: true },
+      select: { slug: true },
+    });
+    return rows.map((r) => r.slug);
   }
 
   // Public method called by SyncController (manual / web-scheduled trigger)
-  async triggerSync(nicheId?: string, source: SyncSource = "all", trigger: Trigger = "manual"): Promise<{
+  async triggerSync(nicheId: string | undefined, source: string, trigger: Trigger = "manual"): Promise<{
     niches: number;
     fetched: number;
     priceChanges: number;
@@ -174,20 +170,63 @@ export class DealSyncService {
     this.syncStatus.result = null;
 
     try {
+    // Load SyncSource config from DB (graceful — not all slugs have a DB record yet)
+    const dbSource = await this.prisma.syncSource.findFirst({ where: { slug: source } });
+    const sourceConfig: SyncSourceConfig = dbSource?.config ? (() => { try { return JSON.parse(dbSource.config as string) } catch { return {} } })() : {};
+    const sourceName = dbSource?.name ?? source;
+
+    this.log.log(`[${source}] Khởi tạo đồng bộ — ${sourceName}`);
+    await this.slog.info(`[${source}] Khởi tạo đồng bộ nguồn "${sourceName}"`, SRC, { source }, trigger);
+
+    // Scraper sources: campaign/strategy resolution và niche loop do ScraperSyncService đảm nhận
+    let atCampaign: import("../affiliate/accesstrade/types").AccessTradeCampaign | null = null;
+    let strategy: import("./sync.constants").AffiliateStrategy = "direct";
+
+    if (sourceConfig.type !== "scraper") {
+      // Determine AT campaign + affiliate strategy
+      const campaignResult = await this.findCampaignForSource(source, sourceConfig);
+      atCampaign = campaignResult.campaign;
+      const campaignType = campaignResult.campaignType;
+      if (atCampaign) {
+        const typeLabel = campaignType === "tracking" ? "tracking (wrap URL)" : "product feed (không wrap URL)";
+        this.log.log(`[${source}] AT campaign: "${atCampaign.name}" — loại: ${typeLabel}`);
+        await this.slog.info(
+          `[${source}] AT campaign: "${atCampaign.name}" — loại: ${typeLabel}`,
+          SRC, { campaignId: atCampaign.id, campaignType },
+        );
+      } else {
+        this.log.log(`[${source}] Không tìm thấy AT campaign — sẽ dùng URL trực tiếp`);
+        await this.slog.info(`[${source}] Không tìm thấy AT campaign`, SRC, {});
+      }
+      strategy = this.resolveAffiliateStrategy(source, sourceConfig, campaignType);
+      const strategyLabel: Record<string, string> = {
+        direct: "direct (affiliate API riêng của platform)",
+        at_feed: "at_feed (lấy sản phẩm từ AT product feed)",
+        at_wrap: "at_wrap (fetch từ platform + bọc AT tracking link)",
+      };
+      this.log.log(`[${source}] Chiến lược: ${strategy} — ${strategyLabel[strategy] ?? strategy}`);
+      await this.slog.info(
+        `[${source}] Chiến lược affiliate: ${strategyLabel[strategy] ?? strategy}`,
+        SRC, { strategy, campaign: atCampaign?.name ?? null }, trigger,
+      );
+    }
+
     const allNiches = await this.loadActiveNiches();
     const targets = (nicheId && nicheId !== "all")
       ? allNiches.filter((n) => n.id === nicheId)
       : allNiches;
 
-    this.log.log(`triggerSync — ${targets.length} niche(s), source=${source}${nicheId && nicheId !== "all" ? ` (${nicheId})` : ""}`);
-    await this.slog.info(`Bắt đầu đồng bộ sản phẩm`, SRC, { niches: targets.map((n) => n.id), source }, trigger);
+    if (sourceConfig.type !== "scraper") {
+      this.log.log(`[${source}] ${targets.length} ngách sẽ được đồng bộ`);
+      await this.slog.info(`[${source}] Bắt đầu đồng bộ theo ngách`, SRC, { niches: targets.map((n) => n.id), source, strategy }, trigger);
+    }
 
     const t0 = Date.now();
     const reports: SyncReport[] = [];
     this.tikiIpBanned = false; // reset mỗi run
 
     const runNiche = async (niche: NicheConfig): Promise<SyncReport> =>
-      this.syncNiche(niche, source).catch(async (e): Promise<SyncReport> => {
+      this.syncNiche(niche, source, strategy, atCampaign).catch(async (e): Promise<SyncReport> => {
         this.log.error(`Sync failed for niche "${niche.id}": ${e.message}`);
         await this.slog.error(`Sync thất bại cho ngách "${niche.name}"`, SRC, {
           niche: niche.id, error: e.message, stack: e.stack?.slice(0, 500),
@@ -195,8 +234,11 @@ export class DealSyncService {
         return { niche: niche.id, fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: 0, bySource: {} };
       });
 
-    const isTikiSync = source === "all" || source === "tiki" || source === "accesstrade";
-    if (isTikiSync && targets.length > 1) {
+    const isTikiSync = source === "tiki";
+    if (sourceConfig.type === "scraper") {
+      // Scraper sources có category→niche mapping riêng trong ScraperSyncService, không chạy niche loop
+      this.log.log(`[${source}] Scraper source — bỏ qua niche loop`);
+    } else if (isTikiSync && targets.length > 1) {
       // Paged cursor mode: mỗi run chỉ lấy 1 page/ngách → request rate thấp, không cần batch pause.
       // Trang tiếp theo được lưu trong SyncSource.config.pageState, cập nhật sau mỗi run.
       const cfg = await this.readTikiSyncConfig();
@@ -257,6 +299,22 @@ export class DealSyncService {
 
     await this.pruneOldPriceHistory();
 
+    if (sourceConfig.type === "scraper") {
+      this.log.log(`[${source}] Chạy scraper sync...`);
+      const scraperResult = await this.scraperSync.syncAll(trigger);
+      if (scraperResult.sources > 0) {
+        reports.push({
+          niche: "__scraper__",
+          fetched: scraperResult.fetched,
+          priceChanges: 0,
+          newDeals: scraperResult.newDeals,
+          skipped: scraperResult.skipped,
+          durationMs: scraperResult.durationMs,
+          bySource: { scraper: { fetched: scraperResult.fetched, skipped: scraperResult.skipped } },
+        });
+      }
+    }
+
     // Aggregate totals + merge bySource across all niches
     const bySource: Record<string, SourceCount> = {};
     const total = reports.reduce(
@@ -292,9 +350,9 @@ export class DealSyncService {
     }
   }
 
-  async syncNiche(niche: NicheConfig, source: SyncSource = "all"): Promise<SyncReport> {
+  async syncNiche(niche: NicheConfig, source: string, strategy?: AffiliateStrategy, atCampaign?: AccessTradeCampaign | null): Promise<SyncReport> {
     const start = Date.now();
-    this.log.log(`Syncing niche: ${niche.name} [source=${source}]`);
+    this.log.log(`[${source}] Ngách: ${niche.name} — bắt đầu`);
 
     await this.prisma.category.upsert({
       where: { id: niche.id },
@@ -302,26 +360,34 @@ export class DealSyncService {
       create: { id: niche.id, name: niche.name, slug: niche.id },
     });
 
-    const runSource = (s: SyncSource) => source === "all" || source === s;
+    const runSource = (s: string) => source === s;
 
     const [tikiIntegration, lazadaIntegration] = await Promise.all([
       runSource("tiki")   ? this.loadNicheIntegration(niche.id, "tiki")   : Promise.resolve(null),
       runSource("lazada") ? this.loadNicheIntegration(niche.id, "lazada") : Promise.resolve(null),
     ]);
-    const [shopeeProducts, atProducts, tikiProducts, lazadaProducts] = await Promise.all([
-      runSource("shopee")      ? this.fetchShopeeProducts(niche)                        : Promise.resolve([]),
-      runSource("accesstrade") ? this.fetchAccessTradeProducts(niche, source, tikiIntegration) : Promise.resolve([]),
-      runSource("tiki")        ? this.fetchTikiProducts(niche, tikiIntegration)         : Promise.resolve([]),
-      runSource("lazada")      ? this.fetchLazadaProducts(niche, lazadaIntegration)     : Promise.resolve([]),
+
+    // at_feed: lấy sản phẩm từ AT product feed thay vì fetch trực tiếp từ platform
+    const atFeedProducts = strategy === "at_feed"
+      ? await this.fetchAtFeedForNiche(niche, source)
+      : [];
+    if (atFeedProducts.length > 0) {
+      this.log.log(`[${source}] Ngách: ${niche.name} — AT product feed: ${atFeedProducts.length} sản phẩm`);
+    }
+
+    const [shopeeProducts, tikiProducts, lazadaProducts] = await Promise.all([
+      runSource("shopee")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Shopee...`),  this.fetchShopeeProducts(niche))         : Promise.resolve([]),
+      runSource("tiki")        ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Tiki...`),    this.fetchTikiProducts(niche, tikiIntegration))  : Promise.resolve([]),
+      runSource("lazada")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Lazada...`),  this.fetchLazadaProducts(niche, lazadaIntegration)) : Promise.resolve([]),
     ]);
 
     const bySourceRaw: Record<string, FetchedProduct[]> = {
       shopee:      shopeeProducts,
-      accesstrade: atProducts,
+      accesstrade: atFeedProducts,
       tiki:        tikiProducts,
       lazada:      lazadaProducts,
     };
-    const fetched = [...shopeeProducts, ...atProducts, ...tikiProducts, ...lazadaProducts];
+    const fetched = [...shopeeProducts, ...atFeedProducts, ...tikiProducts, ...lazadaProducts];
     const lastPriceMap = await this.fetchLastRecordedPrices(niche.id);
 
     const priceHistoryBatch: { productId: string; price: number }[] = [];
@@ -329,8 +395,6 @@ export class DealSyncService {
     let skipped = 0;
 
     for (const p of fetched) {
-      if (!this.passesFilter(p, niche.filters)) { skipped++; continue; }
-
       const product = await this.upsertProduct(p, niche.id);
 
       const lastPrice = lastPriceMap.get(product.id);
@@ -353,9 +417,7 @@ export class DealSyncService {
           isFeatured: discountPct >= 40,
         },
       });
-      if (discountPct >= niche.filters.min_discount_pct) {
-        newDeals++;
-      }
+      newDeals++;
     }
 
     if (priceHistoryBatch.length > 0) {
@@ -365,9 +427,8 @@ export class DealSyncService {
     // Build per-source counts (fetched before filter, skipped = filtered out)
     const bySource: Record<string, SourceCount> = {};
     for (const [src, products] of Object.entries(bySourceRaw)) {
-      if (products.length === 0 && source !== "all" && source !== src) continue;
-      const srcSkipped = products.filter((p) => !this.passesFilter(p, niche.filters)).length;
-      bySource[src] = { fetched: products.length, skipped: srcSkipped };
+      if (products.length === 0 && source !== src) continue;
+      bySource[src] = { fetched: products.length, skipped: 0 };
     }
 
     const report: SyncReport = {
@@ -384,7 +445,7 @@ export class DealSyncService {
       .filter(([, c]) => c.fetched > 0)
       .map(([s, c]) => `${s}:${c.fetched}`)
       .join(" ")
-    this.log.log(`[${niche.name}] ${srcSummary || "0 products"} → newDeals=${report.newDeals} priceChanges=${report.priceChanges} skipped=${report.skipped} (${report.durationMs}ms)`);
+    this.log.log(`[${source}] Ngách: ${niche.name} — hoàn tất: ${srcSummary || "0 sản phẩm"} | newDeals=${report.newDeals} priceChanges=${report.priceChanges} (${report.durationMs}ms)`);
     await this.slog.info(`Đồng bộ ngách "${niche.name}" hoàn tất`, SRC, report);
     return report;
   }
@@ -574,10 +635,6 @@ export class DealSyncService {
     return results;
   }
 
-  private passesFilter(p: Pick<FetchedProduct, "currentPrice">, filters: { min_price: number; max_price: number }): boolean {
-    // currentPrice is stored as cents (VND × 100); filter bounds are in VND — multiply to match
-    return p.currentPrice >= filters.min_price * 100 && p.currentPrice <= filters.max_price * 100;
-  }
 
   private async upsertProduct(p: FetchedProduct, categoryId: string) {
     return this.prisma.product.upsert({
@@ -612,8 +669,7 @@ export class DealSyncService {
     try {
       const campaigns = await this.accesstrade.listCampaigns({ approval: "successful" });
       this.atCampaignsCache = { campaigns, fetchedAt: Date.now() };
-      this.log.log(`AccessTrade: ${campaigns.length} approved campaigns loaded`);
-      await this.slog.info(`Tải danh sách campaign AccessTrade`, SRC, { count: campaigns.length });
+      this.log.log(`AT API: ${campaigns.length} approved campaigns loaded, saved to DB cache`);
       await this.upsertCampaignsToDB(campaigns);
       return campaigns;
     } catch (e: any) {
@@ -642,9 +698,11 @@ export class DealSyncService {
   // Detect khi lần đầu lưu vào DB; update sau không override để bảo toàn setting thủ công.
   private detectCampaignType(name: string, merchant: string): string {
     const lower = `${name} ${merchant}`.toLowerCase();
-    const trackingPlatforms = ["tiki", "lazada", "shopee", "sendo", "tiktok", "tiki.vn"];
-    if (trackingPlatforms.some((p) => lower.includes(p))) return "tracking";
-    return "product";
+    // Chỉ nhận "product" cho các platform lớn có product feed thật sự qua AT /v1/offers
+    const productFeedPlatforms = ["lazada", "shopee", "sendo"];
+    if (productFeedPlatforms.some((p) => lower.includes(p))) return "product";
+    // Mặc định "tracking" — hầu hết merchant nhỏ dùng CPS tracking link
+    return "tracking";
   }
 
   private async upsertCampaignsToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
@@ -685,18 +743,108 @@ export class DealSyncService {
     }
   }
 
-  private async resolveCampaignIds(niche: NicheConfig): Promise<string[]> {
-    const explicit = niche.accesstrade?.campaign_ids ?? [];
-    if (explicit.length > 0) return explicit; // manual override → dùng luôn
+  // DB-first campaign loader: nếu MAX(lastSeenAt) < 4h → dùng DB; còn lại → gọi AT API
+  private async getAtCampaignsWithFreshnessCheck(): Promise<AccessTradeCampaign[]> {
+    const agg = await this.prisma.atCampaign.aggregate({
+      _max: { lastSeenAt: true },
+      where: { approval: "successful" },
+    });
+    const maxLastSeen = agg._max.lastSeenAt;
+    const isFresh = maxLastSeen && (Date.now() - maxLastSeen.getTime()) < this.AT_CAMPAIGNS_CACHE_TTL;
 
-    // Auto-discover: lấy tất cả campaign đã duyệt → match theo tên/merchant
+    if (isFresh) {
+      this.log.log(`AT campaigns: dùng DB cache (cập nhật lúc ${maxLastSeen!.toISOString()})`);
+      const dbRows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } });
+      return dbRows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        merchant: r.merchant,
+        url: r.url,
+        approval: r.approval,
+        scope: null,
+        cookieDuration: r.cookieDuration ?? null,
+        status: r.status,
+      }));
+    }
+
+    this.log.log(`AT campaigns: cache cũ hơn 4h — gọi AT API để cập nhật`);
+    return this.getApprovedCampaigns();
+  }
+
+  // Tìm AT campaign phù hợp với source slug (theo tên/merchant) + trả về campaignType từ DB
+  private async findCampaignForSource(
+    sourceSlug: string,
+    config: SyncSourceConfig,
+  ): Promise<{ campaign: AccessTradeCampaign | null; campaignType: "product" | "tracking" }> {
+    this.log.log(`[${sourceSlug}] Lấy danh sách AT campaign (DB-first 4h TTL)...`);
+    const campaigns = await this.getAtCampaignsWithFreshnessCheck();
+    this.log.log(`[${sourceSlug}] Tổng ${campaigns.length} AT campaign approved`);
+    if (campaigns.length === 0) return { campaign: null, campaignType: "product" };
+
+    const dbTypes = await this.prisma.atCampaign.findMany({
+      select: { id: true, campaignType: true },
+    });
+    const typeMap = new Map(dbTypes.map((r) => [r.id, (r.campaignType ?? "product") as "product" | "tracking"]));
+
+    // Explicit override từ config
+    if (config.atCampaignId) {
+      const found = campaigns.find((c) => c.id === config.atCampaignId);
+      if (found) return { campaign: found, campaignType: (typeMap.get(found.id) ?? "product") as "product" | "tracking" };
+    }
+
+    // Auto-match: slug hoặc tên slug (dấu gạch ngang → khoảng trắng)
+    const slugVariants = [sourceSlug, sourceSlug.replace(/-/g, " ")].map((s) => s.toLowerCase());
+    const matched = campaigns.find((c) => {
+      const lower = `${c.name} ${c.merchant}`.toLowerCase();
+      return slugVariants.some((v) => lower.includes(v));
+    });
+
+    return {
+      campaign: matched ?? null,
+      campaignType: (matched ? (typeMap.get(matched.id) ?? "product") : "product") as "product" | "tracking",
+    };
+  }
+
+  // Chiến lược affiliate dựa vào config nguồn + loại AT campaign
+  private resolveAffiliateStrategy(
+    sourceSlug: string,
+    config: SyncSourceConfig,
+    campaignType: "product" | "tracking",
+  ): AffiliateStrategy {
+    if (config.hasDirectAffiliate) return "direct";
+    // Shopee/Lazada mặc định dùng direct affiliate API của riêng họ
+    if ((sourceSlug === "shopee" || sourceSlug === "lazada") && !config.atCampaignId) return "direct";
+    if (campaignType === "product") return "at_feed";
+    return "at_wrap";
+  }
+
+  // Lấy sản phẩm từ AT product feed cho 1 ngách (dùng khi strategy = at_feed)
+  private async fetchAtFeedForNiche(niche: NicheConfig, sourceSlug: string): Promise<FetchedProduct[]> {
+    const accessKey = this.cfg.get<string>("ACCESSTRADE_ACCESS_KEY");
+    if (!accessKey) return [];
+
+    const campaignIds = await this.resolveCampaignIds(niche);
+    const allCampaigns = await this.getApprovedCampaigns();
+    const dbTypes = await this.prisma.atCampaign.findMany({ select: { id: true, campaignType: true } });
+    const typeMap = new Map(dbTypes.map((r) => [r.id, r.campaignType ?? "product"]));
+
+    const feedCampaigns = allCampaigns.filter(
+      (c) => campaignIds.includes(c.id) && typeMap.get(c.id) !== "tracking",
+    );
+
+    if (feedCampaigns.length === 0) return [];
+
+    this.log.log(`[${sourceSlug}] Ngách: ${niche.name} — AT product feed: ${feedCampaigns.length} campaign(s)`);
+    return this.fetchOffersForCampaigns(feedCampaigns, niche);
+  }
+
+  private async resolveCampaignIds(niche: NicheConfig): Promise<string[]> {
     const allCampaigns = await this.getApprovedCampaigns();
     if (allCampaigns.length === 0) return [];
 
     const keywords = [
-      ...(niche.accesstrade?.campaign_keywords ?? []),
-      niche.name,   // fallback: tên ngách ("Thời trang", "Điện tử", v.v.)
-      niche.id,     // fallback: id ngách ("fashion", "electronics", v.v.)
+      niche.name,
+      niche.id,
     ].map((k) => k.toLowerCase().trim()).filter(Boolean);
 
     const matched = allCampaigns.filter((c) =>
@@ -737,7 +885,7 @@ export class DealSyncService {
     }
   }
 
-  private async fetchAccessTradeProducts(niche: NicheConfig, source: SyncSource = "accesstrade", tikiIntegration?: NicheIntegration | null): Promise<FetchedProduct[]> {
+  private async fetchAccessTradeProducts(niche: NicheConfig, source: string = "accesstrade", tikiIntegration?: NicheIntegration | null): Promise<FetchedProduct[]> {
     const accessKey = this.cfg.get<string>("ACCESSTRADE_ACCESS_KEY");
     if (!accessKey) return [];
 
@@ -774,7 +922,7 @@ export class DealSyncService {
         if (nameLower.includes("tiki")) {
           // Chỉ skip khi fetchTikiProducts() thực sự đang xử lý niche này (integration active).
           // Nếu integration null/disabled, fetchTikiProducts() trả [] → phải fetch ở đây.
-          const tikiRunsExternally = (source === "all" || source === "tiki") && resolvedTikiIntegration?.enabled;
+          const tikiRunsExternally = source === "tiki" && resolvedTikiIntegration?.enabled;
           if (tikiRunsExternally) {
             this.log.debug(`[${niche.name}] Tracking/Tiki skip — tiki source already running separately`);
           } else {
@@ -802,8 +950,8 @@ export class DealSyncService {
 
         } else if (nameLower.includes("lazada")) {
           // Lazada: chỉ fetch nếu lazadaMode = "at" (Option 2)
-          // Khi source="all"/"lazada", fetchLazadaProducts() đã xử lý riêng → skip ở đây
-          if (source === "all" || source === "lazada") {
+          // Khi source="lazada", fetchLazadaProducts() đã xử lý riêng → skip ở đây
+          if (source === "lazada") {
             this.log.debug(`[${niche.name}] Tracking/Lazada skip — lazada source already running separately`);
           } else if (srcSettings.lazadaMode === "at") {
             const integration: NicheIntegration = {
@@ -1287,24 +1435,24 @@ export class DealSyncService {
   }
 
   async loadActiveNiches(): Promise<NicheConfig[]> {
-    const rows = await this.prisma.niche.findMany({
-      where: { status: "active", syncEnabled: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    });
+    const [rows, shopeeSource] = await Promise.all([
+      this.prisma.niche.findMany({
+        where: { status: "active", syncEnabled: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      }),
+      this.prisma.syncSource.findFirst({ where: { slug: "shopee", enabled: true } }),
+    ]);
+
+    const shopeeKeywords: Record<string, string[]> =
+      shopeeSource
+        ? ((JSON.parse(shopeeSource.config as string) as Record<string, unknown>).keywords as Record<string, string[]> ?? {})
+        : {};
+
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
       status: r.status,
-      shopee: { keyword_seeds: (r.shopeeKeywords as string[]) ?? [] },
-      accesstrade: {
-        campaign_ids: (r.atCampaignIds as string[]) ?? [],
-        campaign_keywords: (r.atKeywords as string[]) ?? [],
-      },
-      filters: {
-        min_discount_pct: r.minDiscountPct,
-        min_price: r.minPrice,
-        max_price: r.maxPrice,
-      },
+      shopee: { keyword_seeds: shopeeKeywords[r.id] ?? [] },
     }));
   }
 }

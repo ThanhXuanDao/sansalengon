@@ -133,7 +133,7 @@ export default function Hero({
             <span className="text-[#fdc73a]">giá thấp nhất 30 ngày</span>
           </h1>
           <p className="font-mono text-[11px] text-white/50 leading-relaxed">
-            {tagline || "Deal tổng hợp từ Shopee · cập nhật tự động mỗi 4 giờ"}
+            {tagline || "Deal tổng hợp từ nhiều nguồn · cập nhật tự động mỗi 4 giờ"}
           </p>
         </div>
 
@@ -197,7 +197,7 @@ export default function Hero({
               Tiết Kiệm Thật
             </h1>
             <p className="text-ink/60 max-w-md">
-              {tagline || "Deal tổng hợp từ Shopee · tuyển chọn kỹ · cập nhật tự động mỗi 4 giờ"}
+              {tagline || "Deal tổng hợp từ nhiều nguồn · tuyển chọn kỹ · cập nhật tự động mỗi 4 giờ"}
             </p>
             <a
               href="#products"

@@ -14,11 +14,12 @@ import { platformMatchHandler } from "./handlers/platform-match"
 const NICHE_OPTIONS_FALLBACK = [{ value: "all", label: "Tất cả ngách" }]
 export const NICHE_OPTIONS = NICHE_OPTIONS_FALLBACK
 
+// Source options được load từ /admin/sources (SyncSource table) khi UI mở
+// Fallback tĩnh chỉ dùng khi DB chưa khởi tạo
 const PRODUCT_SOURCE_OPTIONS = [
-  { value: "all",         label: "Tất cả nguồn (Shopee + Lazada + AccessTrade)" },
-  { value: "shopee",      label: "Shopee — Affiliate API hoặc qua AT tracking" },
-  { value: "lazada",      label: "Lazada — Affiliate API hoặc qua AT tracking" },
-  { value: "accesstrade", label: "AccessTrade — theo campaign (product / app / link)" },
+  { value: "shopee",  label: "Shopee" },
+  { value: "tiki",    label: "Tiki" },
+  { value: "lazada",  label: "Lazada" },
 ]
 
 const COUPON_SOURCE_OPTIONS = [

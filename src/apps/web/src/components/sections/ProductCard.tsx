@@ -25,6 +25,17 @@ interface ProductCardProps {
 
 const MAX_NAME_LENGTH = 60
 
+const SOURCE_LABEL: Record<string, string> = {
+  shopee:      "Shopee",
+  tiki:        "Tiki",
+  lazada:      "Lazada",
+  accesstrade: "AccessTrade",
+}
+
+function sourceLabel(source: string): string {
+  return SOURCE_LABEL[source] ?? source
+}
+
 function StarRating({ rating }: { rating: number }) {
   if (rating <= 0) return null
   const fullStars = Math.floor(rating)
@@ -115,7 +126,7 @@ export default function ProductCard({
           onKeyDown={(e) => { if (!isSoldOut && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleBuy(); } }}
           role="link"
           tabIndex={0}
-          aria-label={`Xem ${product.name} trên Shopee`}
+          aria-label={`Xem ${product.name} trên ${sourceLabel(product.source)}`}
         >
           {imgError ? (
             <div className="absolute inset-0 flex items-center justify-center bg-[#e2e3e0]">
@@ -159,7 +170,7 @@ export default function ProductCard({
               onKeyDown={(e) => { if (!isSoldOut && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleBuy(); } }}
               role="link"
               tabIndex={0}
-              aria-label={`Xem ${product.name} trên Shopee`}
+              aria-label={`Xem ${product.name} trên ${sourceLabel(product.source)}`}
             >
               {nameNeedsTruncation && !nameExpanded
                 ? `${product.name.slice(0, MAX_NAME_LENGTH)}...`

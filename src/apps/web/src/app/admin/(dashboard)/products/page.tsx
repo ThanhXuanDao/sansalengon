@@ -203,7 +203,7 @@ export default function AdminProducts() {
   }
 
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-hidden">
       <AdminPageShell
         title="Sản phẩm"
         subtitle="Quản lý sản phẩm và liên kết affiliate."

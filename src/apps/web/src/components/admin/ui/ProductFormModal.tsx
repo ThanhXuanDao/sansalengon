@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   name: "",
   categoryId: "",
   productUrl: "",
+  affiliateUrl: "",
   price: "",
   commission: "",
   discountPct: "",
@@ -59,6 +60,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
           name: p.name,
           categoryId: p.categoryId,
           productUrl: p.productUrl,
+          affiliateUrl: p.affiliateUrl ?? "",
           price: p.price.toLocaleString("vi-VN"),
           commission: p.commission.toLocaleString("vi-VN"),
           discountPct: p.discountPct ? String(p.discountPct) : "",
@@ -88,12 +90,13 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
       return
     }
     if (!form.productUrl.trim()) {
-      toastError("Liên kết affiliate không được trống")
+      toastError("Link gốc sản phẩm không được trống")
       return
     }
 
     const commissionVal = parseInt(form.commission.replace(/\./g, ""), 10) || 0
     const discountVal = parseInt(form.discountPct, 10) || 0
+    const affiliateUrlTrimmed = form.affiliateUrl.trim()
 
     const payload = {
       name: form.name.trim(),
@@ -104,6 +107,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
       imageUrl: trimmedUrl,
       imageAlt: form.name.trim(),
       productUrl: form.productUrl.trim(),
+      affiliateUrl: affiliateUrlTrimmed || null,
       categoryId: form.categoryId || categories?.[0]?.id || "",
       isFeatured: form.isFeatured,
       isSoldOut: form.isSoldOut,
@@ -232,18 +236,41 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
             </div>
           </div>
 
-          {/* Affiliate link */}
+          {/* Product URL + Affiliate URL — 2 trường riêng */}
           <div>
-            <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase mb-1.5" htmlFor="pf-link">
-              Liên kết affiliate <span className="text-[#b51c00]">*</span>
+            <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase mb-1.5" htmlFor="pf-product-url">
+              Link gốc sản phẩm <span className="text-[#b51c00]">*</span>
             </label>
             <input
-              id="pf-link"
+              id="pf-product-url"
               type="url"
               value={form.productUrl}
               onChange={(e) => set("productUrl", e.target.value)}
-              className="w-full border border-[#e5e1d8] bg-white px-3 py-2 font-mono text-[13px] text-[#1a1c1b] focus:outline-none focus:border-[#b51c00] focus:ring-1 focus:ring-[#b51c00]"
+              placeholder="https://kingfoodmart.com/san-pham/..."
+              className="w-full border border-[#e5e1d8] bg-white px-3 py-2 font-mono text-[13px] text-[#1a1c1b] placeholder:text-[#906f69] focus:outline-none focus:border-[#b51c00] focus:ring-1 focus:ring-[#b51c00]"
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-mono text-[11px] tracking-[0.05em] text-[#5c403a] uppercase" htmlFor="pf-affiliate-url">
+                Link affiliate (AT tracking)
+              </label>
+              {form.affiliateUrl && form.affiliateUrl !== form.productUrl ? (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#e8f5e9] text-[#1a6b3c] border border-[#1a6b3c]/20">✓ AT link</span>
+              ) : (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#fff3e0] text-[#c05800] border border-[#c05800]/20">⚠ Chưa có AT link</span>
+              )}
+            </div>
+            <input
+              id="pf-affiliate-url"
+              type="url"
+              value={form.affiliateUrl}
+              onChange={(e) => set("affiliateUrl", e.target.value)}
+              placeholder="https://shorten.asia/... (để trống nếu chưa có)"
+              className="w-full border border-[#e5e1d8] bg-white px-3 py-2 font-mono text-[13px] text-[#1a1c1b] placeholder:text-[#906f69] focus:outline-none focus:border-[#b51c00] focus:ring-1 focus:ring-[#b51c00]"
+            />
+            <p className="font-mono text-[10px] text-[#906f69] mt-1">Nút &quot;Mua ngay&quot; dùng link này — cần AT link để có hoa hồng</p>
           </div>
 
           {/* 3-column: Price + Commission + Discount */}

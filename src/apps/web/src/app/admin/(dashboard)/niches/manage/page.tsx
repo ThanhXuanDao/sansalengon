@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
-  Plus, Pencil, Trash2, Search, X, ChevronUp, ChevronDown, Layers,
+  Plus, Pencil, Trash2, Search, ChevronUp, ChevronDown, Layers,
 } from "lucide-react"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import {
@@ -30,12 +30,6 @@ interface NicheRow {
   description: string | null
   metaKeywords: string | null
   sortOrder: number
-  shopeeKeywords: string[]
-  atCampaignIds: string[]
-  atKeywords: string[]
-  minDiscountPct: number
-  minPrice: number
-  maxPrice: number
   postPrefix: string | null
   hashtags: string | null
   zaloOaId: string | null
@@ -46,8 +40,7 @@ interface NicheRow {
 
 const EMPTY_FORM: Omit<NicheRow, "createdAt" | "updatedAt"> = {
   id: "", name: "", emoji: "🏷️", status: "draft", description: "",
-  metaKeywords: "", sortOrder: 0, shopeeKeywords: [], atCampaignIds: [],
-  atKeywords: [], minDiscountPct: 0, minPrice: 0, maxPrice: 10000000,
+  metaKeywords: "", sortOrder: 0,
   postPrefix: "", hashtags: "", zaloOaId: "", syncEnabled: true,
 }
 
@@ -60,10 +53,9 @@ const STATUS_OPTIONS = [
 
 const COLUMNS: TableColumn[] = [
   { key: "order",   label: "Thứ tự", width: "80px" },
-  { key: "niche",   label: "Ngách" },
+  { key: "niche",   label: "Danh mục" },
   { key: "status",  label: "Trạng thái", width: "120px" },
-  { key: "kws",     label: "Shopee KWs", width: "110px" },
-  { key: "price",   label: "Giá lọc" },
+  { key: "sync",    label: "Đồng bộ", width: "100px" },
   { key: "actions", label: "Thao tác", align: "right", width: "100px" },
 ]
 
@@ -79,55 +71,6 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`inline-block px-2 py-0.5 text-[11px] font-mono font-bold border ${s.cls}`}>
       {s.label}
     </span>
-  )
-}
-
-function fmtPrice(v: number) {
-  return new Intl.NumberFormat("vi-VN").format(v)
-}
-
-// ── Tag input ─────────────────────────────────────────────────────────────────
-
-function TagInput({
-  label, values, onChange, placeholder,
-}: {
-  label: string; values: string[]; onChange: (v: string[]) => void; placeholder?: string
-}) {
-  const [input, setInput] = useState("")
-  function add() {
-    const v = input.trim()
-    if (v && !values.includes(v)) onChange([...values, v])
-    setInput("")
-  }
-  return (
-    <div>
-      <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">
-        {label}
-      </label>
-      <div className="flex flex-wrap gap-1.5 mb-1.5 min-h-[28px]">
-        {values.map((v) => (
-          <span key={v} className="flex items-center gap-1 px-2 py-0.5 bg-[#fff8e7] border border-[#fdc73a] font-mono text-[11px] text-[#6f5400]">
-            {v}
-            <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} className="text-[#b51c00] hover:text-[#ba1a1a] ml-0.5">
-              <X className="size-3" />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-1">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add() } }}
-          placeholder={placeholder ?? "Thêm rồi Enter"}
-          className="flex-1 border border-[#e5beb6] px-2 py-1 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]"
-        />
-        <button type="button" onClick={add} className="px-2 py-1 bg-[#f4f4f1] border border-[#e5beb6] font-mono text-[11px] hover:bg-[#ffdf9a] transition-colors">
-          +
-        </button>
-      </div>
-    </div>
   )
 }
 
@@ -201,28 +144,6 @@ function NicheFormContent({
         <input value={form.metaKeywords ?? ""} onChange={(e) => set("metaKeywords", e.target.value || null)}
           placeholder="áo, quần, thời trang"
           className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]" />
-      </div>
-
-      <TagInput label="Shopee Keywords" values={form.shopeeKeywords} onChange={(v) => set("shopeeKeywords", v)} placeholder="thời trang nữ → Enter" />
-      <TagInput label="AccessTrade Campaign IDs" values={form.atCampaignIds} onChange={(v) => set("atCampaignIds", v)} placeholder="12345 → Enter" />
-      <TagInput label="AccessTrade Keywords" values={form.atKeywords} onChange={(v) => set("atKeywords", v)} placeholder="ao thun nu → Enter" />
-
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">Giảm tối thiểu (%)</label>
-          <input type="number" min={0} max={100} value={form.minDiscountPct} onChange={(e) => set("minDiscountPct", Number(e.target.value))}
-            className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]" />
-        </div>
-        <div>
-          <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">Giá tối thiểu (VND)</label>
-          <input type="number" min={0} value={form.minPrice} onChange={(e) => set("minPrice", Number(e.target.value))}
-            className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]" />
-        </div>
-        <div>
-          <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">Giá tối đa (VND)</label>
-          <input type="number" min={0} value={form.maxPrice} onChange={(e) => set("maxPrice", Number(e.target.value))}
-            className="w-full border border-[#e5beb6] px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]" />
-        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -318,7 +239,7 @@ export default function ManageNichesPage() {
   }
 
   function openEdit(niche: NicheRow) {
-    setEditForm({ ...niche, shopeeKeywords: niche.shopeeKeywords, atCampaignIds: niche.atCampaignIds, atKeywords: niche.atKeywords })
+    setEditForm({ ...niche })
     setEditTarget(niche)
   }
 
@@ -415,13 +336,13 @@ export default function ManageNichesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 h-full">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-hidden">
       <AdminPageShell
-        title="Quản lý ngách"
-        subtitle={`Thêm, sửa, xoá ngách sản phẩm. ${niches.length > 0 ? `${niches.length} ngách.` : ""}`}
+        title="Ngành hàng"
+        subtitle={`Thêm, sửa, xoá ngành hàng hiển thị trên site. ${niches.length > 0 ? `${niches.length} ngành.` : ""}`}
         actions={
           <Button variant="primary" icon={Plus} onClick={openCreate}>
-            Thêm ngách
+            Thêm ngành
           </Button>
         }
       />
@@ -492,16 +413,10 @@ export default function ManageNichesPage() {
               <StatusBadge status={niche.status} />
             </DataTableCell>
 
-            {/* Shopee KWs */}
+            {/* Đồng bộ */}
             <DataTableCell>
-              <span className="font-mono text-[11px] text-[#5c403a]">{niche.shopeeKeywords.length} từ khoá</span>
-            </DataTableCell>
-
-            {/* Giá lọc */}
-            <DataTableCell>
-              <span className="font-mono text-[11px] text-[#5c403a]">
-                {fmtPrice(niche.minPrice)}–{fmtPrice(niche.maxPrice)} ₫
-                {niche.minDiscountPct > 0 && `, ≥${niche.minDiscountPct}%`}
+              <span className={`inline-block px-2 py-0.5 text-[11px] font-mono font-bold border ${niche.syncEnabled ? "bg-[#d4f4e0] text-[#1a6b3c] border-[#a3d9b8]" : "bg-[#ffdad6] text-[#ba1a1a] border-[#ffb4ab]"}`}>
+                {niche.syncEnabled ? "Bật" : "Tắt"}
               </span>
             </DataTableCell>
 

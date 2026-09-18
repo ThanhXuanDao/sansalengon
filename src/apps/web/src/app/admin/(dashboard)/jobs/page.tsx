@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
@@ -512,7 +512,7 @@ function JobDetail({
   const IconComp = ICON_MAP[job.icon] ?? Settings
 
   return (
-    <div className="flex flex-col gap-6 h-full overflow-y-auto">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -760,7 +760,11 @@ export default function SyncJobsPage() {
 
   const selectedJob = jobs.find((j) => j.key === selectedKey) ?? null
 
-  const grouped = jobs.reduce<Record<string, SyncJob[]>>((acc, job) => {
+  // product_sync moved to admin/sources — hide from pipeline view
+  const HIDDEN_KEYS = new Set(["product_sync"])
+  const pipelineJobs = jobs.filter((j) => !HIDDEN_KEYS.has(j.key))
+
+  const grouped = pipelineJobs.reduce<Record<string, SyncJob[]>>((acc, job) => {
     const cat = job.category
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(job)
@@ -768,10 +772,10 @@ export default function SyncJobsPage() {
   }, {})
 
   return (
-    <div className="flex flex-col gap-0 h-full">
+    <div className="flex flex-col gap-0 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
-        title="Sync Jobs"
-        subtitle={`Quản lý ${jobs.length} tác vụ đồng bộ — cấu hình, chạy thủ công, theo dõi lịch sử.`}
+        title="Tác vụ xử lý"
+        subtitle={`${pipelineJobs.length} tác vụ pipeline — xử lý AI, phân tích, broadcast sau khi dữ liệu đã đồng bộ từ nguồn.`}
       />
 
       {loading ? (

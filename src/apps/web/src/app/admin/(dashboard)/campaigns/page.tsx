@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
-  RefreshCw, ExternalLink, Loader2, Info, CheckCircle2, Clock, XCircle,
+  RefreshCw, ExternalLink, Loader2, CheckCircle2, Clock, XCircle,
   ChevronDown, Save, Antenna,
 } from "lucide-react"
 import { ensureCsrfToken, getCsrfToken } from "@/lib/utils"
@@ -298,15 +298,6 @@ export default function CampaignsPage() {
     }
   }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-
-  const matchedCount = useMemo(() => campaigns.filter((c) => c.nicheMatches.length > 0).length, [campaigns])
-  const platformCounts = useMemo(() => campaigns.reduce<Record<string, number>>((acc, c) => {
-    const p = detectPlatform(c.name, c.merchant) ?? "other"
-    acc[p] = (acc[p] ?? 0) + 1
-    return acc
-  }, {}), [campaigns])
-
   // ── Filter + paginate ──────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
@@ -333,7 +324,7 @@ export default function CampaignsPage() {
   function resetPage() { setPage(1) }
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
       <AdminPageShell
         title="AccessTrade Campaigns"
         subtitle="Danh sách campaign đã đăng ký & được duyệt. Click loại campaign để cấu hình CTA."
@@ -344,43 +335,6 @@ export default function CampaignsPage() {
           </Button>
         }
       />
-
-      {/* Stats */}
-      {!loading && campaigns.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white border border-[#e5e1d8] px-4 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#906f69]">Tổng campaign</p>
-            <p className="font-mono text-[28px] font-bold text-[#1a1c1b] tabular-nums">{campaigns.length}</p>
-          </div>
-          <div className="bg-white border border-[#e5e1d8] px-4 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#906f69]">Đang match ngách</p>
-            <p className="font-mono text-[28px] font-bold text-[#1a6b3c] tabular-nums">{matchedCount}</p>
-          </div>
-          <div className="bg-white border border-[#e5e1d8] px-4 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#906f69]">Chưa match</p>
-            <p className="font-mono text-[28px] font-bold text-[#5c403a] tabular-nums">{campaigns.length - matchedCount}</p>
-          </div>
-          <div className="bg-white border border-[#e5e1d8] px-4 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#906f69]">Sàn</p>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {Object.entries(platformCounts).map(([p, n]) => (
-                <span key={p} className={`px-1.5 py-0.5 border font-mono text-[10px] ${PLATFORM_COLORS[p] ?? "bg-[#f4f4f1] text-[#5c403a] border-[#e5e1d8]"}`}>
-                  {p} ×{n}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Info banner */}
-      <div className="flex items-start gap-3 px-4 py-3 bg-[#f9f9f6] border border-[#e5e1d8] shrink-0">
-        <Info className="size-4 text-[#5c403a] mt-0.5 shrink-0" />
-        <p className="font-mono text-[12px] text-[#5c403a]">
-          Data được cập nhật mỗi lần <strong>DealSyncService</strong> chạy. Campaign loại <strong>app</strong>/<strong>link</strong> hiển thị thẻ CTA trên trang công khai.
-          Loại <strong>product</strong> lấy sản phẩm từ AT offers. Loại <strong>website</strong> dùng cấu hình scraper.
-        </p>
-      </div>
 
       {/* Filter bar */}
       <AdminFilterBar
@@ -497,17 +451,15 @@ export default function CampaignsPage() {
         })}
       </DataTable>
 
-      {filtered.length > pageSize && (
-        <DataTablePagination
-          page={page}
-          total={filtered.length}
-          pageSize={pageSize}
-          pageSizeOptions={[20, 50, 100]}
-          onPageChange={setPage}
-          onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
-          label="campaign"
-        />
-      )}
+      <DataTablePagination
+        page={page}
+        total={filtered.length}
+        pageSize={pageSize}
+        pageSizeOptions={[20, 50, 100]}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
+        label="campaign"
+      />
 
       {/* Edit modal */}
       <Modal

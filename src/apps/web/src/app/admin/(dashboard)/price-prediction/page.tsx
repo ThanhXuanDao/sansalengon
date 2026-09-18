@@ -197,7 +197,7 @@ export default function PricePredictionPage() {
   const mediumCount = data?.predictions.filter((p) => p.confidence === "medium").length ?? 0
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
         title="Dự đoán giá"
         subtitle="Phân tích lịch sử giá — phát hiện ngày trong tuần sản phẩm thường rẻ hơn."

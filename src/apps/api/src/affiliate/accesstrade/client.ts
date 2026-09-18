@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { CircuitBreaker, BreakerOpenError } from "./circuit-breaker";
 import { AccessTradeApiError } from "./errors";
 import type { AccessTradeApiErrorCode } from "./types";
-import { normalizeAccessTradeCampaign, normalizeAccessTradeTrackingLink } from "./normalize";
+import { normalizeAccessTradeCampaign, normalizeAccessTradeTrackingLink, normalizeAccessTradeTrackingLinks } from "./normalize";
 import { AccessTradeRateLimitGuard } from "./rate-limit-guard";
 import { buildAccessTradeHeaders } from "./sign";
 import type { AccessTradeCampaign, AccessTradeTrackingLink } from "./types";
@@ -165,6 +165,55 @@ export class AccessTradePublisherClient {
         error: caughtError,
       });
     }
+  }
+
+  /**
+   * Batch version: sends all URLs in one AT API call.
+   * Returns Map<originUrl, affiliateUrl>. Falls back to originUrl for any that fail.
+   */
+  async createBatchTrackingLinks(input: {
+    campaignId: string;
+    urls: string[];
+  }): Promise<Map<string, string>> {
+    if (input.urls.length === 0) return new Map()
+
+    this.ensureSupportedMarket()
+    const accessKey = this.getRequiredConfig("ACCESSTRADE_ACCESS_KEY")
+
+    // AT /product_link/create giới hạn 20 URLs mỗi request
+    const AT_BATCH_LIMIT = 20
+    const result = new Map<string, string>()
+    const uniqueUrls = [...new Set(input.urls)]
+
+    for (let i = 0; i < uniqueUrls.length; i += AT_BATCH_LIMIT) {
+      const chunk = uniqueUrls.slice(i, i + AT_BATCH_LIMIT)
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 300)) // small delay between chunks
+
+      await this.rateLimit.acquire()
+      try {
+        const response = await this.sendRequest(this.buildUrl("/product_link/create"), {
+          method: "POST",
+          headers: buildAccessTradeHeaders(accessKey).headers,
+          body: JSON.stringify({
+            campaign_id: input.campaignId,
+            urls: chunk,
+            url_enc: false,
+          }),
+          signal: AbortSignal.timeout(this.timeoutMs()),
+        })
+
+        if (response.status === 401 || response.status === 403) throw new AccessTradeApiError("auth_failure")
+
+        const payload = await this.safeJson(response)
+        const chunkMap = normalizeAccessTradeTrackingLinks(payload, input.campaignId, chunk)
+        for (const [k, v] of chunkMap) result.set(k, v)
+      } catch (e: any) {
+        console.warn(`[AT] createBatchTrackingLinks chunk ${i}–${i + chunk.length} failed (campaign=${input.campaignId}):`, e?.message ?? e)
+        for (const url of chunk) result.set(url, url)
+      }
+    }
+
+    return result
   }
 
   private buildUrl(path: string, query: Record<string, number | string | undefined> = {}): string {

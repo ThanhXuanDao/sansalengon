@@ -221,17 +221,36 @@ export default function EditProduct() {
             </div>
 
             <div>
-              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="productUrl">Link gốc sản phẩm</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-mono text-[14px] leading-[16px] font-medium text-[#76737b]" htmlFor="productUrl">Link gốc sản phẩm</label>
+                <a href={product.productUrl} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[10px] text-[#76737b] underline decoration-dashed underline-offset-2 hover:text-[#1a1c1b]">
+                  Mở ↗
+                </a>
+              </div>
               <input ref={productUrlRef} id="productUrl" type="url" defaultValue={product.productUrl}
-                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
+                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[14px] leading-[20px] text-[#1a1c1b] focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
             </div>
 
             <div>
-              <label className="block font-mono text-[14px] leading-[16px] font-medium text-[#76737b] mb-1" htmlFor="affiliateUrl">Link affiliate</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-mono text-[14px] leading-[16px] font-medium text-[#76737b]" htmlFor="affiliateUrl">Link affiliate (AT tracking)</label>
+                {product.affiliateUrl && product.affiliateUrl !== product.productUrl ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#e8f5e9] text-[#1a6b3c] border border-[#1a6b3c]/20">✓ AT link</span>
+                    <a href={product.affiliateUrl} target="_blank" rel="noopener noreferrer"
+                      className="font-mono text-[10px] text-[#76737b] underline decoration-dashed underline-offset-2 hover:text-[#1a1c1b]">
+                      Mở ↗
+                    </a>
+                  </div>
+                ) : (
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#fff3e0] text-[#c05800] border border-[#c05800]/20">⚠ Chưa có AT link</span>
+                )}
+              </div>
               <input ref={affiliateUrlRef} id="affiliateUrl" type="url" defaultValue={product.affiliateUrl ?? ""}
-                placeholder="https://shope.ee/... hoặc AT tracking link"
-                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] leading-[24px] text-[#1a1c1b] placeholder:text-[#5c403a]/30 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
-              <p className="font-mono text-[11px] text-[#76737b] mt-1">Link dùng cho nút &quot;Mua ngay&quot; — nếu để trống sẽ dùng link gốc</p>
+                placeholder="https://shorten.asia/... hoặc AT tracking link"
+                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[14px] leading-[20px] text-[#1a1c1b] placeholder:text-[#5c403a]/30 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none" />
+              <p className="font-mono text-[11px] text-[#76737b] mt-1">Link dùng cho nút &quot;Mua ngay&quot; — nếu trống hoặc giống link gốc thì không có hoa hồng</p>
             </div>
 
             <div>

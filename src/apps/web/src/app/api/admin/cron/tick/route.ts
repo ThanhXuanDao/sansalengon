@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getJobDefinition } from "@/lib/jobs/registry"
 import { runJob } from "@/lib/jobs/runner"
 import { getNextRunDate } from "@/lib/jobs/cron-utils"
+import { productSyncHandler } from "@/lib/jobs/handlers/product-sync"
 
 /**
  * GET /api/admin/cron/tick
@@ -75,5 +76,76 @@ export async function GET(request: NextRequest) {
     results.push({ key: job.key, status, durationMs, summary: result.summary })
   }
 
-  return NextResponse.json({ ok: true, ran: results.length, jobs: results })
+  // ── Per-source schedules ─────────────────────────────────────────────────────
+  const dueSources = await prisma.syncSource.findMany({
+    where: {
+      enabled: true,
+      scheduleEnabled: true,
+      scheduleCron: { not: null },
+      scheduleNextRunAt: { lte: now },
+    },
+  })
+
+  // Init scheduleNextRunAt for sources that have cron but no nextRunAt yet
+  const uninitialisedSources = await prisma.syncSource.findMany({
+    where: { enabled: true, scheduleEnabled: true, scheduleCron: { not: null }, scheduleNextRunAt: null },
+  })
+  for (const src of uninitialisedSources) {
+    const next = src.scheduleCron ? getNextRunDate(src.scheduleCron) : null
+    if (next) await prisma.syncSource.update({ where: { id: src.id }, data: { scheduleNextRunAt: next } })
+  }
+
+  let productSyncJob = null
+  if (dueSources.length > 0) {
+    const { JOB_SEEDS } = await import("@/lib/jobs/registry")
+    const seed = JOB_SEEDS.find((s) => s.key === "product_sync")!
+    productSyncJob = await prisma.syncJob.upsert({
+      where: { key: "product_sync" },
+      update: {},
+      create: seed,
+    })
+  }
+
+  const sourceResults: { slug: string; status: string }[] = []
+
+  for (const src of dueSources) {
+    if (!productSyncJob) break
+
+    // Skip if already running
+    const alreadyRunning = await prisma.syncJobRun.findFirst({
+      where: { jobId: productSyncJob.id, status: "running", source: src.slug },
+    })
+    if (alreadyRunning) continue
+
+    await prisma.syncSource.update({ where: { id: src.id }, data: { lastRunStatus: "running" } })
+
+    try {
+      const { status } = await runJob({
+        jobId: productSyncJob.id,
+        handler: productSyncHandler,
+        config: { source: src.slug, niche: "all" },
+        triggerType: "auto",
+        triggeredBy: `source:${src.slug}`,
+        sourceSlug: src.slug,
+      })
+
+      const next = src.scheduleCron ? getNextRunDate(src.scheduleCron) : null
+      await prisma.syncSource.update({
+        where: { id: src.id },
+        data: {
+          lastRunAt: new Date(), lastRunStatus: status,
+          ...(next ? { scheduleNextRunAt: next } : {}),
+        },
+      })
+      sourceResults.push({ slug: src.slug, status })
+    } catch {
+      await prisma.syncSource.update({
+        where: { id: src.id },
+        data: { lastRunAt: new Date(), lastRunStatus: "failed" },
+      })
+      sourceResults.push({ slug: src.slug, status: "failed" })
+    }
+  }
+
+  return NextResponse.json({ ok: true, ran: results.length, jobs: results, sources: sourceResults })
 }

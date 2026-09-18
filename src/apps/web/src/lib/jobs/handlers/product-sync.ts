@@ -8,7 +8,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 export async function productSyncHandler(config: JobConfig): Promise<JobResult> {
   const niche  = String(config.niche  ?? "all")
-  const source = String(config.source ?? "all")
+  const source = String(config.source ?? "")
 
   // Step 1: Fire trigger — API starts sync in background and returns 202 immediately.
   // This avoids the undici headersTimeout (300s) that would kill a long-running sync.

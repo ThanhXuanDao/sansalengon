@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Headers, UnauthorizedException, HttpCode, Logger } from "@nestjs/common"
+import { Controller, Post, Get, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { DealSyncService } from "./deal-sync.service"
 import { CouponSyncService } from "./coupon-sync.service"
@@ -44,9 +44,15 @@ export class SyncController {
     if (this.dealSync.syncStatus.running) {
       return { ok: false, inProgress: true, message: "Sync đang chạy, vui lòng đợi" }
     }
-    const source = (["all", "shopee", "accesstrade", "tiki", "lazada"].includes(body.source ?? ""))
-      ? (body.source as "all" | "shopee" | "accesstrade" | "tiki" | "lazada")
-      : "all"
+    const rawSource = body.source
+    if (!rawSource) {
+      throw new BadRequestException(`source is required`)
+    }
+    const validSlugs = await this.dealSync.getValidSourceSlugs()
+    if (!validSlugs.includes(rawSource)) {
+      throw new BadRequestException(`source không hợp lệ: "${rawSource}". Các nguồn hợp lệ: ${validSlugs.join(", ")}`)
+    }
+    const source = rawSource
     // Fire-and-forget: don't await so the HTTP response is sent immediately
     void this.dealSync.triggerSync(body.niche, source, "manual").catch((e: Error) => {
       this.log.error(`[sync/deals] Background sync error: ${e.message}`)

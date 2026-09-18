@@ -651,7 +651,7 @@ export default function ZaloPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
         title="Zalo OA"
         subtitle="Phân tích click từ Zalo và hiệu quả của các lần broadcast tự động."

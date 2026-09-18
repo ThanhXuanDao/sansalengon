@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useCallback, use } from "react"
 import { MousePointerClick, Globe, MessageCircle, Share2, ExternalLink, ChevronLeft, Layers } from "lucide-react"
@@ -6,7 +6,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import { ensureCsrfToken } from "@/lib/utils"
-import { PageSpinner, EmptyState } from "@/components/admin/ui"
+import AdminPageShell from "@/components/admin/AdminPageShell"
+import { SegmentedControl, PageSpinner, EmptyState, StatCard } from "@/components/admin/ui"
 
 type SourceMap = { website: number; zalo: number; facebook: number; direct: number; unknown: number }
 interface NicheStat {
@@ -79,87 +80,70 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
   useEffect(() => { fetchData() }, [fetchData])
 
   const maxClicks = niche?.topProducts[0]?.clicks ?? 1
+  const topSource = niche
+    ? Object.entries(niche.bySource).sort((a, b) => b[1] - a[1])[0]
+    : null
+
+  const pageTitle = niche ? `${niche.emoji} ${niche.name}` : nicheParam
 
   return (
-    <div className="max-w-5xl mx-auto pb-24">
-      {/* Back + header */}
-      <div className="mb-8 border-b border-dashed border-[#e5beb6] pb-4">
-        <Link
-          href={`/admin/niches`}
-          className="inline-flex items-center gap-1.5 font-mono text-[12px] text-[#5c403a] hover:text-[#1a1c1b] transition-colors mb-4"
-        >
-          <ChevronLeft className="size-3" />
-          Tất cả ngách
-        </Link>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            {niche ? (
-              <h2 className="font-sans text-[40px] leading-[48px] tracking-[-0.02em] font-extrabold text-[#1a1c1b] uppercase">
-                {niche.emoji} {niche.name}
-              </h2>
-            ) : (
-              <h2 className="font-sans text-[40px] leading-[48px] tracking-[-0.02em] font-extrabold text-[#1a1c1b] uppercase">
-                {nicheParam}
-              </h2>
-            )}
-            <p className="font-mono text-[13px] text-[#5c403a] mt-1">Click analytics chi tiết theo ngách</p>
-          </div>
-          <div className="flex gap-1 border border-[#e5e1d8] p-1 self-start sm:self-end">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                className={`px-3 py-1.5 font-mono text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none ${
-                  period === p.value ? "bg-[#1a1c1b] text-[#fafaf7]" : "text-[#5c403a] hover:bg-[#f4f4f1]"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto">
+      <AdminPageShell
+        title={pageTitle}
+        subtitle={
+          <Link
+            href="/admin/niches"
+            className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5c403a] hover:text-[#b51c00] transition-colors"
+          >
+            <ChevronLeft className="size-3" />
+            Phân tích ngành hàng
+          </Link>
+        }
+        actions={
+          <SegmentedControl
+            value={period}
+            options={PERIODS.map((p) => ({ label: p.label, value: p.value }))}
+            onChange={setPeriod}
+          />
+        }
+      />
 
       {loading ? (
         <div className="py-24"><PageSpinner /></div>
       ) : notFound ? (
         <div className="bg-white border border-[#e5e1d8]">
-          <EmptyState icon={Layers} title={`Không tìm thấy ngách "${nicheParam}"`} />
+          <EmptyState icon={Layers} title={`Không tìm thấy ngành "${nicheParam}"`} />
         </div>
       ) : !niche ? (
         <div className="bg-white border border-[#e5e1d8]">
           <EmptyState icon={Layers} title="Không thể tải dữ liệu" />
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Summary cards */}
+        <div className="space-y-4">
+          {/* Summary stats */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm">
-              <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Tổng click</p>
-              <p className="font-sans text-[32px] leading-[36px] font-extrabold text-[#1a1c1b]">
-                {niche.totalClicks.toLocaleString("vi-VN")}
-              </p>
-            </div>
-            <div className="bg-white border border-[#e5e1d8] p-4 clip-bevel-sm">
-              <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Sản phẩm có click</p>
-              <p className="font-sans text-[32px] leading-[36px] font-extrabold text-[#1a1c1b]">
-                {niche.topProducts.length}
-              </p>
-            </div>
-            <div className="bg-white border border-[#e5e1d8] p-4 col-span-2 md:col-span-1 clip-bevel-sm">
-              <p className="font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-2">Kênh dẫn đầu</p>
-              <p className="font-sans text-[20px] leading-[28px] font-extrabold text-[#1a1c1b]">
-                {(() => {
-                  const top = Object.entries(niche.bySource).sort((a, b) => b[1] - a[1])[0]
-                  return top && top[1] > 0 ? SOURCE_LABELS[top[0]] ?? top[0] : "—"
-                })()}
-              </p>
-            </div>
+            <StatCard
+              label="Tổng click"
+              value={niche.totalClicks.toLocaleString("vi-VN")}
+              icon={MousePointerClick}
+            />
+            <StatCard
+              label="Sản phẩm có click"
+              value={niche.topProducts.length}
+              icon={Layers}
+            />
+            <StatCard
+              label="Kênh dẫn đầu"
+              value={topSource && topSource[1] > 0 ? SOURCE_LABELS[topSource[0]] ?? topSource[0] : "—"}
+              icon={Globe}
+            />
           </div>
 
           {/* Source breakdown */}
           <div className="bg-white border border-[#e5e1d8] p-5">
-            <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] mb-4 flex items-center gap-2 border-b border-dashed border-[#e5beb6] pb-3">Phân bổ theo kênh</h3>
+            <h3 className="font-sans text-[14px] font-bold text-[#1a1c1b] mb-4 border-b border-dashed border-[#e5beb6] pb-3">
+              Phân bổ theo kênh
+            </h3>
             <div className="space-y-3">
               {Object.entries(niche.bySource)
                 .sort((a, b) => b[1] - a[1])
@@ -173,7 +157,8 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
                           {SOURCE_LABELS[src] ?? src}
                         </span>
                         <span className="font-mono text-[12px] font-bold text-[#1a1c1b]">
-                          {count.toLocaleString("vi-VN")} <span className="font-normal text-[#906f69]">({pct.toFixed(1)}%)</span>
+                          {count.toLocaleString("vi-VN")}{" "}
+                          <span className="font-normal text-[#906f69]">({pct.toFixed(1)}%)</span>
                         </span>
                       </div>
                       <div className="h-2 bg-[#f4f4f1] w-full">
@@ -191,7 +176,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
           {/* Top products */}
           <div className="bg-white border border-[#e5e1d8]">
             <div className="px-5 py-4 border-b border-dashed border-[#e5beb6]">
-              <h3 className="font-sans text-[16px] font-bold text-[#1a1c1b] flex items-center gap-2">
+              <h3 className="font-sans text-[14px] font-bold text-[#1a1c1b]">
                 Top sản phẩm ({niche.topProducts.length})
               </h3>
             </div>
@@ -213,7 +198,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-sans text-[14px] font-bold text-[#1a1c1b] truncate">{p.name}</p>
+                        <p className="font-sans text-[13px] font-semibold text-[#1a1c1b] truncate">{p.name}</p>
                         <div className="mt-1 h-1.5 bg-[#f4f4f1] w-full">
                           <div
                             className="h-full bg-[#b51c00] transition-all duration-500"
@@ -221,7 +206,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
                           />
                         </div>
                       </div>
-                      <span className="font-mono text-[14px] font-bold text-[#b51c00] shrink-0">
+                      <span className="font-mono text-[13px] font-bold text-[#b51c00] shrink-0">
                         {p.clicks.toLocaleString("vi-VN")}
                       </span>
                     </div>

@@ -26,7 +26,8 @@ import { EmbeddingService } from "./platforms/matcher/embedding.service";
 import { PlatformSyncService } from "./platforms/platform-sync.service";
 import { PlatformAdapter } from "./platforms/platform.adapter";
 
-import { AppLogService } from "./shared/app-log.service";
+import { AppLogService } from "./shared/app-log.service"
+import { ScraperSyncService } from "./scraper/scraper-sync.service";
 
 // Stub observability — thay bằng Sentry thật khi cần
 const ObsStubs = [
@@ -56,6 +57,7 @@ const ObsStubs = [
 
     // Core sync
     DealSyncService,
+    ScraperSyncService,
     CouponSyncService,
     PricePredictionService,
     ContentGeneratorService,

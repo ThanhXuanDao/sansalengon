@@ -73,37 +73,35 @@ export function DataTablePagination({
       </div>
 
       {/* Right: page buttons */}
-      {totalPages > 1 && (
-        <div className="flex items-center gap-1">
-          {btn(<ChevronsLeft className="size-3.5" />, 1, page <= 1, "Trang đầu")}
-          {btn(<ChevronLeft className="size-3.5" />, page - 1, page <= 1, "Trang trước")}
+      <div className="flex items-center gap-1">
+        {btn(<ChevronsLeft className="size-3.5" />, 1, page <= 1, "Trang đầu")}
+        {btn(<ChevronLeft className="size-3.5" />, page - 1, page <= 1, "Trang trước")}
 
-          {pageNumbers.map((p, i) =>
-            p === "..." ? (
-              <span key={`ellipsis-${i}`} className="flex items-center justify-center size-8 font-mono text-[13px] text-[#906f69]">
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                onClick={() => onPageChange(p as number)}
-                aria-label={`Trang ${p}`}
-                aria-current={p === page ? "page" : undefined}
-                className={`flex items-center justify-center size-8 border font-mono text-[13px] transition-colors ${
-                  p === page
-                    ? "border-[#1a1c1b] bg-[#1a1c1b] text-white"
-                    : "border-[#e5e1d8] text-[#1a1c1b] hover:bg-[#f4f4f1]"
-                }`}
-              >
-                {p}
-              </button>
-            )
-          )}
+        {pageNumbers.map((p, i) =>
+          p === "..." ? (
+            <span key={`ellipsis-${i}`} className="flex items-center justify-center size-8 font-mono text-[13px] text-[#906f69]">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onPageChange(p as number)}
+              aria-label={`Trang ${p}`}
+              aria-current={p === page ? "page" : undefined}
+              className={`flex items-center justify-center size-8 border font-mono text-[13px] transition-colors ${
+                p === page
+                  ? "border-[#1a1c1b] bg-[#1a1c1b] text-white"
+                  : "border-[#e5e1d8] text-[#1a1c1b] hover:bg-[#f4f4f1]"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
 
-          {btn(<ChevronRight className="size-3.5" />, page + 1, page >= totalPages, "Trang sau")}
-          {btn(<ChevronsRight className="size-3.5" />, totalPages, page >= totalPages, "Trang cuối")}
-        </div>
-      )}
+        {btn(<ChevronRight className="size-3.5" />, page + 1, page >= totalPages, "Trang sau")}
+        {btn(<ChevronsRight className="size-3.5" />, totalPages, page >= totalPages, "Trang cuối")}
+      </div>
     </div>
   )
 }

@@ -8,11 +8,15 @@ export async function runJob(opts: {
   config: JobConfig
   triggerType?: "manual" | "auto"
   triggeredBy?: string
+  sourceSlug?: string
 }): Promise<{ runId: string; result: JobResult; durationMs: number; status: string }> {
   const { jobId, handler, config, triggerType = "manual", triggeredBy } = opts
 
   const run = await prisma.syncJobRun.create({
-    data: { jobId, triggerType, triggeredBy, status: "running" },
+    data: {
+      jobId, triggerType, triggeredBy, status: "running",
+      ...(opts.sourceSlug ? { source: opts.sourceSlug } : {}),
+    },
   })
 
   const t0 = Date.now()

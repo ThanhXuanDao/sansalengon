@@ -8,13 +8,6 @@ export interface NicheConfig {
   description: string
   metaKeywords: string
   categorySlug: string      // = id, giữ backward compat
-  // Sync config
-  shopeeKeywords: string[]
-  atCampaignIds: string[]
-  atKeywords: string[]
-  minDiscountPct: number
-  minPrice: number
-  maxPrice: number
   // Content
   postPrefix: string
   hashtags: string
@@ -30,12 +23,6 @@ function dbToConfig(row: {
   description: string | null
   metaKeywords: string | null
   sortOrder: number
-  shopeeKeywords: unknown
-  atCampaignIds: unknown
-  atKeywords: unknown
-  minDiscountPct: number
-  minPrice: number
-  maxPrice: number
   postPrefix: string | null
   hashtags: string | null
   zaloOaId: string | null
@@ -48,12 +35,6 @@ function dbToConfig(row: {
     description: row.description ?? "",
     metaKeywords: row.metaKeywords ?? "",
     categorySlug: row.id,
-    shopeeKeywords: (row.shopeeKeywords as string[]) ?? [],
-    atCampaignIds: (row.atCampaignIds as string[]) ?? [],
-    atKeywords: (row.atKeywords as string[]) ?? [],
-    minDiscountPct: row.minDiscountPct,
-    minPrice: row.minPrice,
-    maxPrice: row.maxPrice,
     postPrefix: row.postPrefix ?? "🔥 Deal hôm nay",
     hashtags: row.hashtags ?? "#deal #shopee",
     zaloOaId: row.zaloOaId,

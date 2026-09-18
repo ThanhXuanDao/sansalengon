@@ -58,6 +58,7 @@ export async function createProduct(data: {
   imageUrl: string
   imageAlt?: string
   productUrl: string
+  affiliateUrl?: string | null
   categoryId: string
   isFeatured?: boolean
   isSoldOut?: boolean

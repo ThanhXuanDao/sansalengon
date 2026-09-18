@@ -452,7 +452,7 @@ export default function FacebookPage() {
   const [period, setPeriod] = useState("7d")
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
         title="Facebook"
         subtitle="Phân tích click từ Facebook và công cụ tạo nội dung đăng bài."

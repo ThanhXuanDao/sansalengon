@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { TrendingUp, Link2, MousePointerClick, Wallet } from "lucide-react"
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
   const maxRev = revenueData.length > 0 ? Math.max(...revenueData.map((d) => d.revenue), 1) : 1
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8 flex-1 min-h-0 overflow-y-auto">
 
       <AdminPageShell
         title="Tổng quan"
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
           {loading ? (
             <div className="h-52 bg-[#f4f4f1] animate-pulse rounded" />
           ) : revenueData.length > 0 ? (
-            <svg className="w-full" viewBox="0 0 300 200" preserveAspectRatio="none">
+            <svg className="w-full h-52" viewBox="0 0 300 200" preserveAspectRatio="none">
               {[50, 100, 150].map((y) => (
                 <line key={y} x1="0" x2="300" y1={y} y2={y} stroke="#e5beb6" strokeDasharray="4" strokeWidth="1" />
               ))}
@@ -181,7 +181,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Top products */}
-      <section className="bg-white border border-[#e5e1e9] overflow-hidden">
+      <section className="bg-white border border-[#e5e1e9] overflow-hidden flex flex-col grow">
         <div className="p-4 border-b border-[#e5e1e9] bg-[#f4f4f1] flex justify-between items-center">
           <h3 className="font-sans text-base font-bold text-[#1a1c1b]">Sản phẩm nổi bật</h3>
           <span className="text-xs text-[#5c403a]">Top theo lượt nhấp</span>

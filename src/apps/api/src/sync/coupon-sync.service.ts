@@ -10,7 +10,6 @@ interface NicheConfig {
   id: string;
   name: string;
   status: string;
-  accesstrade?: { campaign_ids: string[] };
 }
 
 interface RawVoucher {
@@ -148,7 +147,12 @@ export class CouponSyncService {
 
   private async fetchAccessTradeVouchers(accessKey: string, niche: NicheConfig): Promise<RawVoucher[]> {
     try {
-      const campaignIds = niche.accesstrade?.campaign_ids ?? [];
+      // Auto-discover campaigns matching this niche by name/id
+      const allCampaigns = await this.accesstrade.listCampaigns({ approval: "successful" });
+      const keywords = [niche.name, niche.id].map((k) => k.toLowerCase().trim());
+      const campaignIds = allCampaigns
+        .filter((c) => keywords.some((kw) => c.name.toLowerCase().includes(kw) || c.merchant.toLowerCase().includes(kw)))
+        .map((c) => c.id);
       const results: RawVoucher[] = [];
 
       for (let i = 0; i < campaignIds.length; i++) {
@@ -371,7 +375,7 @@ export class CouponSyncService {
       const discountType = item.discount_type === "fixed" || item.type === "fixed" ? "fixed" : "percent";
       const expiresAt = item.expire_date ?? item.end_date ?? item.expired_at ?? null;
       let affiliateUrl = item.link ?? item.url ?? item.landing_url ?? "";
-      if (!affiliateUrl) affiliateUrl = `https://accesstrade.vn/click/${niche.accesstrade?.campaign_ids?.[0] ?? ""}`;
+      if (!affiliateUrl) affiliateUrl = `https://accesstrade.vn`;
       return { nicheId: niche.id, platform: null, merchant: item.merchant ?? item.brand ?? item.shop_name ?? niche.name, code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 200), discountValue: Math.abs(discountValue), discountType: discountType as "percent" | "fixed", minOrderValue: item.min_order ?? item.minimum_order ?? null, maxDiscount: item.max_discount ?? item.maximum_discount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: expiresAt ? new Date(expiresAt) : null };
     } catch { return null; }
   }
@@ -390,7 +394,6 @@ export class CouponSyncService {
       id: r.id,
       name: r.name,
       status: r.status,
-      accesstrade: { campaign_ids: (r.atCampaignIds as string[]) ?? [] },
     }));
   }
 }

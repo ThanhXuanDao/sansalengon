@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { MessageSquare, Trash2 } from "lucide-react"
@@ -107,7 +107,7 @@ export default function AdminFeedback() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell title="Phản hồi" subtitle="Góp ý và phản hồi từ khách hàng." />
 
       <div className="flex items-center justify-between">

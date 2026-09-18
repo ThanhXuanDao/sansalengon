@@ -79,7 +79,7 @@ export default function EmbeddingsPage() {
   const provInfo = PROVIDER_INFO[provider]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell title="Embeddings" subtitle="Tạo vector embedding cho sản phẩm để tăng độ chính xác matching đa sàn." />
 
       {/* Provider status */}
