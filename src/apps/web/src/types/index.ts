@@ -2,6 +2,7 @@ export interface Product {
   id: string
   name: string
   price: number
+  originalPrice: number | null
   commission: number
   rating: number
   discountPct: number | null
@@ -14,7 +15,7 @@ export interface Product {
   externalId?: string | null
   lastSyncedAt?: string | null
   categoryId: string
-  category: { id: string; name: string; slug: string }
+  category: { id: string; name: string; emoji: string }
   isFeatured: boolean
   isSoldOut: boolean
   number: number
@@ -25,6 +26,8 @@ export interface Product {
 export interface Category {
   id: string
   name: string
-  slug: string
-  icon?: string
+  emoji: string
+  status: string
+  description?: string | null
+  sortOrder?: number
 }

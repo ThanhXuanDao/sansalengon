@@ -168,7 +168,7 @@ Ngách: ${nicheId}`;
   }
 
   private async generateSingleTemplate(p: ProductForBroadcast, nicheId: string): Promise<string> {
-    const nicheRow = await this.prisma.niche.findUnique({ where: { id: nicheId } }).catch(() => null);
+    const nicheRow = await this.prisma.category.findUnique({ where: { id: nicheId } }).catch(() => null);
     const prefix = nicheRow?.postPrefix ?? "🔥 Deal hôm nay";
     const hashtags = nicheRow?.hashtags ?? "#deal #shopee";
     const salePrice = p.discountPct

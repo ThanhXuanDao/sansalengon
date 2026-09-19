@@ -29,7 +29,7 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
   const [sort, setSort] = useState("discount_desc")
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
-    categorySlug: niche.categorySlug,
+    categorySlugs: [niche.categorySlug],
     sort,
   })
 

@@ -43,7 +43,7 @@ export async function analyzePricePrediction(
 ): Promise<PricePrediction | null> {
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, name: true, price: true, category: { select: { slug: true } } },
+    select: { id: true, name: true, price: true, category: { select: { id: true } } },
   })
   if (!product) return null
 
@@ -96,7 +96,7 @@ export async function analyzePricePrediction(
   return {
     productId: product.id,
     productName: product.name,
-    niche: product.category.slug,
+    niche: product.category.id,
     currentPrice: product.price,
     overallAvg,
     cheapestDay: cheapest.dayOfWeek,

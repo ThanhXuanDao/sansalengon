@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     targetNiches.map(async (niche) => {
       const [rawProducts, clickCounts] = await Promise.all([
         prisma.product.findMany({
-          where: { isSoldOut: false, discountPct: { gte: 10 }, category: { slug: niche!.categorySlug } },
+          where: { isSoldOut: false, discountPct: { gte: 10 }, categoryId: niche!.categorySlug },
           select: { id: true, name: true, price: true, discountPct: true, imageUrl: true, rating: true },
           orderBy: { discountPct: "desc" },
           take: 20,

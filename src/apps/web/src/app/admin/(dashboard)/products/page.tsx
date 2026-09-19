@@ -107,7 +107,7 @@ export default function AdminProducts() {
   const categoryOptions = useMemo(() => {
     const base = [{ value: "semua", label: "Tất cả danh mục" }]
     if (dbCategories) {
-      for (const cat of dbCategories) base.push({ value: cat.slug, label: cat.name })
+      for (const cat of dbCategories) base.push({ value: cat.id, label: cat.name })
     }
     return base
   }, [dbCategories])
@@ -121,7 +121,7 @@ export default function AdminProducts() {
     try {
       const skip = (page - 1) * pageSize
       const result = await fetchProducts(
-        category === "semua" ? undefined : category,
+        category && category !== "semua" ? [category] : undefined,
         effectiveSort,
         skip,
         pageSize,

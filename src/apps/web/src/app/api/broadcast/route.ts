@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
   // Lấy top 5 sản phẩm cho niche (hoặc tất cả)
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const categoryFilter = nicheId ? { category: { slug: nicheId } } : {}
+  const categoryFilter = nicheId ? { categoryId: nicheId } : {}
 
   const [products, clickCounts] = await Promise.all([
     prisma.product.findMany({

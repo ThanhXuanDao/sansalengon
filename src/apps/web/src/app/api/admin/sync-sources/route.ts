@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, slug, baseUrl, enabled, config, description } = body
+    const { name, slug, baseUrl, enabled, config, description, icon } = body
 
     if (!name || !slug || !baseUrl) {
       return NextResponse.json({ error: "name, slug, baseUrl là bắt buộc" }, { status: 400 })
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
         enabled: enabled ?? true,
         config: typeof config === "string" ? config : JSON.stringify(config ?? {}),
         description: description ?? null,
+        icon: icon ?? null,
       },
     })
 

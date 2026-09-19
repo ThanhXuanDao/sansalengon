@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const productIds = [...new Set(clicksByProduct.map((c) => c.productId))]
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true, name: true, imageUrl: true, category: { select: { slug: true } } },
+    select: { id: true, name: true, imageUrl: true, category: { select: { id: true } } },
   })
 
   const productMap = new Map(products.map((p) => [p.id, p]))
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
   for (const row of clicksByProduct) {
     const product = productMap.get(row.productId)
     if (!product) continue
-    const nicheId = NICHES.find((n) => n.categorySlug === product.category?.slug)?.id
+    const nicheId = NICHES.find((n) => n.categorySlug === product.category?.id)?.id
     if (!nicheId) continue
     if (nicheFilter && nicheId !== nicheFilter) continue
 

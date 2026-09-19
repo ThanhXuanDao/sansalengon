@@ -386,7 +386,7 @@ export class CouponSyncService {
   }
 
   async loadActiveNiches(): Promise<NicheConfig[]> {
-    const rows = await this.prisma.niche.findMany({
+    const rows = await this.prisma.category.findMany({
       where: { status: "active" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });

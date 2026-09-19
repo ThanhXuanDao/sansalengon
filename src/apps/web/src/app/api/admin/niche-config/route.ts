@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   const [nicheRows, integrations] = await Promise.all([
-    prisma.niche.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
+    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
     prisma.nicheIntegration.findMany(),
   ])
 

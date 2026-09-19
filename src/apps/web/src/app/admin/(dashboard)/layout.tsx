@@ -38,8 +38,8 @@ import { ToastProvider } from "@/components/admin/ui"
 const navItems = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/products", label: "Sản phẩm", icon: Package },
-  { href: "/admin/niches", label: "Phân tích ngành hàng", icon: Layers },
-  { href: "/admin/niches/manage", label: "Ngành hàng", icon: Settings2 },
+  { href: "/admin/categories", label: "Phân tích danh mục", icon: Layers },
+  { href: "/admin/categories/manage", label: "Danh mục", icon: Settings2 },
   { href: "/admin/campaigns", label: "AT Campaigns", icon: Antenna },
   { href: "/admin/sources",   label: "Đồng bộ nguồn",  icon: Globe },
   { href: "/admin/coupons", label: "Mã giảm giá", icon: Ticket },

@@ -73,7 +73,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   return (
     <section
       aria-label="Đang xem nhiều"
-      className="w-full border-b border-dashed border-border-color bg-[#fffdf5]"
+      className="w-full bg-white"
     >
       <div className="max-w-[1320px] mx-auto px-3 pt-5 pb-3">
         <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
@@ -88,7 +88,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
         {isLoading ? (
           <div className="flex gap-3 md:gap-4 px-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="shrink-0 w-[calc(50vw-18px)] md:w-[calc(25vw-18px)] max-w-[312px]">
+              <div key={i} className="shrink-0 w-[calc(33vw-12px)] md:w-[calc(16.7vw-12px)] max-w-[208px]">
                 <ProductCardSkeleton />
               </div>
             ))}
@@ -105,7 +105,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
             {loopItems.map((product, i) => (
               <div
                 key={`${product.id}-${i}`}
-                className="shrink-0 w-[calc(50vw-18px)] md:w-[calc(25vw-18px)] max-w-[312px]"
+                className="shrink-0 w-[calc(33vw-12px)] md:w-[calc(16.7vw-12px)] max-w-[208px]"
               >
                 <ProductCard product={product} onBuy={handleBuy} />
               </div>

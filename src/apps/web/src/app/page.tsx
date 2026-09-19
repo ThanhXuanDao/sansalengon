@@ -7,15 +7,14 @@ import Hero from "@/components/sections/Hero"
 import { useProducts } from "@/hooks/useProducts"
 import { useMostClickedProducts } from "@/hooks/useMostClickedProducts"
 import { useCategories } from "@/hooks/useCategories"
+import { useSources } from "@/hooks/useSources"
 import { useSettings } from "@/hooks/useSettings"
 import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeedbackSection from "@/components/sections/FeedbackSection"
+import FeaturedSection from "@/components/sections/FeaturedSection"
 
 const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
   ssr: false,
-})
-const CategoryFilter = dynamic(() => import("@/components/sections/CategoryFilter"), {
-  loading: () => <div className="h-10 skeleton-shimmer" />,
 })
 const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
   loading: () => <div className="h-96 skeleton-shimmer" />,
@@ -24,18 +23,20 @@ const Footer = dynamic(() => import("@/components/layout/Footer"))
 const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNav"), { ssr: false })
 
 export default function Home() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("semua")
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [sort, setSort] = useState<string>("discount_desc")
   const [searchQuery, setSearchQuery] = useState("")
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
-    categorySlug:
-      selectedCategory === "semua" ? undefined : selectedCategory,
+    categorySlugs: selectedCategories.length > 0 ? selectedCategories : undefined,
+    sourceSlugs: selectedSources.length > 0 ? selectedSources : undefined,
     sort,
     q: searchQuery || undefined,
   })
 
   const { data: categories, isLoading: isCategoriesLoading } = useCategories()
+  const { data: sources, isLoading: isSourcesLoading } = useSources()
   const { data: topRatedProducts, isLoading: isTopRatedLoading } = useMostClickedProducts()
   const { data: settings } = useSettings()
 
@@ -54,13 +55,22 @@ export default function Home() {
   }, [])
 
   const resetFilters = useCallback(() => {
-    setSelectedCategory("semua")
+    setSelectedCategories([])
+    setSelectedSources([])
     setSort("newest")
     setSearchQuery("")
   }, [])
 
   const handleCategoryChange = useCallback((slug: string) => {
-    setSelectedCategory(prev => prev === slug ? "semua" : slug)
+    setSelectedCategories(prev =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
+  }, [])
+
+  const handleSourceChange = useCallback((slug: string) => {
+    setSelectedSources(prev =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    )
   }, [])
 
   const handleSortChange = useCallback((newSort: string) => {
@@ -77,28 +87,16 @@ export default function Home() {
       <Navbar onSearch={handleSearch} searchQuery={searchQuery} />
       <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
       <TrendingWidget onBuyProduct={handleBuyProduct} />
-      <div className="w-full bg-white border-t border-dashed border-border-color">
+      <FeaturedSection products={topRatedProducts} isLoading={isTopRatedLoading} onBuyProduct={handleBuyProduct} />
+      <div className="w-full bg-white">
       <main id="skip-target" className="flex-grow w-full max-w-[1320px] mx-auto px-3 py-12 pb-24 lg:pb-12">
         <div id="products">
-        <div className="flex flex-col md:flex-row gap-8 mt-3 md:mt-0">
-          <CategoryFilter
-            categories={categories}
-            activeSlug={selectedCategory}
-            onSelect={handleCategoryChange}
-            variant="sidebar"
-            isLoading={isCategoriesLoading}
-          />
           <ProductGrid
-            featuredProducts={topRatedProducts}
             allProducts={allProducts}
             total={total}
             onBuyProduct={handleBuyProduct}
             isLoading={isLoading}
-            isFeaturedLoading={isTopRatedLoading}
             error={error?.message}
-            activeCategory={categories?.find(
-              (c) => c.slug === selectedCategory
-            )}
             onResetCategory={resetFilters}
             sort={sort}
             onSortChange={handleSortChange}
@@ -106,11 +104,14 @@ export default function Home() {
             onLoadMore={handleLoadMore}
             isLoadMoreLoading={isFetchingNextPage}
             categories={categories}
-            activeSlug={selectedCategory}
+            activeSlugs={selectedCategories}
             onCategoryChange={handleCategoryChange}
             isCategoriesLoading={isCategoriesLoading}
+            sources={sources}
+            activeSources={selectedSources}
+            onSourceChange={handleSourceChange}
+            isSourcesLoading={isSourcesLoading}
           />
-        </div>
         </div>
       </main>
       </div>

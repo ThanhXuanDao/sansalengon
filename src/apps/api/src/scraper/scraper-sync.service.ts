@@ -368,12 +368,6 @@ export class ScraperSyncService {
       const affiliateUrl = affiliateMap?.get(p.url) ?? p.url
 
       try {
-        await this.prisma.category.upsert({
-          where: { id: p.nicheSlug },
-          update: {},
-          create: { id: p.nicheSlug, name: p.nicheSlug, slug: p.nicheSlug },
-        })
-
         await this.prisma.product.upsert({
           where: { source_externalId: { source: p.sourceSlug, externalId: p.externalId } },
           update: {

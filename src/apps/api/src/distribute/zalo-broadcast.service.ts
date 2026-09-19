@@ -146,7 +146,7 @@ export class ZaloBroadcastService {
       where: {
         isSoldOut: false,
         discountPct: { gte: 20 },
-        category: { slug: nicheId },
+        categoryId: nicheId,
       },
       include: { category: true },
       orderBy: { discountPct: "desc" },
@@ -172,7 +172,7 @@ export class ZaloBroadcastService {
       imageUrl: p.imageUrl,
       productUrl: p.productUrl,
       rating: p.rating,
-      category: { name: p.category.name, slug: p.category.slug },
+      category: { name: p.category.name, slug: p.category.id },
     }));
   }
 
@@ -207,7 +207,7 @@ export class ZaloBroadcastService {
 
   private async loadActiveNiches(): Promise<NicheConfig[]> {
     try {
-      const rows = await this.prisma.niche.findMany({
+      const rows = await this.prisma.category.findMany({
         where: { status: "active" },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       });

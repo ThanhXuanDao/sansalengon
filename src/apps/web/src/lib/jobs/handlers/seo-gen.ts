@@ -28,7 +28,7 @@ export async function seoGenHandler(config: JobConfig): Promise<JobResult> {
     targets.map(async (niche) => {
       try {
         const topProducts = await prisma.product.findMany({
-          where: { category: { slug: niche.categorySlug }, isSoldOut: false },
+          where: { categoryId: niche.categorySlug, isSoldOut: false },
           select: { name: true, discountPct: true, price: true },
           orderBy: { discountPct: "desc" },
           take: 5,

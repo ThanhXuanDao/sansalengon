@@ -26,6 +26,7 @@ interface SyncSource {
   enabled: boolean
   config: string
   description: string | null
+  icon: string | null
   scheduleCron: string | null
   scheduleEnabled: boolean
   scheduleNextRunAt: string | null
@@ -54,12 +55,14 @@ type FormData = {
   enabled: boolean
   config: string
   description: string | null
+  icon: string | null
 }
 
 const EMPTY_FORM: FormData = {
   name: "", slug: "", baseUrl: "", enabled: true,
   config: JSON.stringify({ type: "scraper", strategy: "nextjs-data", delayMs: 2000, categories: [] }, null, 2),
   description: "",
+  icon: null,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -209,6 +212,23 @@ function SourceFormModal({
           <div>
             <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">Mô tả</label>
             <input value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} placeholder="Mô tả ngắn về nguồn" className="w-full border border-[#e5beb6] rounded px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]" />
+          </div>
+          <div>
+            <label className="block font-mono text-[11px] tracking-[0.05em] text-[#5c403a] mb-1 uppercase">Logo URL</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={form.icon ?? ""}
+                onChange={(e) => set("icon", e.target.value || null)}
+                placeholder="https://cdn.example.com/logo.png"
+                className="flex-1 border border-[#e5beb6] rounded px-2 py-1.5 font-mono text-[12px] focus:outline-none focus:border-[#b51c00]"
+              />
+              {form.icon && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.icon} alt="preview" className="size-8 object-contain border border-[#e5beb6] rounded bg-[#f9f9f6]" />
+              )}
+            </div>
+            <p className="mt-1 font-mono text-[10px] text-[#906f69]">Logo thương hiệu — hiển thị trên bộ lọc nguồn ở trang public</p>
           </div>
           <div className="flex items-center justify-between py-2 border-t border-dashed border-[#e5beb6]">
             <div>
@@ -452,7 +472,12 @@ function SourceRow({
         {/* Nguồn */}
         <td className="py-3 px-4 align-middle">
           <div className="flex items-start gap-2.5">
-            <Globe className={`size-4 mt-0.5 shrink-0 ${source.enabled ? "text-[#1a6b3c]" : "text-[#906f69]"}`} />
+            {source.icon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={source.icon} alt={source.name} className="size-5 mt-0.5 shrink-0 object-contain" />
+            ) : (
+              <Globe className={`size-4 mt-0.5 shrink-0 ${source.enabled ? "text-[#1a6b3c]" : "text-[#906f69]"}`} />
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-sans text-[13px] font-semibold text-[#1a1c1b]">{source.name}</span>
@@ -747,7 +772,7 @@ export default function SyncSourcesPage() {
       )}
       {editTarget && (
         <SourceFormModal
-          initial={{ id: editTarget.id, name: editTarget.name, slug: editTarget.slug, baseUrl: editTarget.baseUrl, enabled: editTarget.enabled, config: editTarget.config, description: editTarget.description }}
+          initial={{ id: editTarget.id, name: editTarget.name, slug: editTarget.slug, baseUrl: editTarget.baseUrl, enabled: editTarget.enabled, config: editTarget.config, description: editTarget.description, icon: editTarget.icon }}
           isEdit={true}
           onClose={() => setEditTarget(null)}
           onSave={handleEdit}

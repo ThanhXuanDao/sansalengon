@@ -44,7 +44,7 @@ function dbToConfig(row: {
 
 export async function getActiveNiches(): Promise<NicheConfig[]> {
   try {
-    const rows = await prisma.niche.findMany({
+    const rows = await prisma.category.findMany({
       where: { status: "active" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     })
@@ -56,7 +56,7 @@ export async function getActiveNiches(): Promise<NicheConfig[]> {
 
 export async function getAllNiches(): Promise<NicheConfig[]> {
   try {
-    const rows = await prisma.niche.findMany({
+    const rows = await prisma.category.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     })
     return rows.map(dbToConfig)
@@ -67,7 +67,7 @@ export async function getAllNiches(): Promise<NicheConfig[]> {
 
 export async function getNiche(id: string): Promise<NicheConfig | undefined> {
   try {
-    const row = await prisma.niche.findUnique({ where: { id } })
+    const row = await prisma.category.findUnique({ where: { id } })
     return row ? dbToConfig(row) : undefined
   } catch {
     return undefined

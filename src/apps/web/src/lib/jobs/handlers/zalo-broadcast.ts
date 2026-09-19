@@ -20,7 +20,7 @@ export async function zaloBroadcastHandler(config: JobConfig): Promise<JobResult
   }
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const categoryFilter = nicheId && nicheId !== "all" ? { category: { slug: nicheId } } : {}
+  const categoryFilter = nicheId && nicheId !== "all" ? { categoryId: nicheId } : {}
 
   const [products, clickCounts] = await Promise.all([
     prisma.product.findMany({

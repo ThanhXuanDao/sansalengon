@@ -47,8 +47,8 @@ const SOURCE_ICONS: Record<string, React.ReactNode> = {
   unknown: <MousePointerClick className="size-4" />,
 }
 
-export default function NicheDetailPage({ params }: { params: Promise<{ niche: string }> }) {
-  const { niche: nicheParam } = use(params)
+export default function CategoryDetailPage({ params }: { params: Promise<{ category: string }> }) {
+  const { category: categoryParam } = use(params)
   const searchParams = useSearchParams()
   const initialPeriod = searchParams.get("period") ?? "7d"
   const [period, setPeriod] = useState(initialPeriod)
@@ -62,12 +62,12 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
     try {
       const csrf = await ensureCsrfToken()
       const res = await fetch(
-        `/api/admin/niche-analytics?period=${period}&niche=${nicheParam}`,
+        `/api/admin/niche-analytics?period=${period}&niche=${categoryParam}`,
         { headers: { "x-csrf-token": csrf } }
       )
       if (!res.ok) throw new Error("Failed")
       const data = await res.json() as { niches: NicheStat[] }
-      const found = data.niches.find((n) => n.id === nicheParam)
+      const found = data.niches.find((n) => n.id === categoryParam)
       if (!found) { setNotFound(true); return }
       setNiche(found)
     } catch {
@@ -75,7 +75,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
     } finally {
       setLoading(false)
     }
-  }, [period, nicheParam])
+  }, [period, categoryParam])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -84,7 +84,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
     ? Object.entries(niche.bySource).sort((a, b) => b[1] - a[1])[0]
     : null
 
-  const pageTitle = niche ? `${niche.emoji} ${niche.name}` : nicheParam
+  const pageTitle = niche ? `${niche.emoji} ${niche.name}` : categoryParam
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto">
@@ -92,11 +92,11 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
         title={pageTitle}
         subtitle={
           <Link
-            href="/admin/niches"
+            href="/admin/categories"
             className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5c403a] hover:text-[#b51c00] transition-colors"
           >
             <ChevronLeft className="size-3" />
-            Phân tích ngành hàng
+            Phân tích danh mục
           </Link>
         }
         actions={
@@ -112,7 +112,7 @@ export default function NicheDetailPage({ params }: { params: Promise<{ niche: s
         <div className="py-24"><PageSpinner /></div>
       ) : notFound ? (
         <div className="bg-white border border-[#e5e1d8]">
-          <EmptyState icon={Layers} title={`Không tìm thấy ngành "${nicheParam}"`} />
+          <EmptyState icon={Layers} title={`Không tìm thấy danh mục "${categoryParam}"`} />
         </div>
       ) : !niche ? (
         <div className="bg-white border border-[#e5e1d8]">

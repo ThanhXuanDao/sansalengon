@@ -30,7 +30,7 @@ export async function PUT(
       syncEnabled,
     } = body
 
-    const niche = await prisma.niche.update({
+    const niche = await prisma.category.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
@@ -68,7 +68,7 @@ export async function DELETE(
   const { id } = await params
 
   try {
-    await prisma.niche.delete({ where: { id } })
+    await prisma.category.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     if (err.code === "P2025") {

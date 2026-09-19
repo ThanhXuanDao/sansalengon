@@ -6,17 +6,19 @@ interface ProductsResponse {
 }
 
 export async function fetchProducts(
-  categorySlug?: string,
+  categorySlugs?: string[],
   sort?: string,
   skip?: number,
   take?: number,
   numberFrom?: number,
   numberTo?: number,
-  q?: string
+  q?: string,
+  sourceSlugs?: string[],
 ): Promise<ProductsResponse> {
   const params = new URLSearchParams()
   if (q) params.set("q", q)
-  if (categorySlug) params.set("category", categorySlug)
+  if (categorySlugs && categorySlugs.length > 0) params.set("category", categorySlugs.join(","))
+  if (sourceSlugs && sourceSlugs.length > 0) params.set("source", sourceSlugs.join(","))
   if (sort) params.set("sort", sort)
   if (skip) params.set("skip", String(skip))
   if (take) params.set("take", String(take))

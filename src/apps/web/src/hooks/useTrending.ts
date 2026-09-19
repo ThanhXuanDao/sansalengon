@@ -19,6 +19,7 @@ async function fetchTrending(): Promise<TrendingResponse> {
     data: json.data.map((p: TrendingProduct) => ({
       ...p,
       imageAlt: p.imageAlt ?? p.name,
+      originalPrice: p.originalPrice ?? null,
       externalId: p.externalId ?? null,
       lastSyncedAt: p.lastSyncedAt ?? null,
       number: p.number ?? 0,

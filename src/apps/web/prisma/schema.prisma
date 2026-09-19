@@ -11,7 +11,8 @@ datasource db {
 model Product {
   id               String            @id @default(cuid())
   name             String
-  price            Int
+  price            Int               // giá sau khuyến mãi (currentPrice)
+  originalPrice    Int?              // giá gốc trước khuyến mãi
   commission       Int               @default(0)
   rating           Float             @default(0)
   discountPct      Int?
@@ -113,30 +114,25 @@ enum MatchStatus {
   REJECTED
 }
 
-model Niche {
-  id             String    @id               // "fashion" — slug URL-safe, dùng làm categorySlug
+model Category {
+  id             String    @id               // "fashion" — slug URL-safe
   name           String
   emoji          String    @default("🏷️")
   status         String    @default("draft") // "active" | "draft" | "paused"
-  description    String?                     // SEO meta description
-  metaKeywords   String?                     // SEO meta keywords
+  description    String?
+  metaKeywords   String?
   sortOrder      Int       @default(0)
-  // Content / broadcast
   postPrefix     String?
   hashtags       String?
   zaloOaId       String?
-  syncEnabled    Boolean   @default(true)       // false = bỏ qua ngách này khi sync
+  syncEnabled    Boolean   @default(true)
   launchedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-}
 
-model Category {
-  id       String    @id @default(cuid())
-  name     String
-  slug     String    @unique
-  icon     String    @default("LayoutGrid")
-  products Product[]
+  products       Product[]
+
+  @@map("Niche")
 }
 
 model ClickLog {
@@ -370,6 +366,7 @@ model SyncSource {
   enabled           Boolean   @default(true)
   config            String    @default("{}")
   description       String?
+  icon              String?   // emoji hoặc URL ảnh — hiển thị ở public source filter
   scheduleCron      String?
   scheduleEnabled   Boolean   @default(false)
   scheduleNextRunAt DateTime?

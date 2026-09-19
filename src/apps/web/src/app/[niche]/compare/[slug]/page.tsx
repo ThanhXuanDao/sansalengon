@@ -20,13 +20,13 @@ export async function generateStaticParams() {
   try {
     const [products, niches] = await Promise.all([
       prisma.product.findMany({
-        select: { id: true, categoryId: true, category: { select: { slug: true } } },
+        select: { id: true, categoryId: true, category: { select: { id: true } } },
       }),
       getActiveNiches(),
     ])
     const params: { niche: string; slug: string }[] = []
     for (const p of products) {
-      const niche = niches.find((n) => n.categorySlug === p.category.slug)
+      const niche = niches.find((n) => n.categorySlug === p.category.id)
       if (niche) params.push({ niche: niche.id, slug: p.id })
     }
     return params

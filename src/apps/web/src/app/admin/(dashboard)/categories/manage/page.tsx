@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
@@ -338,11 +338,11 @@ export default function ManageNichesPage() {
   return (
     <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-hidden">
       <AdminPageShell
-        title="Ngành hàng"
-        subtitle={`Thêm, sửa, xoá ngành hàng hiển thị trên site. ${niches.length > 0 ? `${niches.length} ngành.` : ""}`}
+        title="Danh mục"
+        subtitle={`Thêm, sửa, xoá danh mục hiển thị trên site. ${niches.length > 0 ? `${niches.length} danh mục.` : ""}`}
         actions={
           <Button variant="primary" icon={Plus} onClick={openCreate}>
-            Thêm ngành
+            Thêm danh mục
           </Button>
         }
       />
@@ -351,8 +351,8 @@ export default function ManageNichesPage() {
         search={{
           value: search,
           onChange: (v) => { setSearch(v); setPage(1) },
-          placeholder: "Tên hoặc ID ngách...",
-          id: "niches-search",
+          placeholder: "Tên hoặc ID danh mục...",
+          id: "categories-search",
         }}
         filters={
           <FilterSelect
@@ -493,3 +493,4 @@ export default function ManageNichesPage() {
     </div>
   )
 }
+

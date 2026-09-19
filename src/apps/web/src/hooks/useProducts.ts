@@ -6,7 +6,8 @@ import type { Product } from "@/types"
 const PAGE_SIZE = 24
 
 interface UseProductsOptions {
-  categorySlug?: string
+  categorySlugs?: string[]
+  sourceSlugs?: string[]
   sort?: string
   numberFrom?: number
   numberTo?: number
@@ -14,19 +15,22 @@ interface UseProductsOptions {
 }
 
 export function useProducts(options?: UseProductsOptions) {
-  const { categorySlug, sort, numberFrom, numberTo, q } = options ?? {}
+  const { categorySlugs, sourceSlugs, sort, numberFrom, numberTo, q } = options ?? {}
+  const categoryKey = categorySlugs?.join(",") ?? "all"
+  const sourceKey = sourceSlugs?.join(",") ?? "all"
 
   const query = useInfiniteQuery({
-    queryKey: ["products", "paginated", categorySlug ?? "all", sort ?? "discount_desc", numberFrom ?? 0, numberTo ?? 0, q ?? ""],
+    queryKey: ["products", "paginated", categoryKey, sourceKey, sort ?? "discount_desc", numberFrom ?? 0, numberTo ?? 0, q ?? ""],
     queryFn: ({ pageParam }) =>
       fetchProducts(
-        categorySlug,
+        categorySlugs,
         sort,
         pageParam.skip,
         pageParam.take,
         numberFrom,
         numberTo,
-        q
+        q,
+        sourceSlugs,
       ),
     initialPageParam: { skip: 0, take: PAGE_SIZE },
     getNextPageParam: (lastPage, allPages) => {

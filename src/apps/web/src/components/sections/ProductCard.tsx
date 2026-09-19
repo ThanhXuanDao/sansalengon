@@ -93,7 +93,7 @@ export default function ProductCard({
   viewCount,
 }: ProductCardProps) {
   const formatPrice = useFormatPrice()
-  const niche = useNicheByCategory(product.category?.slug ?? "")
+  const niche = useNicheByCategory(product.category?.id ?? "")
   const isSoldOut = product.isSoldOut
   const [imgError, setImgError] = useState(false)
   const [showPriceHistory, setShowPriceHistory] = useState(false)
@@ -114,7 +114,7 @@ export default function ProductCard({
         <span className="font-bold text-white text-xs leading-none tracking-wide">{sourceLabel(product.source)}</span>
       </div>
       {product.discountPct && product.discountPct > 0 && !isSoldOut && (
-        <div className="absolute top-0 right-0 z-30 w-[50px] h-[50px] pointer-events-none" aria-hidden="true">
+        <div className="absolute top-0 right-0 z-30 w-[50px] h-[50px] pointer-events-none blob-badge-animate" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/blob-bg.webp" alt="" className="absolute inset-0 w-full h-full object-contain" />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -174,19 +174,17 @@ export default function ProductCard({
         </div>
       </div>
       <div className="mt-1">
-        {product.discountPct && product.discountPct > 0 ? (
+        {product.discountPct && product.discountPct > 0 && product.originalPrice ? (
           <div className="flex items-baseline gap-2 mb-2">
             <p className="font-mono font-bold text-sale-blob tabular-nums text-lg">
-              {formatPrice(Math.round(product.price * (1 - product.discountPct / 100)))}
+              {formatPrice(product.price)}
             </p>
             <p className="font-mono text-xs text-ink/40 line-through tabular-nums shrink-0">
-              {formatPrice(product.price)}
+              {formatPrice(product.originalPrice)}
             </p>
           </div>
         ) : (
-          <p
-            className="font-mono font-bold text-ink mb-2 tabular-nums text-lg"
-          >
+          <p className="font-mono font-bold text-ink mb-2 tabular-nums text-lg">
             {formatPrice(product.price)}
           </p>
         )}

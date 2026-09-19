@@ -36,11 +36,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let categoryRoutes: MetadataRoute.Sitemap = []
   try {
     const categories = await prisma.category.findMany({
-      select: { slug: true, name: true },
+      select: { id: true, name: true },
       orderBy: { name: "asc" },
     })
     categoryRoutes = categories.map((cat) => ({
-      url: `${BASE_URL}/?category=${cat.slug}`,
+      url: `${BASE_URL}/?category=${cat.id}`,
       changeFrequency: "daily" as const,
       priority: 0.8,
     }))

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { Layers, TrendingUp, MousePointerClick, Globe, MessageCircle, Share2, ExternalLink } from "lucide-react"
@@ -60,7 +60,7 @@ function SourceBar({ bySource, total }: { bySource: SourceMap; total: number }) 
   )
 }
 
-export default function NichesAnalyticsPage() {
+export default function CategoriesAnalyticsPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState("7d")
@@ -89,8 +89,8 @@ export default function NichesAnalyticsPage() {
   return (
     <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
       <AdminPageShell
-        title="Phân tích ngành hàng"
-        subtitle="Phân tích lượt click phân theo ngành hàng và kênh phân phối."
+        title="Phân tích danh mục"
+        subtitle="Phân tích lượt click phân theo danh mục và kênh phân phối."
         actions={
           <SegmentedControl
             value={period}
@@ -109,7 +109,7 @@ export default function NichesAnalyticsPage() {
           loading={loading}
         />
         <StatCard
-          label="Ngành dẫn đầu"
+          label="Danh mục dẫn đầu"
           value={loading ? "…" : topNiche ? (
             <span className="flex items-center gap-1.5 text-[18px] font-bold leading-snug">
               <span className="text-[20px] leading-none">{topNiche.emoji}</span>
@@ -133,7 +133,7 @@ export default function NichesAnalyticsPage() {
         />
       </div>
 
-      {/* Niches table */}
+      {/* Categories table */}
       {loading ? (
         <div className="py-24">
           <PageSpinner />
@@ -167,7 +167,7 @@ export default function NichesAnalyticsPage() {
                     <p className="font-mono text-[11px] text-[#5c403a]">lượt click</p>
                   </div>
                   <Link
-                    href={`/admin/niches/${niche.id}?period=${period}`}
+                    href={`/admin/categories/${niche.id}?period=${period}`}
                     className="flex items-center gap-1.5 px-3 py-2 border border-[#e5e1d8] font-mono text-[12px] text-[#5c403a] hover:bg-[#f4f4f1] transition-colors focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
                   >
                     Chi tiết →

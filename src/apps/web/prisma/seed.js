@@ -340,7 +340,7 @@ async function main() {
   console.log(`Seeding ${NICHES.length} niches...`)
   for (const niche of NICHES) {
     const { shopeeKeywords, atKeywords, ...rest } = niche
-    await prisma.niche.upsert({
+    await prisma.category.upsert({
       where: { id: niche.id },
       update: {}, // không ghi đè nếu đã tồn tại — bảo toàn config user đã chỉnh
       create: {

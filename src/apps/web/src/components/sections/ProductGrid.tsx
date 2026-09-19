@@ -2,20 +2,18 @@
 
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowUpDown, ArrowUp, ArrowDown, Star } from "lucide-react"
-import CategoryIcon from "@/components/ui/CategoryIcon"
+import Image from "next/image"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
 import EmptyState from "@/components/ui/EmptyState"
 import type { Product, Category } from "@/types"
+import type { SyncSourcePublic } from "@/hooks/useSources"
 
 interface ProductGridProps {
-  featuredProducts?: Product[]
   allProducts?: Product[]
   total?: number
   isLoading?: boolean
-  isFeaturedLoading?: boolean
   error?: string
-  activeCategory?: Category
   onResetCategory?: () => void
   onBuyProduct?: (productId: string) => void
   sort?: string
@@ -24,224 +22,176 @@ interface ProductGridProps {
   onLoadMore?: () => void
   isLoadMoreLoading?: boolean
   categories?: Category[]
-  activeSlug?: string
+  activeSlugs?: string[]
   onCategoryChange?: (slug: string) => void
   isCategoriesLoading?: boolean
+  sources?: SyncSourcePublic[]
+  activeSources?: string[]
+  onSourceChange?: (slug: string) => void
+  isSourcesLoading?: boolean
 }
 
 const containerVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.06 } },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
 }
 
-const SKELETON_COUNT = 8
+const SKELETON_COUNT = 10
 
 const sortOptions = [
-  { value: "discount_desc", label: "Giảm nhiều nhất" },
-  { value: "newest", label: "Mới nhất" },
-  { value: "price_asc", label: "Rẻ nhất" },
-  { value: "price_desc", label: "Đắt nhất" },
-  { value: "rating_desc", label: "Đánh giá" },
+  { value: "discount_desc", label: "Giảm nhiều nhất", Icon: ArrowUpDown },
+  { value: "newest",        label: "Mới nhất",        Icon: ArrowUpDown },
+  { value: "price_asc",     label: "Rẻ nhất",         Icon: ArrowUp },
+  { value: "price_desc",    label: "Đắt nhất",        Icon: ArrowDown },
+  { value: "rating_desc",   label: "Đánh giá",        Icon: Star },
 ]
 
 export default function ProductGrid({
-  featuredProducts = [],
   allProducts = [],
   total = 0,
   isLoading,
-  isFeaturedLoading,
   error,
-  activeCategory,
   onResetCategory,
   onBuyProduct,
-  sort = "newest",
+  sort = "discount_desc",
   onSortChange,
   hasMore,
   onLoadMore,
   isLoadMoreLoading,
   categories,
-  activeSlug = "semua",
+  activeSlugs = [],
   onCategoryChange,
   isCategoriesLoading,
+  sources,
+  activeSources = [],
+  onSourceChange,
+  isSourcesLoading,
 }: ProductGridProps) {
   const prefersReducedMotion = useReducedMotion()
 
   if (error) {
     return (
-      <div className="flex-grow flex items-center justify-center py-16" role="alert">
+      <div className="flex items-center justify-center py-16" role="alert">
         <p className="text-destructive">Không tải được sản phẩm. Hãy refresh trang.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-grow" aria-live="polite">
+    <div aria-live="polite">
 
-      {/* ── Featured section ───────────────────────────────────── */}
-      <div className="mb-10">
-        <div className="mb-4 border-b border-dashed border-border-color pb-4">
-          <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
-            🔥 Đề xuất hôm nay
-          </h2>
-          <p className="font-mono text-xs text-ink/50 mt-0.5">
-            Những sản phẩm đang giảm giá nhiều nhất, được chọn lọc mỗi ngày
-          </p>
-        </div>
-
-        {/* Desktop: 3-col grid */}
-        <motion.div
-          className="hidden md:grid grid-cols-3 gap-6"
-          variants={prefersReducedMotion ? undefined : containerVariants}
-          initial={prefersReducedMotion ? undefined : "hidden"}
-          animate={prefersReducedMotion ? undefined : "visible"}
-        >
-          {isFeaturedLoading
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <ProductCardSkeleton key={`s-feat-${i}`} />
-              ))
-            : featuredProducts.map((product) => (
-                <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} onBuy={onBuyProduct} />
-                </motion.div>
-              ))}
-        </motion.div>
-
-        {/* Mobile: horizontal scroll strip */}
-        <div className="md:hidden -mx-4">
-          {isFeaturedLoading ? (
-            <div className="flex gap-3 px-4 overflow-x-auto pb-2 scrollbar-hide">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={`s-feat-m-${i}`} className="shrink-0 w-44">
-                  <ProductCardSkeleton />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div
-              className="flex gap-3 px-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
-            >
-              {featuredProducts.map((product) => (
-                <div key={product.id} className="shrink-0 w-44 snap-start">
-                  <ProductCard product={product} onBuy={onBuyProduct} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* ── Heading ─────────────────────────────────────────────── */}
+      <div className="mb-3">
+        <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
+          🏷️ Tất cả sản phẩm
+        </h2>
+        <p className="font-mono text-xs text-ink/50 mt-0.5">
+          {total > 0 ? `${total} sản phẩm đang giảm giá` : "Lọc và sắp xếp sản phẩm theo nhu cầu"}
+        </p>
       </div>
 
-      {/* ── All products header ─────────────────────────────────── */}
-      <div className="flex items-start justify-between mb-4 border-b border-dashed border-border-color pb-4">
-        <div>
-          <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
-            🏷️ Tất cả sản phẩm
-          </h2>
-          <p className="font-mono text-xs text-ink/50 mt-0.5">
-            {total > 0 ? `${total} sản phẩm đang giảm giá — lọc và sắp xếp theo nhu cầu` : "Lọc và sắp xếp sản phẩm theo nhu cầu"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Desktop sort pills */}
-          {onSortChange && (
-            <div className="hidden sm:flex items-center gap-1 bg-white border border-border-color rounded-full p-0.5">
-              {sortOptions.map((opt) => {
-                const isActive = sort === opt.value
-                const Icon =
-                  opt.value === "price_asc" ? ArrowUp
-                  : opt.value === "price_desc" ? ArrowDown
-                  : opt.value === "rating_desc" ? Star
-                  : ArrowUpDown
+      {/* ── Filter + Sort toolbar ───────────────────────────────── */}
+      <div className="sticky top-[64px] z-30 -mx-3 px-3 bg-white/95 backdrop-blur-sm pb-2 mb-4">
+
+        {/* Row 0: Source filter pills */}
+        {(isSourcesLoading || (sources && sources.length > 0)) && (
+          <div className="flex items-center gap-2 pt-2 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Nguồn">
+            {isSourcesLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
+                ))
+              : sources?.map((src) => {
+                  const isActive = activeSources.includes(src.slug)
+                  return (
+                    <button
+                      key={src.slug}
+                      onClick={() => onSourceChange?.(src.slug)}
+                      aria-pressed={isActive}
+                      title={src.name}
+                      className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active overflow-hidden ${
+                        isActive
+                          ? "border-filter-active ring-2 ring-filter-active ring-offset-1"
+                          : "border-border-color hover:border-filter-active/50 bg-white"
+                      }`}
+                    >
+                      {src.icon ? (
+                        <Image
+                          src={src.icon}
+                          alt={src.name}
+                          width={40}
+                          height={40}
+                          className="object-contain w-[40px] h-[40px]"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="font-bold text-[18px] text-ink/60 select-none">
+                          {src.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+          </div>
+        )}
+
+        {/* Row 1: Category icon pills */}
+        <div className="flex items-center gap-2 pt-2 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Danh mục">
+          {isCategoriesLoading
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
+              ))
+            : categories?.map((cat) => {
+                const isActive = activeSlugs.includes(cat.id)
                 return (
                   <button
-                    key={opt.value}
-                    onClick={() => onSortChange(opt.value)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono uppercase transition-all focus-visible:ring-2 focus-visible:ring-primary ${
-                      isActive ? "bg-ink text-white" : "text-ink/50 hover:text-ink"
+                    key={cat.id}
+                    onClick={() => onCategoryChange?.(cat.id)}
+                    aria-pressed={isActive}
+                    title={cat.name}
+                    className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 text-[28px] focus-visible:ring-2 focus-visible:ring-filter-active ${
+                      isActive
+                        ? "bg-filter-active border-filter-active"
+                        : "bg-white border-border-color hover:border-filter-active/50"
                     }`}
                   >
-                    <Icon className="size-3" aria-hidden="true" />
-                    {opt.label}
+                    <span aria-hidden="true">{cat.emoji}</span>
                   </button>
                 )
               })}
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* ── Mobile sticky filter bar ────────────────────────────── */}
-      {/* Stays visible as user scrolls through products */}
-      <div className="md:hidden sticky top-[64px] z-30 -mx-4 bg-white/95 backdrop-blur-sm border-b border-border-color mb-4">
-        {/* Sort row */}
+        {/* Row 2: Sort pills */}
         {onSortChange && (
-          <div
-            className="flex gap-1.5 px-4 pt-2 pb-1 overflow-x-auto scrollbar-hide"
-            role="toolbar"
-            aria-label="Sắp xếp"
-          >
-            {sortOptions.map((opt) => {
-              const isActive = sort === opt.value
+          <div className="flex items-center gap-1 pt-1.5 overflow-x-auto scrollbar-hide" role="toolbar" aria-label="Sắp xếp">
+            {sortOptions.map(({ value, label, Icon }) => {
+              const isActive = sort === value
               return (
                 <button
-                  key={opt.value}
-                  onClick={() => onSortChange(opt.value)}
-                  className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-primary ${
-                    isActive ? "bg-ink text-white border-ink" : "bg-white text-ink/50 border-border-color"
+                  key={value}
+                  onClick={() => onSortChange(value)}
+                  className={`flex items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active ${
+                    isActive
+                      ? "bg-filter-active text-white border-filter-active"
+                      : "bg-white text-ink/50 border-border-color hover:border-filter-active/50 hover:text-ink"
                   }`}
                 >
-                  {opt.label}
+                  <Icon className="size-3" aria-hidden="true" />
+                  {label}
                 </button>
               )
             })}
           </div>
         )}
-
-        {/* Category chips row */}
-        {isCategoriesLoading ? (
-          <div className="flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={`sk-cat-${i}`} className="h-7 skeleton-shimmer rounded-full shrink-0" style={{ width: `${70 + i * 20}px` }} />
-            ))}
-          </div>
-        ) : (
-          <>
-            {categories && categories.length > 0 && (
-              <div
-                className="flex gap-1.5 px-4 pb-1 overflow-x-auto scrollbar-hide"
-                role="tablist"
-                aria-label="Danh mục sản phẩm"
-              >
-                {categories.map((cat) => {
-                  const isActive = cat.slug === activeSlug
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => onCategoryChange?.(cat.slug)}
-                      className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-primary ${
-                        isActive
-                          ? "bg-tag-yellow text-ink font-bold border-ink"
-                          : "bg-white text-ink/60 border-border-color"
-                      }`}
-                    >
-                      <CategoryIcon icon={cat.icon} className="size-3" />
-                      <span>{cat.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </>
-        )}
       </div>
 
       {/* ── Product grid ────────────────────────────────────────── */}
       <motion.div
-        className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
         variants={prefersReducedMotion ? undefined : containerVariants}
         initial={prefersReducedMotion ? undefined : "hidden"}
         animate={prefersReducedMotion ? undefined : "visible"}
@@ -251,7 +201,7 @@ export default function ProductGrid({
               <ProductCardSkeleton key={`s-all-${i}`} />
             ))
           : allProducts.length === 0
-            ? <EmptyState categoryName={activeCategory?.name} onReset={onResetCategory} />
+            ? <EmptyState onReset={onResetCategory} />
             : allProducts.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
                   <ProductCard product={product} onBuy={onBuyProduct} />

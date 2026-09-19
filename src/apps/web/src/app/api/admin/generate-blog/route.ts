@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   // Fetch top products for context
   const products = await prisma.product.findMany({
-    where: { category: { slug: nicheConfig.categorySlug }, isSoldOut: false },
+    where: { categoryId: nicheConfig.categorySlug, isSoldOut: false },
     select: { name: true, price: true, discountPct: true, rating: true },
     orderBy: { discountPct: "desc" },
     take: 8,

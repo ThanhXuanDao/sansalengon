@@ -62,7 +62,7 @@ export default async function NichePage(
   try {
     const [products, numberMap, coupons] = await Promise.all([
       prisma.product.findMany({
-        where: { category: { slug: niche.categorySlug } },
+        where: { categoryId: niche.categorySlug },
         include: { category: true },
         orderBy: { createdAt: "desc" },
         take: 24,
@@ -88,7 +88,7 @@ export default async function NichePage(
 
     initialProducts = {
       data: products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 })),
-      total: await prisma.product.count({ where: { category: { slug: niche.categorySlug } } }),
+      total: await prisma.product.count({ where: { categoryId: niche.categorySlug } }),
     }
     initialCoupons = coupons
   } catch {

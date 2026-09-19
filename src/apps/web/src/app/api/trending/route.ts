@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       id: true,
       name: true,
       price: true,
+      originalPrice: true,
       commission: true,
       discountPct: true,
       imageUrl: true,
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       isSoldOut: true,
       createdAt: true,
       categoryId: true,
-      category: { select: { id: true, name: true, slug: true } },
+      category: { select: { id: true, name: true, emoji: true } },
     },
   })
 

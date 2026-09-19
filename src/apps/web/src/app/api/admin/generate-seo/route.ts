@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (!niche) return NextResponse.json({ error: "Unknown niche" }, { status: 400 })
 
     const topProducts = await prisma.product.findMany({
-      where: { category: { slug: niche.categorySlug }, isSoldOut: false },
+      where: { categoryId: niche.categorySlug, isSoldOut: false },
       select: { name: true, discountPct: true, price: true },
       orderBy: { discountPct: "desc" },
       take: 5,
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const results = await Promise.allSettled(
       NICHES.map(async (niche) => {
         const topProducts = await prisma.product.findMany({
-          where: { category: { slug: niche.categorySlug }, isSoldOut: false },
+          where: { categoryId: niche.categorySlug, isSoldOut: false },
           select: { name: true, discountPct: true, price: true },
           orderBy: { discountPct: "desc" },
           take: 5,

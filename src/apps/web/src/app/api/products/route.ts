@@ -48,7 +48,14 @@ export async function GET(request: NextRequest) {
   }
 
   const q = searchParams.get("q")
-  const categorySlug = searchParams.get("category")
+  const categoryParam = searchParams.get("category")
+  const categorySlugs = categoryParam
+    ? categoryParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : []
+  const sourceParam = searchParams.get("source")
+  const sourceSlugs = sourceParam
+    ? sourceParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : []
   const sort = searchParams.get("sort") ?? "newest"
   const skipParam = searchParams.get("skip")
   const skip = skipParam !== null ? Number(skipParam) : undefined
@@ -59,9 +66,14 @@ export async function GET(request: NextRequest) {
   const hasNumberFilter = numberFrom !== undefined && numberTo !== undefined
 
   const categoryWhere: Record<string, unknown> =
-    categorySlug && categorySlug !== "semua"
-      ? { category: { slug: categorySlug } }
-      : {}
+    categorySlugs.length === 1
+      ? { categoryId: categorySlugs[0] }
+      : categorySlugs.length > 1
+        ? { categoryId: { in: categorySlugs } }
+        : {}
+
+  if (sourceSlugs.length === 1) categoryWhere.source = sourceSlugs[0]
+  else if (sourceSlugs.length > 1) categoryWhere.source = { in: sourceSlugs }
 
   // Always hide sold-out products on the public API (non-admin path)
   categoryWhere.isSoldOut = false

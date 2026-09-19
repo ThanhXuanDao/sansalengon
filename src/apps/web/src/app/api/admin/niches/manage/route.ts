@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const niches = await prisma.niche.findMany({
+  const niches = await prisma.category.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   })
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "id và name là bắt buộc" }, { status: 400 })
     }
 
-    const niche = await prisma.niche.create({
+    const niche = await prisma.category.create({
       data: {
         id,
         name,

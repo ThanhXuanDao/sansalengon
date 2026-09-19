@@ -75,14 +75,6 @@ const CPS_PRODUCT_BASE = "https://cellphones.com.vn";
 const CPS_IMAGE_CDN = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product";
 const CPS_DEFAULT_PROVINCE_ID = 30; // HCM city
 
-// Default CellphoneS category IDs per niche slug.
-// Key = niche slug, value = string[] of category IDs.
-// Niches không có entry → CellphoneS bỏ qua ngách đó.
-const CPS_DEFAULT_CATEGORIES: Record<string, string[]> = {
-  electronics: ["3", "220", "610", "4"],  // mobile, audio, smartwatch, tablet
-  gaming:      ["380"],                   // laptop (includes gaming models)
-};
-
 // Tiki category IDs được cấu hình trong SyncSource (slug="tiki") config.categoryIds.
 // Key = niche slug, value = mảng category ID Tiki.
 // Niches không có entry → keyword search tự động.
@@ -377,12 +369,6 @@ export class DealSyncService {
     const start = Date.now();
     this.log.log(`[${source}] Ngách: ${niche.name} — bắt đầu`);
 
-    await this.prisma.category.upsert({
-      where: { id: niche.id },
-      update: {},
-      create: { id: niche.id, name: niche.name, slug: niche.id },
-    });
-
     const runSource = (s: string) => source === s;
 
     const [tikiIntegration, lazadaIntegration, cellphonesIntegration] = await Promise.all([
@@ -676,6 +662,7 @@ export class DealSyncService {
       update: {
         categoryId,
         price: p.currentPrice,
+        originalPrice: p.originalPrice ?? null,
         affiliateUrl: p.affiliateUrl,
         lastSyncedAt: new Date(),
         isSoldOut: false,
@@ -692,6 +679,7 @@ export class DealSyncService {
         productUrl: p.shopUrl,
         affiliateUrl: p.affiliateUrl,
         price: p.currentPrice,
+        originalPrice: p.originalPrice ?? null,
         commission: Math.round(p.commissionRate),
         rating: p.rating ?? 0,
         categoryId,
@@ -1608,7 +1596,7 @@ export class DealSyncService {
       ? (() => { try { return JSON.parse(dbSource.config as string) as import("./sync.constants").SyncSourceConfig } catch { return {} } })()
       : {};
 
-    const categoryMap: Record<string, string[]> = cfg.cpsCategories ?? CPS_DEFAULT_CATEGORIES;
+    const categoryMap: Record<string, string[]> = cfg.cpsCategories ?? {};
     const categoryIds: string[] = categoryMap[niche.id] ?? [];
     if (categoryIds.length === 0) return [];
 
@@ -1759,7 +1747,7 @@ export class DealSyncService {
 
   async loadActiveNiches(): Promise<NicheConfig[]> {
     const [rows, shopeeSource] = await Promise.all([
-      this.prisma.niche.findMany({
+      this.prisma.category.findMany({
         where: { status: "active", syncEnabled: true },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       }),
