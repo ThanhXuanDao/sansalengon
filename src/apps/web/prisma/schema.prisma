@@ -20,20 +20,26 @@ model Product {
   productUrl       String
   affiliateUrl     String?
   source           String            @default("shopee")
+  sourceLogoUrl    String?                               // logo của nguồn — từ AtCampaign.logoUrl khi sync
   externalId       String?
   lastSyncedAt     DateTime?
   categoryId       String
+  brandId          String?                               // FK Brand — để filter theo thương hiệu
+  atCampaignId     String?                               // FK AtCampaign — để filter theo campaign
   isFeatured       Boolean           @default(false)
   isSoldOut        Boolean           @default(false)
   createdAt        DateTime          @default(now())
 
   @@unique([source, externalId], map: "Product_source_externalId_key")
+  @@index([brandId])
+  @@index([atCampaignId])
   clicks           ClickLog[]
   priceHistory     PriceHistory[]
   platformProducts PlatformProduct[]
   productMatches   ProductMatch[]
   embedding        ProductEmbedding?
   category         Category          @relation(fields: [categoryId], references: [id])
+  brand            Brand?            @relation(fields: [brandId], references: [id])
 }
 
 model PriceHistory {
@@ -278,6 +284,22 @@ model SyncJobRun {
   @@index([startedAt(sort: Desc)])
 }
 
+// ── Brand (thương hiệu) ──────────────────────────────────────
+// Derive từ AtCampaign.merchant — 1 brand có nhiều campaign
+
+model Brand {
+  id        String       @id @default(cuid())
+  name      String                            // "Tiki", "CellphoneS"
+  slug      String       @unique              // "tiki", "cellphones"
+  logoUrl   String?
+  createdAt DateTime     @default(now())
+
+  campaigns AtCampaign[]
+  products  Product[]
+
+  @@index([slug])
+}
+
 // ── AccessTrade campaign tracking ────────────────────────────
 // Upsert mỗi lần sync chạy — persist để debug offline
 
@@ -294,10 +316,35 @@ model AtCampaign {
   ctaDescription String?
   ctaImageUrl    String?
   ctaLabel       String?
+  logoUrl        String?
+  ogImageUrl     String?                   // og:image từ landing page của campaign
+  description    String?
+  category       String?
+  commission     String?
   lastSeenAt     DateTime                  // lần sync gần nhất thấy campaign này
   createdAt      DateTime @default(now())
+  brandId        String?
+  brand          Brand?   @relation(fields: [brandId], references: [id])
 
   nicheMatches   AtCampaignNicheMatch[]
+  banners        AtCampaignBanner[]
+
+  @@index([brandId])
+}
+
+model AtCampaignBanner {
+  id            String   @id              // AT banner ID
+  campaignId    String
+  imageUrl      String
+  width         Int?
+  height        Int?
+  type          String?
+  affiliateLink String?
+  syncedAt      DateTime @default(now())
+
+  campaign      AtCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
 }
 
 model AtCampaignNicheMatch {

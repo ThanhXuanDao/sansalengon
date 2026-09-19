@@ -26,9 +26,6 @@ interface ProductGridProps {
   categories?: Category[]
   activeSlug?: string
   onCategoryChange?: (slug: string) => void
-  numberRanges?: { label: string; from: number; to: number }[]
-  activeRange?: { from: number; to: number } | null
-  onRangeSelect?: (range: { from: number; to: number } | null) => void
   isCategoriesLoading?: boolean
 }
 
@@ -46,7 +43,6 @@ const SKELETON_COUNT = 8
 
 const sortOptions = [
   { value: "discount_desc", label: "Giảm nhiều nhất" },
-  { value: "number_asc", label: "Số" },
   { value: "newest", label: "Mới nhất" },
   { value: "price_asc", label: "Rẻ nhất" },
   { value: "price_desc", label: "Đắt nhất" },
@@ -71,9 +67,6 @@ export default function ProductGrid({
   categories,
   activeSlug = "semua",
   onCategoryChange,
-  numberRanges,
-  activeRange,
-  onRangeSelect,
   isCategoriesLoading,
 }: ProductGridProps) {
   const prefersReducedMotion = useReducedMotion()
@@ -91,13 +84,13 @@ export default function ProductGrid({
 
       {/* ── Featured section ───────────────────────────────────── */}
       <div className="mb-10">
-        <div className="flex items-center gap-4 mb-4 border-b border-dashed border-border-color pb-4">
-          <h2 className="text-headline-md text-ink uppercase tracking-tight font-sans text-pretty">
-            Đề xuất hôm nay
+        <div className="mb-4 border-b border-dashed border-border-color pb-4">
+          <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
+            🔥 Đề xuất hôm nay
           </h2>
-          <span className="bg-tag-yellow px-2 py-1 font-mono text-xs font-bold border border-ink">
-            HOT DEALS
-          </span>
+          <p className="font-mono text-xs text-ink/50 mt-0.5">
+            Những sản phẩm đang giảm giá nhiều nhất, được chọn lọc mỗi ngày
+          </p>
         </div>
 
         {/* Desktop: 3-col grid */}
@@ -109,11 +102,11 @@ export default function ProductGrid({
         >
           {isFeaturedLoading
             ? Array.from({ length: 3 }).map((_, i) => (
-                <ProductCardSkeleton key={`s-feat-${i}`} variant="highlight" />
+                <ProductCardSkeleton key={`s-feat-${i}`} />
               ))
             : featuredProducts.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} variant="highlight" onBuy={onBuyProduct} />
+                  <ProductCard product={product} onBuy={onBuyProduct} />
                 </motion.div>
               ))}
         </motion.div>
@@ -124,7 +117,7 @@ export default function ProductGrid({
             <div className="flex gap-3 px-4 overflow-x-auto pb-2 scrollbar-hide">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={`s-feat-m-${i}`} className="shrink-0 w-44">
-                  <ProductCardSkeleton variant="highlight" />
+                  <ProductCardSkeleton />
                 </div>
               ))}
             </div>
@@ -134,7 +127,7 @@ export default function ProductGrid({
             >
               {featuredProducts.map((product) => (
                 <div key={product.id} className="shrink-0 w-44 snap-start">
-                  <ProductCard product={product} variant="highlight" onBuy={onBuyProduct} />
+                  <ProductCard product={product} onBuy={onBuyProduct} />
                 </div>
               ))}
             </div>
@@ -143,10 +136,15 @@ export default function ProductGrid({
       </div>
 
       {/* ── All products header ─────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4 border-b border-dashed border-border-color pb-4">
-        <h2 className="text-headline-md text-ink uppercase tracking-tight font-sans text-pretty">
-          Tất cả sản phẩm
-        </h2>
+      <div className="flex items-start justify-between mb-4 border-b border-dashed border-border-color pb-4">
+        <div>
+          <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
+            🏷️ Tất cả sản phẩm
+          </h2>
+          <p className="font-mono text-xs text-ink/50 mt-0.5">
+            {total > 0 ? `${total} sản phẩm đang giảm giá — lọc và sắp xếp theo nhu cầu` : "Lọc và sắp xếp sản phẩm theo nhu cầu"}
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           {/* Desktop sort pills */}
           {onSortChange && (
@@ -173,9 +171,6 @@ export default function ProductGrid({
               })}
             </div>
           )}
-          <span className="font-mono text-sm text-ink/60">
-            {isLoading ? "…" : `${total}`} sản phẩm
-          </span>
         </div>
       </div>
 
@@ -240,34 +235,6 @@ export default function ProductGrid({
                 })}
               </div>
             )}
-            {numberRanges !== undefined && (
-              <div
-                className="flex gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-hide"
-              >
-                <button
-                  onClick={() => onRangeSelect?.(null)}
-                  className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 ${
-                    !activeRange ? "bg-tag-yellow text-ink font-bold border-ink" : "bg-white text-ink/60 border-border-color"
-                  }`}
-                >
-                  Tất cả
-                </button>
-                {numberRanges.map((range) => {
-                  const isActive = activeRange?.from === range.from && activeRange?.to === range.to
-                  return (
-                    <button
-                      key={range.label}
-                      onClick={() => onRangeSelect?.(isActive ? null : range)}
-                      className={`whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 ${
-                        isActive ? "bg-tag-yellow text-ink font-bold border-ink" : "bg-white text-ink/60 border-border-color"
-                      }`}
-                    >
-                      {range.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
           </>
         )}
       </div>
@@ -287,7 +254,7 @@ export default function ProductGrid({
             ? <EmptyState categoryName={activeCategory?.name} onReset={onResetCategory} />
             : allProducts.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} variant="compact" onBuy={onBuyProduct} />
+                  <ProductCard product={product} onBuy={onBuyProduct} />
                 </motion.div>
               ))}
       </motion.div>

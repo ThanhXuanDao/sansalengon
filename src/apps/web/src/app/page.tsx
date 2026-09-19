@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useState, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/layout/Navbar"
 import Hero from "@/components/sections/Hero"
@@ -10,7 +10,6 @@ import { useCategories } from "@/hooks/useCategories"
 import { useSettings } from "@/hooks/useSettings"
 import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeedbackSection from "@/components/sections/FeedbackSection"
-import { buildNumberRanges } from "@/lib/utils"
 
 const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
   ssr: false,
@@ -27,15 +26,12 @@ const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNa
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>("semua")
   const [sort, setSort] = useState<string>("discount_desc")
-  const [numberRange, setNumberRange] = useState<{ from: number; to: number } | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
     categorySlug:
       selectedCategory === "semua" ? undefined : selectedCategory,
     sort,
-    numberFrom: numberRange?.from,
-    numberTo: numberRange?.to,
     q: searchQuery || undefined,
   })
 
@@ -44,16 +40,7 @@ export default function Home() {
   const { data: settings } = useSettings()
 
   const total = data?.total ?? 0
-  const [globalTotal, setGlobalTotal] = useState(0)
-  useEffect(() => {
-    if (!numberRange && total > 0 && globalTotal !== total) {
-      setGlobalTotal(total)
-    }
-  }, [numberRange, total, globalTotal])
-  const displayTotal = numberRange ? globalTotal || total : total
   const allProducts = useMemo(() => data?.data ?? [], [data])
-
-  const numberRanges = useMemo(() => buildNumberRanges(displayTotal), [displayTotal])
 
   const handleBuyProduct = useCallback(
     (productId: string) => {
@@ -69,7 +56,6 @@ export default function Home() {
   const resetFilters = useCallback(() => {
     setSelectedCategory("semua")
     setSort("newest")
-    setNumberRange(null)
     setSearchQuery("")
   }, [])
 
@@ -85,10 +71,6 @@ export default function Home() {
     fetchNextPage()
   }, [fetchNextPage])
 
-  const handleRangeSelect = useCallback((range: { from: number; to: number } | null) => {
-    setNumberRange(range)
-  }, [])
-
   return (
     <>
       <NotificationBanner />
@@ -96,7 +78,7 @@ export default function Home() {
       <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
       <TrendingWidget onBuyProduct={handleBuyProduct} />
       <div className="w-full bg-white border-t border-dashed border-border-color">
-      <main id="skip-target" className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-8 py-12 pb-24 lg:pb-12">
+      <main id="skip-target" className="flex-grow w-full max-w-[1320px] mx-auto px-3 py-12 pb-24 lg:pb-12">
         <div id="products">
         <div className="flex flex-col md:flex-row gap-8 mt-3 md:mt-0">
           <CategoryFilter
@@ -104,9 +86,6 @@ export default function Home() {
             activeSlug={selectedCategory}
             onSelect={handleCategoryChange}
             variant="sidebar"
-            numberRanges={numberRanges}
-            activeRange={numberRange}
-            onRangeSelect={handleRangeSelect}
             isLoading={isCategoriesLoading}
           />
           <ProductGrid
@@ -129,9 +108,6 @@ export default function Home() {
             categories={categories}
             activeSlug={selectedCategory}
             onCategoryChange={handleCategoryChange}
-            numberRanges={numberRanges}
-            activeRange={numberRange}
-            onRangeSelect={handleRangeSelect}
             isCategoriesLoading={isCategoriesLoading}
           />
         </div>

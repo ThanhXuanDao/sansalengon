@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import {
   RefreshCw, ExternalLink, Loader2, CheckCircle2, Clock, XCircle,
-  ChevronDown, Save, Antenna,
+  ChevronDown, Save, Image as ImageIcon, Tag, Percent, LayoutGrid,
 } from "lucide-react"
 import { ensureCsrfToken, getCsrfToken } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
@@ -40,9 +40,24 @@ interface Campaign {
   ctaDescription: string | null
   ctaImageUrl: string | null
   ctaLabel: string | null
+  logoUrl: string | null
+  ogImageUrl: string | null
+  description: string | null
+  category: string | null
+  commission: string | null
   lastSeenAt: string
   createdAt: string
   nicheMatches: NicheMatch[]
+  banners: Banner[]
+}
+
+interface Banner {
+  id: string
+  imageUrl: string
+  width: number | null
+  height: number | null
+  type: string | null
+  affiliateLink: string | null
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,6 +243,164 @@ function EditFormContent({
   )
 }
 
+// ── Campaign detail modal ────────────────────────────────────────────────────
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 py-2 border-b border-[#f0ede8] last:border-0">
+      <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] w-28 shrink-0 pt-0.5">{label}</span>
+      <span className="font-mono text-[12px] text-[#1a1c1b] flex-1 break-all">{value}</span>
+    </div>
+  )
+}
+
+function CampaignDetailModal({
+  campaign,
+  onClose,
+  onEdit,
+}: {
+  campaign: Campaign
+  onClose: () => void
+  onEdit: () => void
+}) {
+  const platform = detectPlatform(campaign.name, campaign.merchant)
+  const platformColor = platform ? PLATFORM_COLORS[platform] : "bg-[#f4f4f1] text-[#5c403a] border-[#e5e1d8]"
+  const typeColor = CAMPAIGN_TYPE_COLORS[campaign.campaignType] ?? "bg-[#f4f4f1] text-[#5c403a] border-[#e5e1d8]"
+  const hasCta = campaign.ctaTitle || campaign.ctaDescription || campaign.ctaImageUrl || campaign.ctaLabel
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={campaign.name}
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>Đóng</Button>
+          <Button variant="secondary" icon={ChevronDown} onClick={onEdit}>Cấu hình loại</Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+
+        {/* ── Ảnh hero (ogImage) ── */}
+        {campaign.ogImageUrl && (
+          <div className="border border-[#e5e1d8] bg-[#f4f4f1] overflow-hidden -mx-1">
+            <img
+              src={campaign.ogImageUrl}
+              alt={campaign.name}
+              className="w-full max-h-52 object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = "none" }}
+            />
+          </div>
+        )}
+
+        {/* ── Logo + badges + URL ── */}
+        <div className="flex gap-4 items-start">
+          {campaign.logoUrl ? (
+            <img
+              src={campaign.logoUrl}
+              alt={campaign.merchant}
+              className="w-20 h-20 object-contain border border-[#e5e1d8] bg-white shrink-0 p-1.5"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+            />
+          ) : (
+            <div className="w-20 h-20 border border-[#e5e1d8] bg-[#f4f4f1] flex items-center justify-center shrink-0">
+              <ImageIcon className="size-7 text-[#906f69]" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              <span className={`px-1.5 py-0.5 border font-mono text-[10px] uppercase tracking-wider ${typeColor}`}>
+                {campaign.campaignType}
+              </span>
+              {platform && (
+                <span className={`px-1.5 py-0.5 border font-mono text-[10px] uppercase tracking-wider ${platformColor}`}>
+                  {platform}
+                </span>
+              )}
+              <ApprovalBadge approval={campaign.approval} />
+              <span className={`px-1.5 py-0.5 border font-mono text-[10px] ${campaign.status === 1 ? "bg-[#e8f5e9] border-[#1a6b3c]/20 text-[#1a6b3c]" : "bg-[#fef2f2] border-red-200 text-red-700"}`}>
+                {campaign.status === 1 ? "active" : "inactive"}
+              </span>
+            </div>
+            <p className="font-mono text-[13px] text-[#1a1c1b] font-bold mb-0.5">{campaign.merchant}</p>
+            <a href={campaign.url} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-mono text-[11px] text-[#0d5cb6] hover:underline">
+              {campaign.url.length > 55 ? campaign.url.slice(0, 55) + "…" : campaign.url}
+              <ExternalLink className="size-3 shrink-0" />
+            </a>
+          </div>
+        </div>
+
+        {/* ── Thông tin chi tiết ── */}
+        <div className="border border-[#e5e1d8] bg-[#fafaf7] px-4 py-1">
+          <InfoRow label="Campaign ID" value={campaign.id} />
+          {campaign.commission && <InfoRow label="Hoa hồng" value={<strong className="text-[#1a6b3c]">{campaign.commission}</strong>} />}
+          {campaign.category && <InfoRow label="Ngành hàng" value={campaign.category} />}
+          {campaign.cookieDuration != null && <InfoRow label="Cookie" value={`${campaign.cookieDuration / 86400 | 0} ngày`} />}
+          <InfoRow label="Loại" value={campaign.campaignType} />
+          <InfoRow label="Phê duyệt" value={campaign.approval} />
+          <InfoRow label="Ngày tạo" value={formatDate(campaign.createdAt)} />
+          <InfoRow label="Last seen" value={formatDate(campaign.lastSeenAt)} />
+        </div>
+
+        {/* ── Mô tả ── */}
+        {campaign.description && (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] mb-2">Mô tả chiến dịch</p>
+            <div className="p-3 bg-[#fafaf7] border border-dashed border-[#e5e1d8] font-mono text-[12px] text-[#1a1c1b] leading-relaxed max-h-40 overflow-y-auto scrollbar-hide">
+              {campaign.description}
+            </div>
+          </div>
+        )}
+
+        {/* ── CTA config (nếu đã cấu hình) ── */}
+        {hasCta && (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] mb-2">CTA đã cấu hình</p>
+            <div className="border border-[#e5e1d8] bg-[#fafaf7] px-4 py-1">
+              {campaign.ctaTitle && <InfoRow label="Tiêu đề" value={campaign.ctaTitle} />}
+              {campaign.ctaDescription && <InfoRow label="Mô tả CTA" value={campaign.ctaDescription} />}
+              {campaign.ctaLabel && <InfoRow label="Nút CTA" value={campaign.ctaLabel} />}
+              {campaign.ctaImageUrl && (
+                <div className="py-2 border-b border-[#f0ede8] last:border-0">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] mb-1.5">Ảnh CTA</p>
+                  <img
+                    src={campaign.ctaImageUrl}
+                    alt="CTA"
+                    className="max-h-28 object-contain border border-[#e5e1d8]"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Niche matches ── */}
+        {campaign.nicheMatches.length > 0 && (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] mb-2">
+              Match ngách ({campaign.nicheMatches.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {campaign.nicheMatches.map((m) => (
+                <span key={m.nicheId}
+                  title={`Matched: ${formatDate(m.matchedAt)}`}
+                  className="px-2 py-0.5 bg-[#e8f5e9] border border-[#1a6b3c]/20 font-mono text-[10px] text-[#1a6b3c]">
+                  {m.nicheId}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </Modal>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CampaignsPage() {
@@ -242,6 +415,7 @@ export default function CampaignsPage() {
   const [page, setPage]           = useState(1)
   const [pageSize, setPageSize]   = useState(20)
 
+  const [detailTarget, setDetailTarget] = useState<Campaign | null>(null)
   const [editTarget, setEditTarget] = useState<Campaign | null>(null)
   const [editForm, setEditForm]     = useState({ campaignType: "", ctaTitle: "", ctaDescription: "", ctaImageUrl: "", ctaLabel: "" })
   const [saving, setSaving]         = useState(false)
@@ -263,7 +437,12 @@ export default function CampaignsPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  function openDetail(c: Campaign) {
+    setDetailTarget(c)
+  }
+
   function openEdit(c: Campaign) {
+    setDetailTarget(null)
     setEditForm({
       campaignType: c.campaignType ?? "product",
       ctaTitle: c.ctaTitle ?? "",
@@ -329,10 +508,12 @@ export default function CampaignsPage() {
         title="AccessTrade Campaigns"
         subtitle="Danh sách campaign đã đăng ký & được duyệt. Click loại campaign để cấu hình CTA."
         actions={
-          <Button variant="secondary" icon={loading ? undefined : RefreshCw} onClick={fetchData} disabled={loading}>
-            {loading ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            Tải lại
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" icon={loading ? undefined : RefreshCw} onClick={fetchData} disabled={loading}>
+              {loading ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              Tải lại
+            </Button>
+          </div>
         }
       />
 
@@ -358,7 +539,7 @@ export default function CampaignsPage() {
         columns={COLUMNS}
         loading={loading}
         empty={!loading && filtered.length === 0}
-        emptyIcon={Antenna}
+        emptyIcon={Tag}
         emptyTitle={search || approvalFilter !== "all" || typeFilter !== "all" || matchFilter !== "all" ? "Không tìm thấy campaign" : "Chưa có campaign nào"}
         emptyDescription={
           search || approvalFilter !== "all" || typeFilter !== "all" || matchFilter !== "all"
@@ -372,11 +553,14 @@ export default function CampaignsPage() {
           const typeColor = CAMPAIGN_TYPE_COLORS[c.campaignType] ?? "bg-[#f4f4f1] text-[#5c403a] border-[#e5e1d8]"
 
           return (
-            <DataTableRow key={c.id}>
+            <DataTableRow key={c.id} onClick={() => openDetail(c)} className="cursor-pointer hover:bg-[#fafaf7]">
               {/* Campaign */}
               <DataTableCell>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {c.logoUrl && (
+                      <img src={c.logoUrl} alt="" className="w-5 h-5 object-contain shrink-0" />
+                    )}
                     <span className="font-mono text-[13px] font-bold text-[#1a1c1b]">{c.name}</span>
                     {platform && (
                       <span className={`px-1.5 py-0.5 border font-mono text-[10px] uppercase tracking-wider ${platformColor}`}>
@@ -401,7 +585,7 @@ export default function CampaignsPage() {
               {/* Type */}
               <DataTableCell>
                 <button
-                  onClick={() => openEdit(c)}
+                  onClick={(e) => { e.stopPropagation(); openEdit(c) }}
                   className={`flex items-center gap-1 px-2 py-0.5 border font-mono text-[10px] uppercase tracking-wider hover:opacity-80 transition-opacity ${typeColor}`}
                   title="Click để sửa loại campaign"
                 >
@@ -460,6 +644,15 @@ export default function CampaignsPage() {
         onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
         label="campaign"
       />
+
+      {/* Detail modal */}
+      {detailTarget && (
+        <CampaignDetailModal
+          campaign={detailTarget}
+          onClose={() => setDetailTarget(null)}
+          onEdit={() => openEdit(detailTarget)}
+        />
+      )}
 
       {/* Edit modal */}
       <Modal

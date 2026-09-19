@@ -192,7 +192,7 @@ export class ScraperSyncService {
       )
     }
 
-    return this.upsertProducts(products, affiliateMap)
+    return this.upsertProducts(products, affiliateMap, campaign.logoUrl ?? null, campaign.brandId ?? null, campaign.id)
   }
 
   // ── Scraper-specific fetcher: loop categories, call scraper engine ────────────
@@ -355,6 +355,9 @@ export class ScraperSyncService {
   private async upsertProducts(
     products: ScrapedProduct[],
     affiliateMap: Map<string, string> | null,
+    sourceLogoUrl: string | null = null,
+    brandId: string | null = null,
+    atCampaignId: string | null = null,
   ): Promise<{ saved: number; skipped: number }> {
     let saved = 0
     let skipped = 0
@@ -380,6 +383,9 @@ export class ScraperSyncService {
             affiliateUrl,
             lastSyncedAt: new Date(),
             isSoldOut: false,
+            ...(sourceLogoUrl && { sourceLogoUrl }),
+            ...(brandId && { brandId }),
+            ...(atCampaignId && { atCampaignId }),
           },
           create: {
             source: p.sourceSlug,
@@ -393,6 +399,9 @@ export class ScraperSyncService {
             commission: 0,
             rating: 0,
             categoryId: p.nicheSlug,
+            sourceLogoUrl,
+            ...(brandId && { brandId }),
+            ...(atCampaignId && { atCampaignId }),
           },
         })
 
@@ -436,6 +445,8 @@ export class ScraperSyncService {
       const campaigns = rows.map((r) => ({
         id: r.id, name: r.name, merchant: r.merchant, url: r.url,
         approval: r.approval, scope: null, cookieDuration: r.cookieDuration ?? null, status: r.status,
+        logoUrl: r.logoUrl ?? null, description: r.description ?? null,
+        category: r.category ?? null, commission: r.commission ?? null,
       }))
       this.log.log(`[Scraper] AT campaigns: ${campaigns.length} từ DB cache`)
       return { campaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
@@ -456,6 +467,8 @@ export class ScraperSyncService {
       const campaigns = rows.map((r) => ({
         id: r.id, name: r.name, merchant: r.merchant, url: r.url,
         approval: r.approval, scope: null, cookieDuration: r.cookieDuration ?? null, status: r.status,
+        logoUrl: r.logoUrl ?? null, description: r.description ?? null,
+        category: r.category ?? null, commission: r.commission ?? null,
       }))
       return { campaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
     }
@@ -466,20 +479,96 @@ export class ScraperSyncService {
         apiCampaigns.map((c) =>
           this.prisma.atCampaign.upsert({
             where: { id: c.id },
-            update: { name: c.name, merchant: c.merchant, url: c.url, approval: c.approval, lastSeenAt: now },
+            update: {
+              name: c.name, merchant: c.merchant, url: c.url, approval: c.approval, lastSeenAt: now,
+              ...(c.logoUrl !== undefined && { logoUrl: c.logoUrl }),
+              ...(c.description !== undefined && { description: c.description }),
+              ...(c.category !== undefined && { category: c.category }),
+              ...(c.commission !== undefined && { commission: c.commission }),
+            },
             create: {
               id: c.id, name: c.name, merchant: c.merchant, url: c.url,
               approval: c.approval, status: c.status ?? 0, lastSeenAt: now,
               campaignType: "cps",
+              logoUrl: c.logoUrl ?? null, description: c.description ?? null,
+              category: c.category ?? null, commission: c.commission ?? null,
             },
           })
         )
       )
       this.log.log(`[Scraper] AT campaigns: upsert ${apiCampaigns.length} vào DB`)
+      void this.scrapeOgImages(apiCampaigns).catch((e: Error) =>
+        this.log.warn(`[Scraper] scrapeOgImages failed: ${e.message}`)
+      )
     }
 
     const rows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } })
     return { campaigns: apiCampaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
+  }
+
+  private async scrapeOgImage(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; AffiliateBot/1.0)" },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) return null;
+      const html = await res.text();
+      const m =
+        /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i.exec(html) ??
+        /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i.exec(html);
+      const imgUrl = m?.[1]?.trim();
+      return imgUrl && imgUrl.startsWith("http") ? imgUrl : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async scrapeOgImages(campaigns: AccessTradeCampaign[]): Promise<void> {
+    const needScrape = await this.prisma.atCampaign.findMany({
+      where: { id: { in: campaigns.map((c) => c.id) }, ogImageUrl: null },
+      select: { id: true, url: true },
+    });
+    if (needScrape.length === 0) return;
+    this.log.log(`[Scraper] Scraping og:image cho ${needScrape.length} campaign(s)...`);
+    for (let i = 0; i < needScrape.length; i++) {
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 300));
+      const { id, url } = needScrape[i];
+      const ogImageUrl = await this.scrapeOgImage(url);
+      if (!ogImageUrl) { this.log.debug(`[Scraper] og:image ${id}: không tìm thấy`); continue; }
+      try {
+        await this.prisma.atCampaign.update({ where: { id }, data: { ogImageUrl } });
+        this.log.debug(`[Scraper] og:image ${id}: ${ogImageUrl}`);
+      } catch { /* bỏ qua */ }
+    }
+  }
+
+  private async upsertBannersToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
+    for (let i = 0; i < campaigns.length; i++) {
+      const c = campaigns[i]
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 200))
+      try {
+        const banners = await this.accesstrade.getBanners(c.id)
+        if (banners.length === 0) { this.log.debug(`[Scraper] Banners: campaign ${c.id} (${c.name}) → 0`); continue; }
+        const now = new Date()
+        await this.prisma.$transaction([
+          this.prisma.atCampaignBanner.deleteMany({ where: { campaignId: c.id } }),
+          ...banners.map((b) =>
+            this.prisma.atCampaignBanner.create({
+              data: {
+                id: b.id, campaignId: c.id, imageUrl: b.imageUrl,
+                width: b.width ?? null, height: b.height ?? null,
+                type: b.type ?? null, affiliateLink: b.affiliateLink ?? null,
+                syncedAt: now,
+              },
+            })
+          ),
+        ])
+        this.log.debug(`[Scraper] Banners: campaign ${c.id} → ${banners.length} banner(s)`)
+      } catch (e: any) {
+        this.log.warn(`[Scraper] Bỏ qua banner campaign ${c.id}: ${e.message}`)
+      }
+    }
   }
 
   // ── Campaign matcher: 3-tier fallback ───────────────────────────────────────

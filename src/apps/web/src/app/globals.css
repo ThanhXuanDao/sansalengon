@@ -46,6 +46,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-sale-blob: var(--sale-blob);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -103,6 +104,7 @@
   --popover-foreground: #222E48;
   --primary: #00C292;
   --primary-foreground: #ffffff;
+  --sale-blob: #E8294E;
   --secondary: #FF6B00;
   --secondary-foreground: #ffffff;
   --muted: #EBECEF;
@@ -188,7 +190,7 @@
 
     .receipt-card {
       background: #ffffff;
-      border: 1px solid #E5E1D8;
+      border: 1px solid #EDEAE4;
       position: relative;
       transition: transform 0.2s ease, background-color 0.2s ease;
     }
@@ -283,6 +285,17 @@
   ── */
   .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* ── Trending auto-scroll carousel ─────────────────────────────────────────── */
+  @keyframes trending-scroll {
+    0%   { transform: translateX(0) }
+    100% { transform: translateX(-50%) }
+  }
+  .trending-track {
+    animation: trending-scroll 40s linear infinite;
+    will-change: transform;
+  }
+  .trending-track:hover { animation-play-state: paused; }
 
   /* ── Navbar shadow ──────────────────────────────────────────────────────────
      Use instead of style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}

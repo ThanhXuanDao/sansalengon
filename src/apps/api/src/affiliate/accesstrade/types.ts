@@ -7,6 +7,20 @@ export interface AccessTradeCampaign {
   scope: string | null;
   status: number;
   cookieDuration: number | null;
+  logoUrl: string | null;
+  description: string | null;
+  category: string | null;
+  commission: string | null;
+  brandId?: string | null;
+}
+
+export interface AccessTradeBanner {
+  id: string;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  type: string | null;
+  affiliateLink: string | null;
 }
 
 export interface AccessTradeTrackingLink {

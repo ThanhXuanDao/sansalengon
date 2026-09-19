@@ -9,6 +9,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const forceWindow = searchParams.get("window") // "1h" | "24h"
 
+  const countSetting = await prisma.appSetting.findUnique({ where: { key: "trendingCount" } })
+  const trendingCount = countSetting ? (parseInt(countSetting.value, 10) || 20) : 20
+
   async function queryWindow(hours: number) {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000)
     const groups = await prisma.clickLog.groupBy({
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
       where: { clickedAt: { gte: since } },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
-      take: 10,
+      take: trendingCount,
     })
     return groups
   }
@@ -43,12 +46,19 @@ export async function GET(request: NextRequest) {
       id: true,
       name: true,
       price: true,
+      commission: true,
       discountPct: true,
       imageUrl: true,
       productUrl: true,
       affiliateUrl: true,
       rating: true,
-      category: { select: { name: true, slug: true } },
+      source: true,
+      sourceLogoUrl: true,
+      isFeatured: true,
+      isSoldOut: true,
+      createdAt: true,
+      categoryId: true,
+      category: { select: { id: true, name: true, slug: true } },
     },
   })
 

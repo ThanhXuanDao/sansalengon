@@ -32,7 +32,7 @@ export default function NotificationBanner() {
       aria-live="polite"
       className="relative w-full bg-[#FFC93C] text-[#1a1c1b] border-b-2 border-[#1a1c1b] px-4 py-3 md:py-2 shadow-[0_4px_0px_0px_rgba(26,28,27,1)]"
     >
-      <div className="max-w-[1200px] mx-auto flex items-start md:items-center justify-between gap-4">
+      <div className="max-w-[1320px] mx-auto flex items-start md:items-center justify-between gap-4">
         <p className="font-mono text-[12px] md:text-[13px] leading-[18px] tracking-[0.05em]">
           * Giá có thể thay đổi bất cứ lúc nào. Giá hiển thị là giá tại thời điểm sản phẩm được thêm vào danh mục. Chúc bạn mua sắm vui vẻ!
         </p>

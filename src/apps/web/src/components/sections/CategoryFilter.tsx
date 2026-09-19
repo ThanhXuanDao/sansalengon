@@ -9,9 +9,6 @@ interface CategoryFilterProps {
   activeSlug?: string
   onSelect?: (slug: string) => void
   variant?: "sidebar" | "chips"
-  numberRanges?: { label: string; from: number; to: number }[]
-  activeRange?: { from: number; to: number } | null
-  onRangeSelect?: (range: { from: number; to: number } | null) => void
   isLoading?: boolean
 }
 
@@ -28,9 +25,6 @@ export default function CategoryFilter({
   activeSlug = "semua",
   onSelect,
   variant = "sidebar",
-  numberRanges,
-  activeRange,
-  onRangeSelect,
   isLoading,
 }: CategoryFilterProps) {
   if (isLoading && variant === "chips") {
@@ -64,16 +58,6 @@ export default function CategoryFilter({
               </li>
             ))}
           </ul>
-          <div className="mt-8">
-            <div className="h-3 skeleton-shimmer w-20 mb-3" />
-            <ul className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <li key={`sk-range-${i}`}>
-                  <div className="h-10 skeleton-shimmer w-full" />
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </aside>
     )
@@ -101,36 +85,6 @@ export default function CategoryFilter({
             )
           })}
         </div>
-        {numberRanges !== undefined && (
-          <div className="flex md:hidden gap-2 overflow-x-auto pb-2 scrollbar-none -mx-4 px-4">
-            <button
-              onClick={() => onRangeSelect?.(null)}
-              className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-primary ${
-                !activeRange
-                  ? "bg-tag-yellow text-ink font-bold border-ink"
-                  : "bg-white text-ink/60 border-border-color hover:border-ink/30"
-              }`}
-            >
-              Tất cả
-            </button>
-            {numberRanges.map((range) => {
-              const isActive = activeRange?.from === range.from && activeRange?.to === range.to
-              return (
-                <button
-                  key={range.label}
-                  onClick={() => onRangeSelect?.(isActive ? null : range)}
-                  className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-primary ${
-                    isActive
-                      ? "bg-tag-yellow text-ink font-bold border-ink"
-                      : "bg-white text-ink/60 border-border-color hover:border-ink/30"
-                  }`}
-                >
-                  {range.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
       </div>
     )
   }
@@ -163,42 +117,6 @@ export default function CategoryFilter({
           })}
         </ul>
 
-        {numberRanges !== undefined && (
-          <div className="mt-8">
-            <h3 className="font-mono text-xs text-ink/60 uppercase mb-3 tracking-wider">Số thứ tự</h3>
-            <ul className="space-y-2">
-              <li>
-                <button
-                  onClick={() => onRangeSelect?.(null)}
-                  className={`flex items-center gap-3 p-2 w-full text-left transition-all font-mono text-label-mono uppercase focus-visible:ring-2 focus-visible:ring-primary ${
-                    !activeRange
-                      ? "bg-tag-yellow text-ink font-bold border border-ink -translate-x-0.5 -translate-y-0.5"
-                      : "text-ink/60 hover:bg-[#e8e8e5] border border-transparent hover:border-border-color"
-                  }`}
-                >
-                  <span>Tất cả</span>
-                </button>
-              </li>
-              {numberRanges.map((range) => {
-                const isActive = activeRange?.from === range.from && activeRange?.to === range.to
-                return (
-                  <li key={range.label}>
-                    <button
-                      onClick={() => onRangeSelect?.(isActive ? null : range)}
-                      className={`flex items-center gap-3 p-2 w-full text-left transition-all font-mono text-label-mono uppercase focus-visible:ring-2 focus-visible:ring-primary ${
-                        isActive
-                          ? "bg-tag-yellow text-ink font-bold border border-ink -translate-x-0.5 -translate-y-0.5"
-                          : "text-ink/60 hover:bg-[#e8e8e5] border border-transparent hover:border-border-color"
-                      }`}
-                    >
-                      <span>{range.label}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
       </div>
     </aside>
   )

@@ -3,14 +3,14 @@ import { ConfigService } from "@nestjs/config";
 import { CircuitBreaker, BreakerOpenError } from "./circuit-breaker";
 import { AccessTradeApiError } from "./errors";
 import type { AccessTradeApiErrorCode } from "./types";
-import { normalizeAccessTradeCampaign, normalizeAccessTradeTrackingLink, normalizeAccessTradeTrackingLinks } from "./normalize";
+import { normalizeAccessTradeBanner, normalizeAccessTradeCampaign, normalizeAccessTradeTrackingLink, normalizeAccessTradeTrackingLinks } from "./normalize";
 import { AccessTradeRateLimitGuard } from "./rate-limit-guard";
 import { buildAccessTradeHeaders } from "./sign";
-import type { AccessTradeCampaign, AccessTradeTrackingLink } from "./types";
+import type { AccessTradeBanner, AccessTradeCampaign, AccessTradeTrackingLink } from "./types";
 
 type TelemetryStatus = "success" | "error";
 type TelemetryOutcome = "live" | "dead" | "error";
-type TelemetryOperation = "listCampaigns" | "createTrackingLink";
+type TelemetryOperation = "listCampaigns" | "createTrackingLink" | "getBanners";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -214,6 +214,67 @@ export class AccessTradePublisherClient {
     }
 
     return result
+  }
+
+  async getBanners(campaignId: string): Promise<AccessTradeBanner[]> {
+    const startedAt = Date.now();
+    let status: TelemetryStatus = "success";
+    let outcome: TelemetryOutcome = "live";
+    let errorCode: AccessTradeApiErrorCode | "unknown" | undefined;
+    let caughtError: unknown;
+
+    try {
+      this.ensureSupportedMarket();
+      const accessKey = this.getRequiredConfig("ACCESSTRADE_ACCESS_KEY");
+      // AT VN API: GET /v1/banners?campaign_id=xxx  (some versions use /campaigns/{id}/banners)
+      const requestUrl = this.buildUrl("/banners", { campaign_id: campaignId });
+
+      await this.rateLimit.acquire();
+      const response = await this.sendRequest(requestUrl, {
+        method: "GET",
+        headers: buildAccessTradeHeaders(accessKey).headers,
+        signal: AbortSignal.timeout(this.timeoutMs()),
+      });
+
+      if (response.status === 401 || response.status === 403) throw new AccessTradeApiError("auth_failure");
+      if (response.status === 404) {
+        outcome = "dead";
+        return [];
+      }
+
+      const payload = await this.safeJson(response);
+      const raw = this.unwrapArrayPayload(payload);
+      const banners = raw.flatMap((item) => {
+        const b = normalizeAccessTradeBanner(item);
+        return b ? [b] : [];
+      });
+
+      outcome = banners.length > 0 ? "live" : "dead";
+      return banners;
+    } catch (error) {
+      status = "error";
+      caughtError = error;
+      if (error instanceof AccessTradeApiError) {
+        errorCode = error.code;
+        outcome = this.normalizeErrorOutcome(error.code);
+      } else {
+        errorCode = "unknown";
+        outcome = "error";
+      }
+      throw error;
+    } finally {
+      this.recordTelemetry({ operation: "getBanners", startedAt, status, outcome, errorCode, error: caughtError });
+    }
+  }
+
+  private unwrapArrayPayload(payload: unknown): unknown[] {
+    if (Array.isArray(payload)) return payload;
+    if (isRecord(payload)) {
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.banners)) return payload.banners;
+      if (Array.isArray(payload.items)) return payload.items;
+    }
+    return [];
   }
 
   private buildUrl(path: string, query: Record<string, number | string | undefined> = {}): string {

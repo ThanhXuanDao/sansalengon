@@ -3,13 +3,31 @@ import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { prisma } from "@/lib/prisma"
 
+const AT_TTL_MS = 4 * 60 * 60 * 1000 // 4h
+
+async function syncFromAt(): Promise<void> {
+  const apiUrl = process.env.API_URL ?? "http://localhost:4000"
+  const secret = process.env.API_INTERNAL_SECRET ?? ""
+  await fetch(`${apiUrl}/sync/campaigns`, {
+    headers: secret ? { authorization: `Bearer ${secret}` } : {},
+    signal: AbortSignal.timeout(30_000),
+  })
+}
+
 export async function GET(request: NextRequest) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Tự động sync từ AT nếu dữ liệu cũ hơn 4h hoặc chưa có
+  const latest = await prisma.atCampaign.findFirst({ orderBy: { lastSeenAt: "desc" }, select: { lastSeenAt: true } })
+  const isStale = !latest || Date.now() - latest.lastSeenAt.getTime() > AT_TTL_MS
+  if (isStale) {
+    await syncFromAt().catch(() => { /* nếu sync lỗi, vẫn trả data cũ */ })
+  }
+
   const campaigns = await prisma.atCampaign.findMany({
-    include: { nicheMatches: true },
+    include: { nicheMatches: true, banners: { orderBy: [{ width: "desc" }, { height: "desc" }] } },
     orderBy: { lastSeenAt: "desc" },
   })
 

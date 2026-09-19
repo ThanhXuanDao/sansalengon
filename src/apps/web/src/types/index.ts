@@ -10,6 +10,7 @@ export interface Product {
   productUrl: string
   affiliateUrl: string | null
   source: string
+  sourceLogoUrl?: string | null
   externalId?: string | null
   lastSyncedAt?: string | null
   categoryId: string

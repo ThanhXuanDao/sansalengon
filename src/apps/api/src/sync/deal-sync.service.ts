@@ -57,6 +57,16 @@ interface SyncReport {
 const PRICE_HISTORY_RETENTION_DAYS = 90;
 const SRC = "deal-sync";
 const AT_OFFERS_API = "https://api.accesstrade.vn/v1/offers";
+
+function toBrandSlug(merchant: string): string {
+  return merchant
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 const TIKI_SEARCH_API = "https://tiki.vn/api/v2/products";
 const TIKI_PRODUCT_BASE = "https://tiki.vn";
 
@@ -411,7 +421,7 @@ export class DealSyncService {
     let skipped = 0;
 
     for (const p of fetched) {
-      const product = await this.upsertProduct(p, niche.id);
+      const product = await this.upsertProduct(p, niche.id, atCampaign?.logoUrl ?? null, atCampaign?.brandId ?? null, atCampaign?.id ?? null);
 
       const lastPrice = lastPriceMap.get(product.id);
       if (lastPrice !== p.currentPrice) {
@@ -654,7 +664,13 @@ export class DealSyncService {
   }
 
 
-  private async upsertProduct(p: FetchedProduct, categoryId: string) {
+  private async upsertProduct(
+    p: FetchedProduct,
+    categoryId: string,
+    sourceLogoUrl: string | null = null,
+    brandId: string | null = null,
+    atCampaignId: string | null = null,
+  ) {
     return this.prisma.product.upsert({
       where: { source_externalId: { source: p.source, externalId: p.externalId } },
       update: {
@@ -663,6 +679,9 @@ export class DealSyncService {
         affiliateUrl: p.affiliateUrl,
         lastSyncedAt: new Date(),
         isSoldOut: false,
+        ...(sourceLogoUrl && { sourceLogoUrl }),
+        ...(brandId && { brandId }),
+        ...(atCampaignId && { atCampaignId }),
       },
       create: {
         source: p.source,
@@ -676,6 +695,9 @@ export class DealSyncService {
         commission: Math.round(p.commissionRate),
         rating: p.rating ?? 0,
         categoryId,
+        sourceLogoUrl,
+        ...(brandId && { brandId }),
+        ...(atCampaignId && { atCampaignId }),
       },
     });
   }
@@ -686,9 +708,16 @@ export class DealSyncService {
     }
     try {
       const campaigns = await this.accesstrade.listCampaigns({ approval: "successful" });
-      this.atCampaignsCache = { campaigns, fetchedAt: Date.now() };
       this.log.log(`AT API: ${campaigns.length} approved campaigns loaded, saved to DB cache`);
-      await this.upsertCampaignsToDB(campaigns);
+      const merchantBrandId = await this.upsertCampaignsToDB(campaigns);
+      // Attach brandId so callers can store it on products
+      for (const c of campaigns) {
+        c.brandId = merchantBrandId.get(c.merchant) ?? null;
+      }
+      this.atCampaignsCache = { campaigns, fetchedAt: Date.now() };
+      void this.scrapeOgImages(campaigns).catch((e: Error) =>
+        this.log.warn(`[AT] scrapeOgImages failed: ${e.message}`)
+      );
       return campaigns;
     } catch (e: any) {
       this.log.warn(`Failed to load AccessTrade campaigns: ${e.message} — falling back to DB`);
@@ -704,6 +733,11 @@ export class DealSyncService {
         scope: null,
         cookieDuration: r.cookieDuration ?? null,
         status: r.status,
+        logoUrl: r.logoUrl ?? null,
+        description: r.description ?? null,
+        category: r.category ?? null,
+        commission: r.commission ?? null,
+        brandId: r.brandId ?? null,
       }));
       if (campaigns.length > 0) {
         this.atCampaignsCache = { campaigns, fetchedAt: Date.now() - this.AT_CAMPAIGNS_CACHE_TTL + 5 * 60 * 1000 };
@@ -723,13 +757,104 @@ export class DealSyncService {
     return "tracking";
   }
 
-  private async upsertCampaignsToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
-    if (campaigns.length === 0) return;
+  private async scrapeOgImage(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; AffiliateBot/1.0)" },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!res.ok) return null;
+      const html = await res.text();
+      const m =
+        /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i.exec(html) ??
+        /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i.exec(html);
+      const imgUrl = m?.[1]?.trim();
+      return imgUrl && imgUrl.startsWith("http") ? imgUrl : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async scrapeOgImages(campaigns: AccessTradeCampaign[]): Promise<void> {
+    const needScrape = await this.prisma.atCampaign.findMany({
+      where: { id: { in: campaigns.map((c) => c.id) }, ogImageUrl: null },
+      select: { id: true, url: true },
+    });
+    if (needScrape.length === 0) return;
+    this.log.log(`[AT] Scraping og:image cho ${needScrape.length} campaign(s)...`);
+    for (let i = 0; i < needScrape.length; i++) {
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 300));
+      const { id, url } = needScrape[i];
+      const ogImageUrl = await this.scrapeOgImage(url);
+      if (!ogImageUrl) { this.log.debug(`[AT] og:image ${id}: không tìm thấy`); continue; }
+      try {
+        await this.prisma.atCampaign.update({ where: { id }, data: { ogImageUrl } });
+        this.log.debug(`[AT] og:image ${id}: ${ogImageUrl}`);
+      } catch { /* bỏ qua */ }
+    }
+  }
+
+  private async upsertBannersToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
+    for (let i = 0; i < campaigns.length; i++) {
+      const c = campaigns[i];
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 200));
+      try {
+        const banners = await this.accesstrade.getBanners(c.id);
+        if (banners.length === 0) { this.log.debug(`[AT] Banners: campaign ${c.id} (${c.name}) → 0`); continue; }
+        const now = new Date();
+        await this.prisma.$transaction([
+          this.prisma.atCampaignBanner.deleteMany({ where: { campaignId: c.id } }),
+          ...banners.map((b) =>
+            this.prisma.atCampaignBanner.create({
+              data: {
+                id: b.id,
+                campaignId: c.id,
+                imageUrl: b.imageUrl,
+                width: b.width ?? null,
+                height: b.height ?? null,
+                type: b.type ?? null,
+                affiliateLink: b.affiliateLink ?? null,
+                syncedAt: now,
+              },
+            })
+          ),
+        ]);
+        this.log.debug(`[AT] Banners: campaign ${c.id} → ${banners.length} banner(s) lưu DB`);
+      } catch (e: any) {
+        this.log.warn(`[AT] Bỏ qua banner campaign ${c.id}: ${e.message}`);
+      }
+    }
+  }
+
+  private async upsertCampaignsToDB(campaigns: AccessTradeCampaign[]): Promise<Map<string, string>> {
+    const merchantBrandId = new Map<string, string>();
+    if (campaigns.length === 0) return merchantBrandId;
     const now = new Date();
+
+    // 1. Upsert unique brands derived from merchant name
+    const uniqueMerchants = [...new Set(campaigns.map((c) => c.merchant))];
+    for (const merchant of uniqueMerchants) {
+      const slug = toBrandSlug(merchant);
+      const firstCampaign = campaigns.find((c) => c.merchant === merchant);
+      try {
+        const brand = await this.prisma.brand.upsert({
+          where: { slug },
+          update: { name: merchant, ...(firstCampaign?.logoUrl && { logoUrl: firstCampaign.logoUrl }) },
+          create: { name: merchant, slug, logoUrl: firstCampaign?.logoUrl ?? null },
+          select: { id: true },
+        });
+        merchantBrandId.set(merchant, brand.id);
+      } catch (e: any) {
+        this.log.warn(`[AT] Không upsert được brand "${merchant}": ${e.message}`);
+      }
+    }
+
+    // 2. Upsert AtCampaign rows with brandId
     try {
       await this.prisma.$transaction(
-        campaigns.map((c) =>
-          this.prisma.atCampaign.upsert({
+        campaigns.map((c) => {
+          const brandId = merchantBrandId.get(c.merchant) ?? null;
+          return this.prisma.atCampaign.upsert({
             where: { id: c.id },
             update: {
               name: c.name,
@@ -739,6 +864,11 @@ export class DealSyncService {
               cookieDuration: c.cookieDuration ?? null,
               status: c.status,
               lastSeenAt: now,
+              ...(brandId && { brandId }),
+              ...(c.logoUrl !== undefined && { logoUrl: c.logoUrl }),
+              ...(c.description !== undefined && { description: c.description }),
+              ...(c.category !== undefined && { category: c.category }),
+              ...(c.commission !== undefined && { commission: c.commission }),
               // Auto-promote sang "tracking" nếu detect được — không tự demote (bảo toàn setting thủ công)
               ...(this.detectCampaignType(c.name, c.merchant) === "tracking" && { campaignType: "tracking" }),
             },
@@ -752,13 +882,20 @@ export class DealSyncService {
               status: c.status,
               lastSeenAt: now,
               campaignType: this.detectCampaignType(c.name, c.merchant),
+              logoUrl: c.logoUrl ?? null,
+              description: c.description ?? null,
+              category: c.category ?? null,
+              commission: c.commission ?? null,
+              ...(brandId && { brandId }),
             },
-          }),
-        ),
+          });
+        }),
       );
     } catch (e: any) {
       this.log.warn(`Failed to persist AT campaigns to DB: ${e.message}`);
     }
+
+    return merchantBrandId;
   }
 
   // DB-first campaign loader: nếu MAX(lastSeenAt) < 4h → dùng DB; còn lại → gọi AT API
@@ -782,6 +919,11 @@ export class DealSyncService {
         scope: null,
         cookieDuration: r.cookieDuration ?? null,
         status: r.status,
+        logoUrl: r.logoUrl ?? null,
+        description: r.description ?? null,
+        category: r.category ?? null,
+        commission: r.commission ?? null,
+        brandId: r.brandId ?? null,
       }));
     }
 

@@ -424,6 +424,19 @@ async function main() {
     console.log(`  ✓ SyncJob: ${job.name} (${job.key})`)
   }
 
+  const APP_SETTINGS = [
+    { key: "trendingCount", value: "20" },
+  ]
+  console.log(`Seeding ${APP_SETTINGS.length} app settings...`)
+  for (const setting of APP_SETTINGS) {
+    await prisma.appSetting.upsert({
+      where: { key: setting.key },
+      update: {},
+      create: setting,
+    })
+    console.log(`  ✓ AppSetting: ${setting.key} = ${setting.value}`)
+  }
+
   console.log("Seed done.")
 }
 

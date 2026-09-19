@@ -11,7 +11,7 @@ export default function Loading() {
         </div>
       </nav>
 
-      <header className="pt-32 pb-20 px-4 md:px-8 max-w-[1200px] mx-auto w-full">
+      <header className="pt-32 pb-20 px-3 max-w-[1320px] mx-auto w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <div className="h-12 skeleton-shimmer w-3/4" />
@@ -48,7 +48,7 @@ export default function Loading() {
         </div>
       </header>
 
-      <main className="flex-grow w-full max-w-[1200px] mx-auto px-4 md:px-8 py-12">
+      <main className="flex-grow w-full max-w-[1320px] mx-auto px-3 py-12">
         <div className="flex md:hidden gap-2 pb-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={`sk-nav-${i}`} className="h-8 skeleton-shimmer rounded-full shrink-0" style={{ width: `${70 + i * 20}px` }} />
@@ -106,7 +106,7 @@ export default function Loading() {
       </main>
 
       <footer className="w-full mt-20 border-t-2 border-dashed border-border-color py-8 px-4 md:px-8 bg-[#e8e8e5]">
-        <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="max-w-[1320px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-2">
             <div className="h-4 skeleton-shimmer w-16" />
             <div className="h-3 skeleton-shimmer w-72" />

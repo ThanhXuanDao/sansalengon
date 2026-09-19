@@ -47,7 +47,7 @@ export default function FeedbackSection() {
 
   return (
     <section className="w-full bg-white border-t border-dashed border-[#e5beb6]">
-      <div className="max-w-[1200px] mx-auto px-4 md:px-8 py-16 md:py-20">
+      <div className="max-w-[1320px] mx-auto px-3 py-16 md:py-20">
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-10">
             <h2 className="font-sans text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] font-extrabold text-[#1a1c1b] uppercase">

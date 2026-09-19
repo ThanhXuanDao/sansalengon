@@ -156,7 +156,7 @@ export default function CouponPageClient() {
       <Navbar onSearch={() => {}} searchQuery="" />
 
       <div className="w-full bg-white border-t border-dashed border-border-color">
-        <main className="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-10">
+        <main className="w-full max-w-[1320px] mx-auto px-3 py-10">
 
           {/* Header */}
           <div className="mb-6">

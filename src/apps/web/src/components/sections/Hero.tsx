@@ -187,7 +187,7 @@ export default function Hero({
       </div>
 
       {/* ── Desktop hero (unchanged) ─────────────────────────────── */}
-      <div className="hidden md:block pt-40 pb-20 px-4 md:px-8 max-w-[1200px] mx-auto w-full relative overflow-hidden">
+      <div className="hidden md:block pt-40 pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
         <div className="hero-scan-line" />
         <div className="grid grid-cols-2 gap-12 items-center">
           <div className="space-y-6 z-10">

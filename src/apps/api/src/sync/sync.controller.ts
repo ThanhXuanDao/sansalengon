@@ -1,8 +1,9 @@
-import { Controller, Post, Get, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger } from "@nestjs/common"
+import { Controller, Post, Get, Param, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { DealSyncService } from "./deal-sync.service"
 import { CouponSyncService } from "./coupon-sync.service"
 import { PlatformSyncService } from "../platforms/platform-sync.service"
+import { AccessTradePublisherClient } from "../affiliate/accesstrade/client"
 
 @Controller("sync")
 export class SyncController {
@@ -13,6 +14,7 @@ export class SyncController {
     private readonly dealSync: DealSyncService,
     private readonly couponSync: CouponSyncService,
     private readonly platformSync: PlatformSyncService,
+    private readonly atClient: AccessTradePublisherClient,
   ) {}
 
   private checkAuth(auth: string | undefined): void {
@@ -20,6 +22,18 @@ export class SyncController {
     if (!secret) return // no secret = open (dev convenience)
     const token = (auth ?? "").replace(/^Bearer\s+/i, "").trim()
     if (token !== secret) throw new UnauthorizedException("Invalid internal token")
+  }
+
+  // GET /sync/campaigns/:id/banners — banner images của 1 campaign (live from AT API)
+  @Get("campaigns/:id/banners")
+  async getCampaignBanners(
+    @Param("id") id: string,
+    @Headers("authorization") auth: string | undefined,
+  ) {
+    this.checkAuth(auth)
+    if (!id) throw new BadRequestException("campaign id is required")
+    const banners = await this.atClient.getBanners(id)
+    return { ok: true, banners, total: banners.length }
   }
 
   // GET /sync/campaigns — danh sách AT campaigns đã approve (từ cache hoặc DB)
