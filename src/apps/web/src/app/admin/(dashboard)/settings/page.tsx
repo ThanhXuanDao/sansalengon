@@ -38,6 +38,8 @@ const defaultSettings = {
   debugMode: false,
   showErrors: false,
   twoFA: false,
+  footerCategoryLimit: 0,
+  trendingCount: 20,
 }
 
 type Settings = typeof defaultSettings
@@ -402,6 +404,36 @@ export default function AdminSettings() {
           {/* ─── SYSTEM ─── */}
           <TabContent value="system">
             <div className="space-y-6">
+              <div className={sectionCls}>
+                <h3 className={sectionTitleCls}>
+                  <Settings2 className="size-4 text-[#b51c00]" />
+                  Hiển thị
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <FieldRow label="Số sản phẩm &quot;Đang xem nhiều&quot;" hint="Số lượng sản phẩm hiển thị trong section Trending. Mặc định 20.">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={settings.trendingCount}
+                      onChange={(e) => update("trendingCount", Math.max(1, parseInt(e.target.value) || 20))}
+                      className={inputCls}
+                      placeholder="20"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Số danh mục nổi bật ở footer" hint="Số danh mục hiển thị trong &quot;Danh mục nổi bật&quot; ở footer. Để trống hoặc 0 để hiển thị tất cả.">
+                    <input
+                      type="number"
+                      min={0}
+                      value={settings.footerCategoryLimit === 0 ? "" : settings.footerCategoryLimit}
+                      onChange={(e) => update("footerCategoryLimit", e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0))}
+                      className={inputCls}
+                      placeholder="0 — hiển thị tất cả"
+                    />
+                  </FieldRow>
+                </div>
+              </div>
+
               <div className={sectionCls}>
                 <h3 className={sectionTitleCls}>
                   <Settings2 className="size-4 text-[#b51c00]" />

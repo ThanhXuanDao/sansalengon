@@ -173,6 +173,7 @@ const SYNC_SOURCES = [
     name: "Shopee",
     slug: "shopee",
     baseUrl: "https://shopee.vn",
+    icon: "https://deo.shopeemobile.com/shopee/shopee-pcmall-live-sg/assets/icon_favicon_1_96.1ce0e05fc18a86e5.png",
     enabled: true,
     description: "Shopee — search sản phẩm theo từ khoá, wrap AT tracking link",
     config: JSON.stringify({
@@ -201,6 +202,7 @@ const SYNC_SOURCES = [
     name: "Lazada",
     slug: "lazada",
     baseUrl: "https://lazada.vn",
+    icon: "https://img.lazcdn.com/g/tps/images/ims-web/TB1T7K2d8Cw3KVjSZFuXXcAOpXa.png",
     enabled: false,
     description: "Lazada — search sản phẩm theo từ khoá, wrap AT tracking link",
     config: JSON.stringify({
@@ -229,6 +231,7 @@ const SYNC_SOURCES = [
     name: "Tiki",
     slug: "tiki",
     baseUrl: "https://tiki.vn",
+    icon: "https://salt.tikicdn.com/ts/upload/9f/9b/d0/6ce302126e0a4d958a41d90fed1eb4f6.png",
     enabled: true,
     description: "Tiki — gọi thẳng Tiki public API, wrap AT tracking link",
     config: JSON.stringify({
@@ -260,6 +263,7 @@ const SYNC_SOURCES = [
     name: "CellphoneS",
     slug: "cellphones",
     baseUrl: "https://cellphones.com.vn",
+    icon: "https://cdn2.cellphones.com.vn/200x/media/favicon/default/logo-cps.png",
     enabled: false,
     description: "CellphoneS — GraphQL API, wrap AT tracking link",
     config: JSON.stringify({
@@ -281,6 +285,7 @@ const SYNC_SOURCES = [
     name: "KingFoodMart",
     slug: "kingfoodmart",
     baseUrl: "https://kingfoodmart.com",
+    icon: "https://kingfoodmart.com/assets/images/logo/home-kfm.svg",
     enabled: true,
     description: "KingFoodMart — Next.js SSR, đọc __NEXT_DATA__ JSON, không cần CSS selectors",
     config: JSON.stringify({
@@ -426,6 +431,7 @@ async function main() {
 
   const APP_SETTINGS = [
     { key: "trendingCount", value: "20" },
+    { key: "store_settings", value: JSON.stringify({ footerCategoryLimit: 0 }) },
   ]
   console.log(`Seeding ${APP_SETTINGS.length} app settings...`)
   for (const setting of APP_SETTINGS) {

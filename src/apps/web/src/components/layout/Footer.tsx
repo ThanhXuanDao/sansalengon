@@ -1,11 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Mail, MapPin, Phone, Share2, Play, Send } from "lucide-react"
+import { useSettings } from "@/hooks/useSettings"
 
 interface NicheItem { id: string; name: string; emoji: string }
+
+const FOOTER_STATS = [
+  { target: 500, suffix: "+", label: "Sản phẩm" },
+  { target: 10,  suffix: "K+", label: "Người dùng" },
+  { target: 50,  suffix: "K+", label: "Lượt xem" },
+]
 
 const QUICK_LINKS = [
   { href: "/", label: "Trang chủ" },
@@ -29,6 +36,10 @@ const SOCIAL = [
 
 export default function Footer() {
   const [niches, setNiches] = useState<NicheItem[]>([])
+  const { data: settings } = useSettings()
+  const [counts, setCounts] = useState(FOOTER_STATS.map(() => 0))
+  const statsRef = useRef<HTMLDivElement>(null)
+  const animated = useRef(false)
 
   useEffect(() => {
     fetch("/api/niches")
@@ -36,6 +47,30 @@ export default function Footer() {
       .then((json) => { if (Array.isArray(json?.data)) setNiches(json.data) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const el = statsRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || animated.current) return
+      animated.current = true
+      const duration = 1400
+      const start = performance.now()
+      function step(now: number) {
+        const p = Math.min((now - start) / duration, 1)
+        const ease = 1 - Math.pow(1 - p, 3)
+        setCounts(FOOTER_STATS.map((s) => Math.round(s.target * ease)))
+        if (p < 1) requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+      obs.disconnect()
+    }, { threshold: 0.5 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const limit = settings?.footerCategoryLimit ?? 0
+  const visibleNiches = limit > 0 ? niches.slice(0, limit) : niches
 
   return (
     <footer className="w-full">
@@ -55,7 +90,7 @@ export default function Footer() {
                 alt="SanSaleNgon"
                 width={180}
                 height={68}
-                className="h-14 w-auto object-contain"
+                className="max-w-[180px] h-[80%] object-contain"
               />
             </Link>
             <p className="text-sm text-white/60 leading-relaxed mb-5">
@@ -63,15 +98,13 @@ export default function Footer() {
             </p>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3 mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              {[
-                { v: "500+", l: "Sản phẩm" },
-                { v: "10K+", l: "Người dùng" },
-                { v: "50K+", l: "Lượt xem" },
-              ].map(({ v, l }) => (
-                <div key={l} className="text-center">
-                  <div className="text-lg font-bold text-primary font-display">{v}</div>
-                  <div className="text-[10px] text-white/50 mt-0.5 leading-tight">{l}</div>
+            <div ref={statsRef} className="grid grid-cols-3 gap-3 mb-6 p-4">
+              {FOOTER_STATS.map(({ suffix, label }, i) => (
+                <div key={label} className="text-center">
+                  <div className="text-lg font-bold text-primary font-display tabular-nums">
+                    {counts[i]}{suffix}
+                  </div>
+                  <div className="text-[10px] text-white/50 mt-0.5 leading-tight">{label}</div>
                 </div>
               ))}
             </div>
@@ -138,7 +171,7 @@ export default function Footer() {
               Danh mục nổi bật
             </h3>
             <ul className="grid grid-cols-2 gap-2">
-              {niches.slice(0, 8).map((n) => (
+              {visibleNiches.map((n) => (
                 <li key={n.id}>
                   <Link
                     href={`/${n.id}`}

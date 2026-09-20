@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Be_Vietnam_Pro } from "next/font/google"
 import Script from "next/script"
 import Providers from "./providers"
+import ScrollToTop from "@/components/ui/ScrollToTop"
 import AnalyticsScripts from "@/components/analytics/AnalyticsScripts"
 import { getSiteSettings } from "@/lib/get-site-settings"
 import "./globals.css"
@@ -96,6 +97,7 @@ export default async function RootLayout({
               currencyPosition={s.currencyPosition || "after"}
               thousandSeparator={s.thousandSeparator || "."}
             >{children}</Providers>
+            <ScrollToTop />
           </>
         )}
 

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, ArrowLeftRight } from "lucide-react"
+import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, ArrowLeftRight, Share2, Check } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/types"
 import { useFormatPrice } from "@/lib/currency-context"
@@ -97,10 +97,38 @@ export default function ProductCard({
   const isSoldOut = product.isSoldOut
   const [imgError, setImgError] = useState(false)
   const [showPriceHistory, setShowPriceHistory] = useState(false)
+  const [shared, setShared] = useState(false)
 
   const handleBuy = () => {
     if (isSoldOut) return
     onBuy?.(product.id)
+  }
+
+  const handleShare = async () => {
+    const url = product.affiliateUrl || product.productUrl
+    const text = product.discountPct && product.discountPct > 0
+      ? `Giảm ${product.discountPct}% — ${product.name}`
+      : product.name
+
+    const triggerCopied = () => {
+      setShared(true)
+      setTimeout(() => setShared(false), 1800)
+    }
+
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: product.name, text, url })
+      } catch (e) {
+        // AbortError = user cancelled — not a real error, skip feedback
+        if (e instanceof Error && e.name !== "AbortError") {
+          await navigator.clipboard.writeText(url).catch(() => {})
+          triggerCopied()
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+      triggerCopied()
+    }
   }
 
   return (
@@ -188,36 +216,54 @@ export default function ProductCard({
             {formatPrice(product.price)}
           </p>
         )}
-        {/* Dual CTA */}
-        <div className="flex gap-1.5">
+        {/* CTA */}
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={handleBuy}
             disabled={isSoldOut}
             aria-disabled={isSoldOut}
-            className={`flex-1 py-1 font-bold text-xs uppercase brutalist-border transition-colors flex justify-center items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`flex-1 shrink-0 px-3 py-1 font-bold text-xs uppercase whitespace-nowrap brutalist-border transition-colors flex justify-center items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-primary ${
               isSoldOut
                 ? "bg-[#e2e3e0] text-[#906f69] cursor-not-allowed"
                 : "bg-[#e8e8e5] text-ink hover:bg-primary hover:text-white cursor-pointer"
             }`}
           >
-            {isSoldOut ? "Hết hàng" : "Mua ngay"}
+            {isSoldOut ? "Hết hàng" : "Chi tiết"}
             {!isSoldOut && <ExternalLink className="size-3" aria-hidden="true" />}
           </button>
 
-          {/* Nút xem lịch sử giá */}
-          <button
-            onClick={() => setShowPriceHistory((p) => !p)}
-            aria-expanded={showPriceHistory}
-            aria-label="Xem lịch sử giá"
-            title="Xem lịch sử giá — tránh sale ảo"
-            className="px-2 py-1 brutalist-border bg-[#e8e8e5] text-ink hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
-          >
-            <LineChart className="size-3" aria-hidden="true" />
-            {showPriceHistory
-              ? <ChevronUp className="size-3" aria-hidden="true" />
-              : <ChevronDown className="size-3" aria-hidden="true" />
-            }
-          </button>
+          {/* 2 nút icon — luôn wrap cùng nhau xuống dòng 2 nếu không đủ chỗ */}
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={() => setShowPriceHistory((p) => !p)}
+              aria-expanded={showPriceHistory}
+              aria-label="Xem lịch sử giá"
+              title="Xem lịch sử giá — tránh sale ảo"
+              className="px-2 py-1 brutalist-border bg-[#e8e8e5] text-ink hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-colors flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            >
+              <LineChart className="size-3" aria-hidden="true" />
+              {showPriceHistory
+                ? <ChevronUp className="size-3" aria-hidden="true" />
+                : <ChevronDown className="size-3" aria-hidden="true" />
+              }
+            </button>
+
+            <button
+              onClick={handleShare}
+              aria-label="Chia sẻ sản phẩm"
+              title={shared ? "Đã sao chép link!" : "Chia sẻ"}
+              className={`px-2 py-1 brutalist-border transition-colors flex items-center focus-visible:ring-2 focus-visible:ring-primary cursor-pointer ${
+                shared
+                  ? "bg-primary/10 text-primary border-primary/40"
+                  : "bg-[#e8e8e5] text-ink hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+              }`}
+            >
+              {shared
+                ? <Check className="size-3" aria-hidden="true" />
+                : <Share2 className="size-3" aria-hidden="true" />
+              }
+            </button>
+          </div>
         </div>
 
         {/* So sánh giá đa sàn */}

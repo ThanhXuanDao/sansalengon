@@ -27,6 +27,8 @@ export interface ValidatedSettings {
   debugMode?: boolean
   showErrors?: boolean
   twoFA?: boolean
+  footerCategoryLimit?: number
+  trendingCount?: number
 }
 
 const STRING_FIELDS = new Set([
@@ -41,9 +43,11 @@ const BOOL_FIELDS = new Set([
   "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors", "twoFA",
 ])
 
+const NUMBER_FIELDS = new Set(["footerCategoryLimit", "trendingCount"])
+
 const LARGE_STRING_FIELDS = new Set(["logo", "favicon"])
 
-const ALLOWED_KEYS = new Set([...STRING_FIELDS, ...BOOL_FIELDS, ...LARGE_STRING_FIELDS])
+const ALLOWED_KEYS = new Set([...STRING_FIELDS, ...BOOL_FIELDS, ...LARGE_STRING_FIELDS, ...NUMBER_FIELDS])
 
 export function validateSettings(body: Record<string, unknown>): {
   cleaned: ValidatedSettings
@@ -77,6 +81,10 @@ export function validateSettings(body: Record<string, unknown>): {
       if (typeof value !== "string") { errors.push(`"${key}" must be a string`); continue }
       if (value.length > 1_500_000) { errors.push(`"${key}" is too large (max 1MB)`); continue }
       ;(cleaned as Record<string, unknown>)[key] = value
+    } else if (NUMBER_FIELDS.has(key)) {
+      const n = Number(value)
+      if (!Number.isInteger(n) || n < 0) { errors.push(`"${key}" phải là số nguyên không âm`); continue }
+      ;(cleaned as Record<string, unknown>)[key] = n
     }
   }
 

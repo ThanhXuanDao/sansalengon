@@ -24,54 +24,36 @@ const itemVariants = {
 export default function FeaturedSection({ products = [], isLoading, onBuyProduct }: FeaturedSectionProps) {
   const prefersReducedMotion = useReducedMotion()
 
-  return (
-    <div className="w-full bg-white">
-      <div className="max-w-[1320px] mx-auto px-3 py-8">
-        <div className="mb-4 pb-4">
-          <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
-            🔥 Đề xuất hôm nay
-          </h2>
-          <p className="font-mono text-xs text-ink/50 mt-0.5">
-            Những sản phẩm đang giảm giá nhiều nhất, được chọn lọc mỗi ngày
-          </p>
-        </div>
+  if (!isLoading && products.length === 0) return null
 
-        {/* Desktop: 3-col grid */}
+  return (
+    <div className="w-full bg-white isolate">
+      <div className="max-w-[1320px] mx-auto px-3 py-8">
+        {!isLoading && (
+          <div className="mb-4 pb-4">
+            <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
+              🔥 Đề xuất hôm nay
+            </h2>
+            <p className="font-mono text-xs text-ink/50 mt-0.5">
+              Những sản phẩm đang giảm giá nhiều nhất, được chọn lọc mỗi ngày
+            </p>
+          </div>
+        )}
+
         <motion.div
-          className="hidden md:grid grid-cols-3 gap-6"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
           variants={prefersReducedMotion ? undefined : containerVariants}
           initial={prefersReducedMotion ? undefined : "hidden"}
           animate={prefersReducedMotion ? undefined : "visible"}
         >
           {isLoading
-            ? Array.from({ length: 3 }).map((_, i) => <ProductCardSkeleton key={`s-feat-${i}`} />)
+            ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={`s-feat-${i}`} />)
             : products.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
                   <ProductCard product={product} onBuy={onBuyProduct} />
                 </motion.div>
               ))}
         </motion.div>
-
-        {/* Mobile: horizontal scroll strip */}
-        <div className="md:hidden -mx-3">
-          {isLoading ? (
-            <div className="flex gap-3 px-3 overflow-x-auto pb-2 scrollbar-hide">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={`s-feat-m-${i}`} className="shrink-0 w-44">
-                  <ProductCardSkeleton />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3 px-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
-              {products.map((product) => (
-                <div key={product.id} className="shrink-0 w-44 snap-start">
-                  <ProductCard product={product} onBuy={onBuyProduct} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

@@ -290,13 +290,12 @@
   /* ── Trending auto-scroll carousel ─────────────────────────────────────────── */
   @keyframes trending-scroll {
     0%   { transform: translateX(0) }
-    100% { transform: translateX(-50%) }
+    100% { transform: translateX(var(--trending-scroll-dist)) }
   }
   .trending-track {
-    animation: trending-scroll 40s linear infinite;
+    width: max-content;
     will-change: transform;
   }
-  .trending-track:hover { animation-play-state: paused; }
 
   /* ── Navbar shadow ──────────────────────────────────────────────────────────
      Use instead of style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}

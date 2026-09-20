@@ -26,6 +26,8 @@ export interface StoreSettings {
   maintenanceMode: boolean
   debugMode: boolean
   showErrors: boolean
+  footerCategoryLimit: number
+  trendingCount: number
 }
 
 const defaults: StoreSettings = {
@@ -56,6 +58,8 @@ const defaults: StoreSettings = {
   maintenanceMode: false,
   debugMode: false,
   showErrors: false,
+  footerCategoryLimit: 0,
+  trendingCount: 20,
 }
 
 export async function fetchSettings(): Promise<StoreSettings> {

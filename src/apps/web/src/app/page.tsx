@@ -10,7 +10,6 @@ import { useCategories } from "@/hooks/useCategories"
 import { useSources } from "@/hooks/useSources"
 import { useSettings } from "@/hooks/useSettings"
 import NotificationBanner from "@/components/sections/NotificationBanner"
-import FeedbackSection from "@/components/sections/FeedbackSection"
 import FeaturedSection from "@/components/sections/FeaturedSection"
 
 const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
@@ -20,7 +19,6 @@ const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
   loading: () => <div className="h-96 skeleton-shimmer" />,
 })
 const Footer = dynamic(() => import("@/components/layout/Footer"))
-const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNav"), { ssr: false })
 
 export default function Home() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
@@ -89,7 +87,7 @@ export default function Home() {
       <TrendingWidget onBuyProduct={handleBuyProduct} />
       <FeaturedSection products={topRatedProducts} isLoading={isTopRatedLoading} onBuyProduct={handleBuyProduct} />
       <div className="w-full bg-white">
-      <main id="skip-target" className="flex-grow w-full max-w-[1320px] mx-auto px-3 py-12 pb-24 lg:pb-12">
+      <main id="skip-target" className="flex-grow w-full max-w-[1320px] mx-auto px-3 pt-6 pb-12">
         <div id="products">
           <ProductGrid
             allProducts={allProducts}
@@ -115,9 +113,7 @@ export default function Home() {
         </div>
       </main>
       </div>
-      <FeedbackSection />
       <Footer />
-      <MobileBottomNav />
     </>
   )
 }

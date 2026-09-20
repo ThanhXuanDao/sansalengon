@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, useReducedMotion } from "framer-motion"
-import { ArrowUpDown, ArrowUp, ArrowDown, Star } from "lucide-react"
+import { ArrowUpDown, ArrowUp, ArrowDown, Star, ChevronDown } from "lucide-react"
 import Image from "next/image"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
@@ -96,11 +96,11 @@ export default function ProductGrid({
       </div>
 
       {/* ── Filter + Sort toolbar ───────────────────────────────── */}
-      <div className="sticky top-[64px] z-30 -mx-3 px-3 bg-white/95 backdrop-blur-sm pb-2 mb-4">
+      <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 mb-6 border-b border-[#e5e1d8]">
 
         {/* Row 0: Source filter pills */}
         {(isSourcesLoading || (sources && sources.length > 0)) && (
-          <div className="flex items-center gap-2 pt-2 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Nguồn">
+          <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Nguồn">
             {isSourcesLoading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
@@ -113,9 +113,9 @@ export default function ProductGrid({
                       onClick={() => onSourceChange?.(src.slug)}
                       aria-pressed={isActive}
                       title={src.name}
-                      className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active overflow-hidden ${
+                      className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 focus-visible:outline-2 focus-visible:outline-filter-active overflow-hidden ${
                         isActive
-                          ? "border-filter-active ring-2 ring-filter-active ring-offset-1"
+                          ? "bg-filter-active/10 border-filter-active"
                           : "border-border-color hover:border-filter-active/50 bg-white"
                       }`}
                     >
@@ -140,7 +140,7 @@ export default function ProductGrid({
         )}
 
         {/* Row 1: Category icon pills */}
-        <div className="flex items-center gap-2 pt-2 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Danh mục">
+        <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Danh mục">
           {isCategoriesLoading
             ? Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
@@ -155,7 +155,7 @@ export default function ProductGrid({
                     title={cat.name}
                     className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 text-[28px] focus-visible:ring-2 focus-visible:ring-filter-active ${
                       isActive
-                        ? "bg-filter-active border-filter-active"
+                        ? "bg-filter-active/10 border-filter-active"
                         : "bg-white border-border-color hover:border-filter-active/50"
                     }`}
                   >
@@ -167,7 +167,7 @@ export default function ProductGrid({
 
         {/* Row 2: Sort pills */}
         {onSortChange && (
-          <div className="flex items-center gap-1 pt-1.5 overflow-x-auto scrollbar-hide" role="toolbar" aria-label="Sắp xếp">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide" role="toolbar" aria-label="Sắp xếp">
             {sortOptions.map(({ value, label, Icon }) => {
               const isActive = sort === value
               return (
@@ -176,7 +176,7 @@ export default function ProductGrid({
                   onClick={() => onSortChange(value)}
                   className={`flex items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active ${
                     isActive
-                      ? "bg-filter-active text-white border-filter-active"
+                      ? "bg-filter-active/10 text-filter-active border-filter-active font-bold"
                       : "bg-white text-ink/50 border-border-color hover:border-filter-active/50 hover:text-ink"
                   }`}
                 >
@@ -211,13 +211,23 @@ export default function ProductGrid({
 
       {/* Load more */}
       {hasMore && (
-        <div className="mt-8 flex justify-center">
+        <div className="mt-10 flex justify-center">
           <button
             onClick={onLoadMore}
             disabled={isLoadMoreLoading}
-            className="bg-transparent border-2 border-ink text-ink px-6 py-3 font-bold text-sm uppercase tracking-wider hover:bg-ink hover:text-white active:scale-95 transition-all disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex items-center gap-3 bg-primary hover:brightness-90 text-white px-10 py-3 rounded-full font-semibold text-sm transition-all active:scale-[.97] disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer min-w-[200px] justify-center"
           >
-            {isLoadMoreLoading ? "Đang tải…" : "Xem thêm"}
+            {isLoadMoreLoading ? (
+              <>
+                <span className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" aria-hidden="true" />
+                Đang tải…
+              </>
+            ) : (
+              <>
+                Xem thêm
+                <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
+              </>
+            )}
           </button>
         </div>
       )}

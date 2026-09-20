@@ -1,11 +1,12 @@
 "use client"
 
-import { useRef, useCallback } from "react"
+import { useRef, useCallback, useEffect } from "react"
 import { useTrending } from "@/hooks/useTrending"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
 
-const ANIM_DURATION = 40 // seconds
+const PX_PER_SEC = 50   // scroll speed in pixels/second
+const MIN_COPIES = 4    // minimum number of item-set copies
 
 interface TrendingWidgetProps {
   onBuyProduct?: (productId: string) => void
@@ -15,6 +16,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   const { data, isLoading } = useTrending()
   const trackRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startX: number; startTranslate: number } | null>(null)
+  const hoverRef = useRef(false)
 
   const handleBuy = (productId: string) => {
     window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
@@ -37,14 +39,15 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
     track.setPointerCapture(e.pointerId)
   }, [])
 
+  const copiesRef = useRef(MIN_COPIES)
+
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current || !trackRef.current) return
     const delta = e.clientX - dragRef.current.startX
     let next = dragRef.current.startTranslate + delta
-    // Keep within one loop length for seamless wrap
-    const halfWidth = trackRef.current.scrollWidth / 2
-    if (next > 0) next -= halfWidth
-    if (next < -halfWidth) next += halfWidth
+    const oneSet = trackRef.current.scrollWidth / copiesRef.current
+    if (next > 0) next -= oneSet
+    if (next < -oneSet) next += oneSet
     trackRef.current.style.transform = `translateX(${next}px)`
   }, [])
 
@@ -52,28 +55,56 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
     const track = trackRef.current
     if (!track || !dragRef.current) return
     const currentX = getComputedTranslateX()
-    const halfWidth = track.scrollWidth / 2
-    // Normalize to [-halfWidth, 0]
-    let normalized = currentX % halfWidth
-    if (normalized > 0) normalized -= halfWidth
-    // Compute animation-delay so animation continues from this point
-    const pct = Math.abs(normalized) / halfWidth
-    const delay = -(pct * ANIM_DURATION)
+    const oneSet = track.scrollWidth / copiesRef.current
+    if (oneSet <= 0) { dragRef.current = null; return }
+    // Normalize into [-oneSet, 0]
+    let normalized = currentX % oneSet
+    if (normalized > 0) normalized -= oneSet
+    // Resume animation from current position
+    const duration = oneSet / PX_PER_SEC
+    const pct = Math.abs(normalized) / oneSet
+    const delay = -(pct * duration)
+    track.style.setProperty("--trending-scroll-dist", `-${oneSet}px`)
     track.style.transform = ""
-    track.style.animation = `trending-scroll ${ANIM_DURATION}s linear ${delay}s infinite`
+    track.style.animation = `trending-scroll ${duration}s linear ${delay}s infinite`
+    if (hoverRef.current) track.style.animationPlayState = "paused"
     dragRef.current = null
   }, [])
 
+  const products = data?.data ?? []
+
+  // Repeat copies enough so track is always > 2× viewport — prevents white-space gap
+  const copies = products.length > 0
+    ? Math.max(MIN_COPIES, Math.ceil((typeof window !== "undefined" ? window.innerWidth * 3 : 4800) / (products.length * 220)) + 1)
+    : MIN_COPIES
+  const loopItems = products.length > 0
+    ? Array.from({ length: copies }).flatMap(() => products)
+    : []
+
+  // After items render: measure one-set pixel width exactly, start animation via inline style
+  useEffect(() => {
+    const track = trackRef.current
+    if (!track || products.length === 0) return
+
+    copiesRef.current = copies
+    const raf = requestAnimationFrame(() => {
+      const oneSet = track.scrollWidth / copies
+      if (oneSet <= 0) return
+      const duration = oneSet / PX_PER_SEC
+      track.style.setProperty("--trending-scroll-dist", `-${oneSet}px`)
+      track.style.animation = `trending-scroll ${duration}s linear infinite`
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [products, copies])
+
   if (!isLoading && (!data || data.total === 0)) return null
 
-  const products = data?.data ?? []
   const windowLabel = data?.windowHours === 1 ? "1 giờ qua" : "24 giờ qua"
-  const loopItems = products.length > 0 ? [...products, ...products] : []
 
   return (
     <section
       aria-label="Đang xem nhiều"
-      className="w-full bg-white"
+      className="w-full bg-white isolate"
     >
       <div className="max-w-[1320px] mx-auto px-3 pt-5 pb-3">
         <h2 className="font-sans font-extrabold text-lg text-ink tracking-tight">
@@ -101,6 +132,18 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
+            onMouseEnter={() => {
+              hoverRef.current = true
+              if (trackRef.current && !dragRef.current) {
+                trackRef.current.style.animationPlayState = "paused"
+              }
+            }}
+            onMouseLeave={() => {
+              hoverRef.current = false
+              if (trackRef.current && !dragRef.current) {
+                trackRef.current.style.animationPlayState = "running"
+              }
+            }}
           >
             {loopItems.map((product, i) => (
               <div

@@ -16,7 +16,6 @@ const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
 })
 const CouponCard = dynamic(() => import("@/components/coupons/CouponCard"))
 const Footer = dynamic(() => import("@/components/layout/Footer"))
-const MobileBottomNav = dynamic(() => import("@/components/layout/MobileBottomNav"), { ssr: false })
 
 interface Props {
   niche: NicheConfig
@@ -54,7 +53,7 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
       <Navbar onSearch={() => {}} searchQuery="" />
 
       <div className="w-full bg-white border-t border-dashed border-border-color">
-        <main className="w-full max-w-[1320px] mx-auto px-3 py-10 pb-24 lg:pb-10">
+        <main className="w-full max-w-[1320px] mx-auto px-3 py-10">
 
           {/* Breadcrumb */}
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 font-mono text-xs text-ink/40 mb-6">
@@ -178,7 +177,6 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
       </div>
 
       <Footer />
-      <MobileBottomNav />
     </>
   )
 }

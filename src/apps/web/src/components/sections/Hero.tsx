@@ -1,11 +1,9 @@
 "use client"
 
-import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, Flame } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import type { Product } from "@/types"
 import { GalleryGrid, GalleryGridCell } from "@/components/blocks/CtaSectionWithGallery"
-import { useNiches } from "@/lib/niche-context"
 
 interface HeroProps {
   featuredProducts?: Product[]
@@ -106,7 +104,6 @@ export default function Hero({
   storeName,
   tagline,
 }: HeroProps) {
-  const niches = useNiches()
   const displayProducts = featuredProducts?.length ? featuredProducts : defaultFeatured
   const gridProducts = displayProducts.slice(0, 4)
 
@@ -117,83 +114,9 @@ export default function Hero({
 
   return (
     <header>
-      {/* ── Mobile hero ─────────────────────────────────────────── */}
-      <div className="md:hidden bg-[#1a1c1b] pt-28">
-        {/* Top strip */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <span className="font-mono text-[18px] font-bold text-white uppercase tracking-tighter" translate="no">
-            {storeName || "SanSaleNgon"}
-          </span>
-          <span className="flex items-center gap-1 font-mono text-[10px] text-[#fdc73a] border border-[#fdc73a]/30 px-2 py-0.5">
-            <Flame className="size-3 fill-[#fdc73a]" />
-            Deal hôm nay
-          </span>
-        </div>
-
-        {/* Tagline */}
-        <div className="px-4 pt-4 pb-3">
-          <h1 className="font-mono text-[22px] font-bold text-white leading-tight mb-1">
-            Mua thông minh,<br />
-            <span className="text-[#fdc73a]">giá thấp nhất 30 ngày</span>
-          </h1>
-          <p className="font-mono text-[11px] text-white/50 leading-relaxed">
-            {tagline || "Deal tổng hợp từ nhiều nguồn · cập nhật tự động mỗi 4 giờ"}
-          </p>
-        </div>
-
-        {/* Niche quick-links */}
-        <div
-          className="flex gap-2 overflow-x-auto px-4 pb-4 pt-1 scrollbar-hide"
-          aria-label="Danh mục nhanh"
-        >
-          {niches.map((n) => (
-            <Link
-              key={n.id}
-              href={`/${n.id}`}
-              className="flex items-center gap-1.5 shrink-0 bg-white/8 border border-white/15 px-3 py-2 font-mono text-[11px] text-white/80 hover:bg-white/15 hover:text-white active:scale-95 transition-all"
-            >
-              <span className="text-[15px] leading-none">{n.emoji}</span>
-              {n.name}
-            </Link>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="px-4 pb-5">
-          <a
-            href="#products"
-            className="flex items-center justify-center gap-2 w-full bg-[#b51c00] text-white font-mono text-[13px] font-bold py-3.5 active:scale-[.98] transition-transform"
-          >
-            Xem tất cả deal
-            <ArrowRight className="size-4" />
-          </a>
-        </div>
-
-        {/* Featured product thumbnails — horizontal scroll preview */}
-        {!isFeaturedLoading && displayProducts.length > 0 && (
-          <div
-            className="flex gap-0.5 overflow-x-hidden border-t border-white/10"
-            aria-hidden="true"
-          >
-            {displayProducts.slice(0, 4).map((p) => (
-              <div key={p.id} className="relative flex-1 aspect-[3/2]">
-                <Image
-                  src={p.imageUrl}
-                  alt=""
-                  fill
-                  className="object-cover brightness-[0.55]"
-                  sizes="25vw"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Desktop hero (unchanged) ─────────────────────────────── */}
-      <div className="hidden md:block pt-40 pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
+      <div className="pt-28 pb-8 md:pt-40 md:pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
         <div className="hero-scan-line" />
-        <div className="grid grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
           <div className="space-y-6 z-10">
             <h1 className="font-sans text-display-lg text-ink leading-none uppercase text-pretty">
               {storeName || "Săn Sale Ngon"},

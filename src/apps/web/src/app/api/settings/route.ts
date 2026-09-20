@@ -35,6 +35,8 @@ const defaultSettings = {
   debugMode: false,
   showErrors: false,
   twoFA: false,
+  footerCategoryLimit: 0,
+  trendingCount: 20,
 }
 
 async function readSettings(): Promise<Record<string, unknown>> {
@@ -51,6 +53,7 @@ const PUBLIC_FIELDS = [
   "siteName", "siteUrl", "tagline", "logo", "favicon",
   "footerDesc", "hotline", "facebookUrl", "zaloUrl", "youtubeUrl",
   "currencySymbol", "currencyPosition", "decimalSeparator", "thousandSeparator",
+  "footerCategoryLimit",
 ] as const
 
 export async function GET(request: NextRequest) {

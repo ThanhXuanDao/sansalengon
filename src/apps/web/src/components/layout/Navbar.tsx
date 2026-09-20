@@ -3,9 +3,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Search, X, ChevronDown, Phone, User, Tag } from "lucide-react"
+import { Search, X, Phone, Tag } from "lucide-react"
 import { useSettings } from "@/hooks/useSettings"
-import { useNiches } from "@/lib/niche-context"
 
 interface NavbarProps {
   onSearch?: (q: string) => void
@@ -15,12 +14,9 @@ interface NavbarProps {
 export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
   const [activeNav, setActiveNav] = useState("")
   const [inputValue, setInputValue] = useState(searchQuery)
-  const [categoryOpen, setCategoryOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState("")
   const [logoError, setLogoError] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const catRef = useRef<HTMLDivElement>(null)
   const { data: settings } = useSettings()
 
   useEffect(() => { setInputValue(searchQuery) }, [searchQuery])
@@ -52,14 +48,6 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
     return () => window.removeEventListener("keydown", handleKey)
   }, [])
 
-  useEffect(() => {
-    function handleOutside(e: MouseEvent) {
-      if (catRef.current && !catRef.current.contains(e.target as Node)) setCategoryOpen(false)
-    }
-    document.addEventListener("mousedown", handleOutside)
-    return () => document.removeEventListener("mousedown", handleOutside)
-  }, [])
-
   const navLinkClass = (id: string) =>
     `relative flex items-center gap-1 px-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
       activeNav === id
@@ -67,7 +55,6 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
         : "text-[#4F586D] hover:text-secondary"
     }`
 
-  const niches = useNiches()
   const storeName = settings?.siteName || "Săn Sale Ngon"
 
   return (
@@ -88,78 +75,30 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center shrink-0 min-w-[120px]" aria-label="Trang chủ">
           {logoError ? (
-            <div className="flex items-center gap-1.5 h-11">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-                <Tag className="size-4 text-white" aria-hidden="true" />
+            <div className="flex items-center gap-1.5 h-14">
+              <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shrink-0">
+                <Tag className="size-5 text-white" aria-hidden="true" />
               </div>
               <div className="leading-tight">
-                <div className="text-xs font-bold text-[#FF6B00] uppercase tracking-tight">Săn Sale</div>
-                <div className="text-[10px] font-semibold text-[#1C1C4D] uppercase tracking-wider">Ngon</div>
+                <div className="text-sm font-bold text-[#FF6B00] uppercase tracking-tight">Săn Sale</div>
+                <div className="text-[11px] font-semibold text-[#1C1C4D] uppercase tracking-wider">Ngon</div>
               </div>
             </div>
           ) : (
             <Image
               src="/logo.png"
               alt={storeName}
-              width={160}
-              height={56}
-              className="h-11 w-auto object-contain"
+              width={180}
+              height={68}
+              className="h-12 w-auto max-w-[220px] object-contain"
               priority
               onError={() => setLogoError(true)}
             />
           )}
         </Link>
 
-        {/* Search bar — no overflow-hidden so dropdown isn't clipped */}
+        {/* Search bar */}
         <div className="flex flex-1 border border-[#DFE0E4] rounded-lg focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(0,194,146,0.12)] transition-all">
-          {/* Category dropdown */}
-          <div className="relative shrink-0" ref={catRef}>
-            <button
-              type="button"
-              onClick={() => setCategoryOpen((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-[#4F586D] bg-[#F5F5F5] border-r border-[#DFE0E4] whitespace-nowrap hover:bg-[#EBECEF] transition-colors h-full rounded-l-lg"
-              aria-expanded={categoryOpen}
-              aria-haspopup="listbox"
-            >
-              <span className="hidden sm:inline">
-                {selectedCategory ? niches.find((n) => n.id === selectedCategory)?.name ?? "Tất cả" : "Danh mục"}
-              </span>
-              <ChevronDown className={`size-3.5 transition-transform ${categoryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-            </button>
-            {categoryOpen && (
-              <ul
-                role="listbox"
-                className="absolute top-[calc(100%+4px)] left-0 bg-white border border-[#DFE0E4] shadow-xl min-w-[200px] py-1 z-[200] rounded-lg"
-              >
-                <li>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={selectedCategory === ""}
-                    onClick={() => { setSelectedCategory(""); setCategoryOpen(false) }}
-                    className="w-full text-left px-4 py-2 text-sm text-[#4F586D] hover:bg-[#F5F5F5] hover:text-primary"
-                  >
-                    Tất cả danh mục
-                  </button>
-                </li>
-                {niches.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={selectedCategory === n.id}
-                      onClick={() => { setSelectedCategory(n.id); setCategoryOpen(false) }}
-                      className="w-full text-left px-4 py-2 text-sm text-[#4F586D] hover:bg-[#F5F5F5] hover:text-primary flex items-center gap-2"
-                    >
-                      <span aria-hidden="true">{n.emoji}</span>
-                      {n.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
           {/* Input */}
           <div className="relative flex-1">
             <input
@@ -173,7 +112,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               placeholder="Tìm sản phẩm, thương hiệu..."
               aria-label="Tìm kiếm sản phẩm"
               autoComplete="off"
-              className="w-full h-full px-4 py-2.5 text-sm text-[#222E48] placeholder:text-[#4F586D]/50 bg-white outline-none"
+              className="w-full h-full px-4 py-2 text-sm text-[#222E48] placeholder:text-[#4F586D]/50 bg-white outline-none rounded-l-lg"
             />
             {inputValue && (
               <button
@@ -190,7 +129,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
           <button
             type="button"
             onClick={handleSearch}
-            className="bg-secondary hover:bg-[#e55f00] text-white px-5 py-2.5 text-sm font-semibold shrink-0 transition-colors flex items-center gap-2 rounded-r-lg"
+            className="bg-secondary hover:bg-[#e55f00] text-white px-4 py-2 text-sm font-semibold shrink-0 transition-colors flex items-center gap-1.5 rounded-r-lg"
           >
             <Search className="size-4" aria-hidden="true" />
             <span className="hidden sm:inline">Tìm</span>
@@ -206,13 +145,6 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               <div className="text-[11px] text-primary font-medium">Miễn phí</div>
             </div>
           </div>
-          <Link
-            href="/admin/login"
-            className="p-2 text-[#4F586D] hover:text-primary hover:bg-[#F5F5F5] rounded-full transition-colors"
-            aria-label="Đăng nhập quản trị"
-          >
-            <User className="size-5" aria-hidden="true" />
-          </Link>
         </div>
       </div>
       </div>

@@ -9,8 +9,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const forceWindow = searchParams.get("window") // "1h" | "24h"
 
-  const countSetting = await prisma.appSetting.findUnique({ where: { key: "trendingCount" } })
-  const trendingCount = countSetting ? (parseInt(countSetting.value, 10) || 20) : 20
+  const storeSetting = await prisma.appSetting.findUnique({ where: { key: "store_settings" } })
+  const storeJson = storeSetting ? JSON.parse(storeSetting.value) as Record<string, unknown> : {}
+  const trendingCount = (typeof storeJson.trendingCount === "number" && storeJson.trendingCount > 0)
+    ? storeJson.trendingCount
+    : 20
 
   async function queryWindow(hours: number) {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000)
