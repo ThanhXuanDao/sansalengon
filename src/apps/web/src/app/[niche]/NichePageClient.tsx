@@ -1,11 +1,13 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { BookOpen, ChevronRight, Tag } from "lucide-react"
 import Navbar from "@/components/layout/Navbar"
 import { useProducts } from "@/hooks/useProducts"
+import { useSources } from "@/hooks/useSources"
+import { useFilterParams } from "@/hooks/useFilterParams"
 import type { NicheConfig } from "@/lib/niches"
 import type { Product } from "@/types"
 import type { Coupon } from "@/components/coupons/CouponCard"
@@ -24,33 +26,38 @@ interface Props {
   blogPosts?: BlogPostMeta[]
 }
 
-export default function NichePageClient({ niche, initialProducts, initialCoupons, blogPosts = [] }: Props) {
-  const [sort, setSort] = useState("discount_desc")
+function NicheContent({ niche, initialProducts, initialCoupons, blogPosts = [] }: Props) {
+  // Category is fixed by the path — only source, q, sort come from URL params
+  const { q, sources, sort, setQ, toggleSource, setSort, resetAll } = useFilterParams()
+
+  const { data: sourceList, isLoading: isSourcesLoading } = useSources()
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
     categorySlugs: [niche.categorySlug],
+    sourceSlugs: sources.length > 0 ? sources : undefined,
+    q: q || undefined,
     sort,
   })
 
-  // Client data augments SSR initial data on first render
-  const allProducts = useMemo(
-    () => (data.data.length > 0 ? data.data : initialProducts.data),
-    [data.data, initialProducts.data]
-  )
-  const total = data.total || initialProducts.total
+  const hasActiveFilter = sources.length > 0 || !!q
+  const allProducts = useMemo(() => {
+    if (data.data.length > 0) return data.data
+    if (hasActiveFilter) return []
+    return initialProducts.data
+  }, [data.data, initialProducts.data, hasActiveFilter])
+  const total = data.total || (hasActiveFilter ? 0 : initialProducts.total)
 
   const handleBuyProduct = useCallback((productId: string) => {
     window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
   }, [])
 
-  const handleSortChange = useCallback((s: string) => setSort(s), [])
   const handleLoadMore = useCallback(() => fetchNextPage(), [fetchNextPage])
 
   const coupons = initialCoupons
 
   return (
     <>
-      <Navbar onSearch={() => {}} searchQuery="" />
+      <Navbar onSearch={setQ} searchQuery={q} />
 
       <div className="w-full bg-white border-t border-dashed border-border-color">
         <main className="w-full max-w-[1320px] mx-auto px-3 py-10">
@@ -99,7 +106,7 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
             </section>
           )}
 
-          {/* Product grid */}
+          {/* Product grid — category ẩn vì đã xác định bởi path */}
           <section aria-label={`Sản phẩm ${niche.name}`}>
             <ProductGrid
               allProducts={allProducts}
@@ -107,11 +114,16 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
               onBuyProduct={handleBuyProduct}
               isLoading={isLoading && allProducts.length === 0}
               error={error?.message}
+              onResetCategory={resetAll}
               sort={sort}
-              onSortChange={handleSortChange}
+              onSortChange={setSort}
               hasMore={hasNextPage}
               onLoadMore={handleLoadMore}
               isLoadMoreLoading={isFetchingNextPage}
+              sources={sourceList}
+              activeSources={sources}
+              onSourceChange={toggleSource}
+              isSourcesLoading={isSourcesLoading}
             />
           </section>
 
@@ -178,5 +190,13 @@ export default function NichePageClient({ niche, initialProducts, initialCoupons
 
       <Footer />
     </>
+  )
+}
+
+export default function NichePageClient(props: Props) {
+  return (
+    <Suspense>
+      <NicheContent {...props} />
+    </Suspense>
   )
 }

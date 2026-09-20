@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useCallback, useMemo, Suspense } from "react"
 import dynamic from "next/dynamic"
 import Navbar from "@/components/layout/Navbar"
 import Hero from "@/components/sections/Hero"
@@ -9,6 +9,7 @@ import { useMostClickedProducts } from "@/hooks/useMostClickedProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { useSources } from "@/hooks/useSources"
 import { useSettings } from "@/hooks/useSettings"
+import { useFilterParams } from "@/hooks/useFilterParams"
 import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeaturedSection from "@/components/sections/FeaturedSection"
 
@@ -20,69 +21,34 @@ const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
 })
 const Footer = dynamic(() => import("@/components/layout/Footer"))
 
-export default function Home() {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [selectedSources, setSelectedSources] = useState<string[]>([])
-  const [sort, setSort] = useState<string>("discount_desc")
-  const [searchQuery, setSearchQuery] = useState("")
+function HomeContent() {
+  const { q, sources, categories, sort, setQ, toggleSource, toggleCategory, setSort, resetAll } = useFilterParams()
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
-    categorySlugs: selectedCategories.length > 0 ? selectedCategories : undefined,
-    sourceSlugs: selectedSources.length > 0 ? selectedSources : undefined,
+    categorySlugs: categories.length > 0 ? categories : undefined,
+    sourceSlugs: sources.length > 0 ? sources : undefined,
     sort,
-    q: searchQuery || undefined,
+    q: q || undefined,
   })
 
-  const { data: categories, isLoading: isCategoriesLoading } = useCategories()
-  const { data: sources, isLoading: isSourcesLoading } = useSources()
+  const { data: categoryList, isLoading: isCategoriesLoading } = useCategories()
+  const { data: sourceList, isLoading: isSourcesLoading } = useSources()
   const { data: topRatedProducts, isLoading: isTopRatedLoading } = useMostClickedProducts()
   const { data: settings } = useSettings()
 
   const total = data?.total ?? 0
   const allProducts = useMemo(() => data?.data ?? [], [data])
 
-  const handleBuyProduct = useCallback(
-    (productId: string) => {
-      window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
-    },
-    []
-  )
-
-  const handleSearch = useCallback((q: string) => {
-    setSearchQuery(q)
+  const handleBuyProduct = useCallback((productId: string) => {
+    window.open(`/api/affiliate/redirect/${productId}?src=website`, "_blank")
   }, [])
 
-  const resetFilters = useCallback(() => {
-    setSelectedCategories([])
-    setSelectedSources([])
-    setSort("newest")
-    setSearchQuery("")
-  }, [])
-
-  const handleCategoryChange = useCallback((slug: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    )
-  }, [])
-
-  const handleSourceChange = useCallback((slug: string) => {
-    setSelectedSources(prev =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    )
-  }, [])
-
-  const handleSortChange = useCallback((newSort: string) => {
-    setSort(newSort)
-  }, [])
-
-  const handleLoadMore = useCallback(() => {
-    fetchNextPage()
-  }, [fetchNextPage])
+  const handleLoadMore = useCallback(() => fetchNextPage(), [fetchNextPage])
 
   return (
     <>
       <NotificationBanner />
-      <Navbar onSearch={handleSearch} searchQuery={searchQuery} />
+      <Navbar onSearch={setQ} searchQuery={q} />
       <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
       <TrendingWidget onBuyProduct={handleBuyProduct} />
       <FeaturedSection products={topRatedProducts} isLoading={isTopRatedLoading} onBuyProduct={handleBuyProduct} />
@@ -95,19 +61,19 @@ export default function Home() {
             onBuyProduct={handleBuyProduct}
             isLoading={isLoading}
             error={error?.message}
-            onResetCategory={resetFilters}
+            onResetCategory={resetAll}
             sort={sort}
-            onSortChange={handleSortChange}
+            onSortChange={setSort}
             hasMore={hasNextPage}
             onLoadMore={handleLoadMore}
             isLoadMoreLoading={isFetchingNextPage}
-            categories={categories}
-            activeSlugs={selectedCategories}
-            onCategoryChange={handleCategoryChange}
+            categories={categoryList}
+            activeSlugs={categories}
+            onCategoryChange={toggleCategory}
             isCategoriesLoading={isCategoriesLoading}
-            sources={sources}
-            activeSources={selectedSources}
-            onSourceChange={handleSourceChange}
+            sources={sourceList}
+            activeSources={sources}
+            onSourceChange={toggleSource}
             isSourcesLoading={isSourcesLoading}
           />
         </div>
@@ -115,5 +81,13 @@ export default function Home() {
       </div>
       <Footer />
     </>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   )
 }

@@ -15,7 +15,7 @@ interface TrendingWidgetProps {
 export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   const { data, isLoading } = useTrending()
   const trackRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ startX: number; startTranslate: number } | null>(null)
+  const dragRef = useRef<{ startX: number; startTranslate: number; isDragging: boolean } | null>(null)
   const hoverRef = useRef(false)
 
   const handleBuy = (productId: string) => {
@@ -29,14 +29,12 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
     return matrix.m41
   }
 
+  const DRAG_THRESHOLD = 5
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    const track = trackRef.current
-    if (!track) return
-    const currentX = getComputedTranslateX()
-    track.style.animation = "none"
-    track.style.transform = `translateX(${currentX}px)`
-    dragRef.current = { startX: e.clientX, startTranslate: currentX }
-    track.setPointerCapture(e.pointerId)
+    if (!trackRef.current) return
+    // Record start position only — don't capture yet so clicks reach child elements
+    dragRef.current = { startX: e.clientX, startTranslate: getComputedTranslateX(), isDragging: false }
   }, [])
 
   const copiesRef = useRef(MIN_COPIES)
@@ -44,6 +42,18 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current || !trackRef.current) return
     const delta = e.clientX - dragRef.current.startX
+
+    if (!dragRef.current.isDragging) {
+      if (Math.abs(delta) < DRAG_THRESHOLD) return
+      // Threshold exceeded — enter drag mode now
+      dragRef.current.isDragging = true
+      const currentX = getComputedTranslateX()
+      trackRef.current.style.animation = "none"
+      trackRef.current.style.transform = `translateX(${currentX}px)`
+      dragRef.current.startTranslate = currentX
+      trackRef.current.setPointerCapture(e.pointerId)
+    }
+
     let next = dragRef.current.startTranslate + delta
     const oneSet = trackRef.current.scrollWidth / copiesRef.current
     if (next > 0) next -= oneSet
@@ -54,20 +64,21 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   const handlePointerUp = useCallback(() => {
     const track = trackRef.current
     if (!track || !dragRef.current) return
-    const currentX = getComputedTranslateX()
-    const oneSet = track.scrollWidth / copiesRef.current
-    if (oneSet <= 0) { dragRef.current = null; return }
-    // Normalize into [-oneSet, 0]
-    let normalized = currentX % oneSet
-    if (normalized > 0) normalized -= oneSet
-    // Resume animation from current position
-    const duration = oneSet / PX_PER_SEC
-    const pct = Math.abs(normalized) / oneSet
-    const delay = -(pct * duration)
-    track.style.setProperty("--trending-scroll-dist", `-${oneSet}px`)
-    track.style.transform = ""
-    track.style.animation = `trending-scroll ${duration}s linear ${delay}s infinite`
-    if (hoverRef.current) track.style.animationPlayState = "paused"
+    if (dragRef.current.isDragging) {
+      const currentX = getComputedTranslateX()
+      const oneSet = track.scrollWidth / copiesRef.current
+      if (oneSet > 0) {
+        let normalized = currentX % oneSet
+        if (normalized > 0) normalized -= oneSet
+        const duration = oneSet / PX_PER_SEC
+        const pct = Math.abs(normalized) / oneSet
+        const delay = -(pct * duration)
+        track.style.setProperty("--trending-scroll-dist", `-${oneSet}px`)
+        track.style.transform = ""
+        track.style.animation = `trending-scroll ${duration}s linear ${delay}s infinite`
+        if (hoverRef.current) track.style.animationPlayState = "paused"
+      }
+    }
     dragRef.current = null
   }, [])
 
