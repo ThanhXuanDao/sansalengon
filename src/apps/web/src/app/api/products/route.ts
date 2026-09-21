@@ -19,6 +19,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data, total: products.length })
   }
 
+  const topDiscount = searchParams.get("topDiscount") === "true"
+  if (topDiscount) {
+    const limit = Math.min(20, Math.max(1, Number(searchParams.get("take")) || 10))
+    const [products, numberMap] = await Promise.all([
+      prisma.product.findMany({
+        where: { discountPct: { gt: 0 }, isSoldOut: false },
+        orderBy: { discountPct: "desc" },
+        take: limit,
+        include: { category: true },
+      }),
+      getProductNumberMap(),
+    ])
+    const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
+    return NextResponse.json({ data, total: data.length })
+  }
+
   const mostClicked = searchParams.get("mostClicked") === "true"
   if (mostClicked) {
     const limit = Math.min(20, Math.max(1, Number(searchParams.get("take")) || 6))

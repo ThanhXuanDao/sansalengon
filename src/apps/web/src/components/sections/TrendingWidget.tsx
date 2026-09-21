@@ -108,7 +108,8 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
     return () => cancelAnimationFrame(raf)
   }, [products, copies])
 
-  if (!isLoading && (!data || data.total === 0)) return null
+  const MIN_DISTINCT = 3
+  if (!isLoading && (!data || data.total === 0 || products.length < MIN_DISTINCT)) return null
 
   const windowLabel = data?.windowHours === 1 ? "1 giờ qua" : "24 giờ qua"
 

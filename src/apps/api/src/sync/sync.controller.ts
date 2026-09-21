@@ -172,9 +172,9 @@ export class SyncController {
     this.checkAuth(auth)
     if (!body.productUrl?.trim()) throw new BadRequestException("productUrl is required")
     try {
-      const affiliateUrl = await this.dealSync.createAtLinkForProduct(body.productUrl, body.campaignId)
-      this.log.log(`[create-at-link] ok url=${body.productUrl} → ${affiliateUrl}`)
-      return { ok: true, affiliateUrl }
+      const result = await this.dealSync.createAtLinkForProduct(body.productUrl, body.campaignId)
+      this.log.log(`[create-at-link] ok url=${body.productUrl} campaign=${result.campaignId} → ${result.affiliateUrl}`)
+      return { ok: true, affiliateUrl: result.affiliateUrl, campaignId: result.campaignId }
     } catch (e: any) {
       this.log.error(`[create-at-link] FAILED url=${body.productUrl} error=${e?.message}`)
       if (e instanceof BadRequestException) throw e

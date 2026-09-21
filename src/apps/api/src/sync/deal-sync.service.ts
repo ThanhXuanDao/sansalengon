@@ -1020,7 +1020,7 @@ export class DealSyncService {
   // Tạo AT tracking link cho 1 product URL đơn lẻ (dùng từ admin form).
   // Source slug + atCampaignId lấy từ SyncSource DB — không hardcode.
   // Delegate campaign resolution về findCampaignForSource (logic dùng chung với auto-sync).
-  async createAtLinkForProduct(productUrl: string, campaignId?: string): Promise<string> {
+  async createAtLinkForProduct(productUrl: string, campaignId?: string): Promise<{ affiliateUrl: string; campaignId: string }> {
     let hostname: string
     try {
       hostname = new URL(productUrl).hostname.replace(/^www\./, "")
@@ -1058,7 +1058,7 @@ export class DealSyncService {
       urls: [productUrl],
       subIds: { sub1: "manual" },
     })
-    return link.shortLink ?? link.affiliateLink
+    return { affiliateUrl: link.shortLink ?? link.affiliateLink, campaignId: campaign.id }
   }
 
   async getApprovedCampaigns(): Promise<AccessTradeCampaign[]> {

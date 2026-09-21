@@ -155,8 +155,8 @@ export class ScraperEngine {
       name,
       url: productUrl,
       imageUrl,
-      price: priceVnd * 100,
-      originalPrice: origVnd > priceVnd ? origVnd * 100 : undefined,
+      price: priceVnd,
+      originalPrice: origVnd > priceVnd ? origVnd : undefined,
       inStock,
     }
   }

@@ -215,6 +215,7 @@ export function ProductFormModal({ open, onClose, productId, onSaved }: ProductF
       const json = await res.json()
       if (!res.ok) throw new Error(json?.message ?? json?.error ?? "Tạo AT link thất bại")
       set("affiliateUrl", json.affiliateUrl)
+      if (json.campaignId) set("atCampaignId", json.campaignId)
       success("Đã tạo AT link!")
     } catch (e: unknown) {
       toastError(e instanceof Error ? e.message : "Không tạo được AT link")

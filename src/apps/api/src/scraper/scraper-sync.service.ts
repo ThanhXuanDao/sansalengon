@@ -295,8 +295,8 @@ export class ScraperSyncService {
           name: String(name).slice(0, 255),
           url: productUrl,
           imageUrl: String(item.image ?? item.image_url ?? item.thumbnail ?? ""),
-          price: Math.round(rawPrice * 100),
-          originalPrice: item.original_price ? Math.round(Number(item.original_price) * 100) : undefined,
+          price: Math.round(rawPrice),
+          originalPrice: item.original_price ? Math.round(Number(item.original_price)) : undefined,
           inStock: true,
         })
 
@@ -373,6 +373,7 @@ export class ScraperSyncService {
           update: {
             categoryId: p.nicheSlug,
             price: p.price,
+            originalPrice: p.originalPrice ?? null,
             productUrl: p.url,
             affiliateUrl,
             lastSyncedAt: new Date(),
@@ -390,6 +391,7 @@ export class ScraperSyncService {
             productUrl: p.url,
             affiliateUrl,
             price: p.price,
+            originalPrice: p.originalPrice ?? null,
             commission: 0,
             rating: 0,
             categoryId: p.nicheSlug,

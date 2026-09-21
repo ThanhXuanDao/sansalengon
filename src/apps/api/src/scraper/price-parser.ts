@@ -19,5 +19,5 @@ export function parseViPrice(raw: string): number {
     .replace(/\./g, "")        // remove thousands-separator dots
     .trim()
   const vnd = parseInt(stripped, 10)
-  return isNaN(vnd) || vnd <= 0 ? 0 : vnd * 100
+  return isNaN(vnd) || vnd <= 0 ? 0 : vnd
 }

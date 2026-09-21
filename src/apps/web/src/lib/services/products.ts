@@ -44,6 +44,13 @@ export async function fetchMostClickedProducts(limit = 6): Promise<Product[]> {
   return json.data
 }
 
+export async function fetchTopDiscountProducts(limit = 10): Promise<Product[]> {
+  const res = await fetch(`/api/products?topDiscount=true&take=${limit}`)
+  if (!res.ok) throw new Error("Failed to fetch top discount products")
+  const json = await res.json()
+  return json.data
+}
+
 export async function fetchProductById(id: string): Promise<Product> {
   const res = await fetch(`/api/products/${id}`)
   if (!res.ok) throw new Error("Failed to fetch product")
