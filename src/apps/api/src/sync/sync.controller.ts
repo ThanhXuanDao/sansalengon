@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Param, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger } from "@nestjs/common"
+import { Controller, Post, Get, Param, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger, InternalServerErrorException } from "@nestjs/common"
+import { fetchShopeeProductInfo, fetchLazadaProductInfo } from "./product-url-fetcher"
 import { ConfigService } from "@nestjs/config"
 import { DealSyncService } from "./deal-sync.service"
 import { CouponSyncService } from "./coupon-sync.service"
@@ -116,6 +117,68 @@ export class SyncController {
       ok: true,
       ...result,
       summary: `${result.total} coupon đã đồng bộ (${sources})`,
+    }
+  }
+
+  // POST /sync/fetch-product-info — lấy thông tin sản phẩm từ Shopee/Lazada affiliate URL
+  @Post("fetch-product-info")
+  @HttpCode(200)
+  async fetchProductInfo(
+    @Headers("authorization") auth: string | undefined,
+    @Body() body: { url: string },
+  ) {
+    this.checkAuth(auth)
+    if (!body.url?.trim()) throw new BadRequestException("url is required")
+
+    let hostname: string
+    try {
+      hostname = new URL(body.url).hostname
+    } catch {
+      throw new BadRequestException("URL không hợp lệ")
+    }
+
+    const source = hostname.includes("shopee") || hostname === "shope.ee" ? "shopee"
+      : hostname.includes("lazada") || hostname.includes("accesstrade") ? "lazada"
+      : null
+    this.log.log(`[fetch-product-info] source=${source ?? "unknown"} url=${body.url}`)
+
+    try {
+      if (source === "shopee") {
+        const info = await fetchShopeeProductInfo(body.url)
+        const priceNote = info.price === 0 ? " price=UNKNOWN(OG fallback)" : ` price=${info.price}`
+        this.log.log(`[fetch-product-info] ok name="${info.name}" externalId=${info.externalId}${priceNote}`)
+        return { ok: true, info }
+      }
+      if (source === "lazada") {
+        const info = await fetchLazadaProductInfo(body.url)
+        this.log.log(`[fetch-product-info] ok name="${info.name}" externalId=${info.externalId}`)
+        return { ok: true, info }
+      }
+      throw new BadRequestException("URL phải từ Shopee hoặc Lazada (shope.ee, s.shopee.vn, lazada.vn, c.lazada.vn, accesstrade.vn)")
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e
+      this.log.error(`[fetch-product-info] FAILED source=${source ?? "unknown"} url=${body.url} error=${e?.message}`)
+      throw new InternalServerErrorException(e?.message ?? "Không lấy được thông tin sản phẩm")
+    }
+  }
+
+  // POST /sync/create-at-link — tạo AccessTrade tracking link cho 1 product URL
+  @Post("create-at-link")
+  @HttpCode(200)
+  async createAtLink(
+    @Headers("authorization") auth: string | undefined,
+    @Body() body: { productUrl: string; campaignId?: string },
+  ) {
+    this.checkAuth(auth)
+    if (!body.productUrl?.trim()) throw new BadRequestException("productUrl is required")
+    try {
+      const affiliateUrl = await this.dealSync.createAtLinkForProduct(body.productUrl, body.campaignId)
+      this.log.log(`[create-at-link] ok url=${body.productUrl} → ${affiliateUrl}`)
+      return { ok: true, affiliateUrl }
+    } catch (e: any) {
+      this.log.error(`[create-at-link] FAILED url=${body.productUrl} error=${e?.message}`)
+      if (e instanceof BadRequestException) throw e
+      throw new InternalServerErrorException(e?.message ?? "Không tạo được AT link")
     }
   }
 

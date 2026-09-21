@@ -18,8 +18,9 @@ model Product {
   discountPct      Int?
   imageUrl         String
   imageAlt         String
-  productUrl       String
-  affiliateUrl     String?
+  productUrl            String
+  affiliateUrl          String?   // AT (AccessTrade) tracking link
+  platformAffiliateUrl  String?   // link affiliate của platform (Shopee an_redir, Lazada c.lazada.vn)
   source           String            @default("shopee")
   sourceLogoUrl    String?                               // logo của nguồn — từ AtCampaign.logoUrl khi sync
   externalId       String?

@@ -6,6 +6,7 @@ import { Plus, Search, Copy, Pencil, Trash2, ImageIcon } from "lucide-react"
 import { Star, AlertTriangle } from "lucide-react"
 import { fetchProducts, deleteProduct, updateProduct } from "@/lib/services/products"
 import { useCategories } from "@/hooks/useCategories"
+import { useSources } from "@/hooks/useSources"
 import { formatPrice } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import {
@@ -38,19 +39,15 @@ const SOLDOUT_OPTIONS = [
   { value: "soldout", label: "Hết hàng" },
 ]
 
-const SOURCE_OPTIONS = [
-  { value: "all",         label: "Tất cả nguồn" },
-  { value: "tiki",        label: "Tiki" },
-  { value: "shopee",      label: "Shopee" },
-  { value: "accesstrade", label: "AccessTrade" },
-  { value: "lazada",      label: "Lazada" },
-]
 
 const SOURCE_STYLE: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  tiki:        { label: "Tiki",        bg: "bg-[#e3f2fd]", text: "text-[#0d5cb6]", border: "border-[#0d5cb6]/20" },
-  shopee:      { label: "Shopee",      bg: "bg-[#fff3e0]", text: "text-[#c05800]", border: "border-[#c05800]/20" },
-  accesstrade: { label: "AccessTrade", bg: "bg-[#f3e8ff]", text: "text-[#7c3aed]", border: "border-[#7c3aed]/20" },
-  lazada:      { label: "Lazada",      bg: "bg-[#e8f5e9]", text: "text-[#1a6b3c]", border: "border-[#1a6b3c]/20" },
+  tiki:         { label: "Tiki",         bg: "bg-[#e3f2fd]", text: "text-[#0d5cb6]", border: "border-[#0d5cb6]/20" },
+  shopee:       { label: "Shopee",       bg: "bg-[#fff3e0]", text: "text-[#c05800]", border: "border-[#c05800]/20" },
+  accesstrade:  { label: "AccessTrade",  bg: "bg-[#f3e8ff]", text: "text-[#7c3aed]", border: "border-[#7c3aed]/20" },
+  lazada:       { label: "Lazada",       bg: "bg-[#e8f5e9]", text: "text-[#1a6b3c]", border: "border-[#1a6b3c]/20" },
+  cellphones:   { label: "CellphoneS",   bg: "bg-[#fce4ec]", text: "text-[#c2185b]", border: "border-[#c2185b]/20" },
+  kingfoodmart: { label: "KingFoodMart", bg: "bg-[#e8f5e9]", text: "text-[#2e7d32]", border: "border-[#2e7d32]/20" },
+  manual:       { label: "Thủ công",     bg: "bg-[#f4f4f1]", text: "text-[#5c403a]", border: "border-[#e5e1d8]" },
 }
 
 function SourceBadge({ source }: { source: string }) {
@@ -83,6 +80,13 @@ const SORT_MAP: Record<string, { asc: string; desc: string }> = {
 export default function AdminProducts() {
   const { success, error: toastError } = useToast()
   const { data: dbCategories } = useCategories()
+  const { data: syncSources } = useSources()
+
+  const sourceOptions = useMemo(() => [
+    { value: "all",    label: "Tất cả nguồn" },
+    ...(syncSources?.map((s) => ({ value: s.slug, label: s.name })) ?? []),
+    { value: "manual", label: "Thủ công" },
+  ], [syncSources])
 
   const [search, setSearch]     = useState("")
   const [category, setCategory] = useState("semua")
@@ -248,7 +252,7 @@ export default function AdminProducts() {
               label="Nguồn"
               value={sourceFilter}
               onChange={(v) => { setSourceFilter(v); setPage(1) }}
-              options={SOURCE_OPTIONS}
+              options={sourceOptions}
               id="filter-source"
             />
           </>

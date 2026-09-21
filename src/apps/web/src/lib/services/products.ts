@@ -61,9 +61,12 @@ export async function createProduct(data: {
   imageAlt?: string
   productUrl: string
   affiliateUrl?: string | null
+  platformAffiliateUrl?: string | null
   categoryId: string
+  source?: string
   isFeatured?: boolean
   isSoldOut?: boolean
+  atCampaignId?: string | null
 }): Promise<Product> {
   const res = await fetch("/api/products", {
     method: "POST",
@@ -87,9 +90,12 @@ export async function updateProduct(
     imageAlt?: string
     productUrl: string
     affiliateUrl?: string | null
+    platformAffiliateUrl?: string | null
     categoryId: string
+    source?: string
     isFeatured?: boolean
     isSoldOut?: boolean
+    atCampaignId?: string | null
   }
 ): Promise<Product> {
   const res = await fetch(`/api/products/${id}`, {

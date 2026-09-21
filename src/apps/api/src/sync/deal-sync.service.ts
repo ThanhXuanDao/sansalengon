@@ -58,6 +58,39 @@ const PRICE_HISTORY_RETENTION_DAYS = 90;
 const SRC = "deal-sync";
 const AT_OFFERS_API = "https://api.accesstrade.vn/v1/offers";
 
+// ── Lazada constants ─────────────────────────────────────────────────────────
+const LAZADA_DEFAULT_PAGE_SIZE = 40;
+const LAZADA_DEFAULT_MAX_KEYWORDS = 5;
+const LAZADA_INTER_KEYWORD_DELAY_MS = 1500;
+
+// ── Shopee scrape constants ──────────────────────────────────────────────────
+// Internal JSON API — Shopee website frontend tự gọi
+const SHOPEE_SEARCH_API = "https://shopee.vn/api/v4/search/search_items";
+// Cookie warm-up — seed SPC_F + csrftoken mà không cần login (pattern từ akherlan/onlineshop)
+const SHOPEE_WARMUP_URL = "https://shopee.vn/api/v4/pages/is_short_url/";
+const SHOPEE_AN_REDIR_BASE = "https://s.shopee.vn/an_redir";
+const SHOPEE_CDN_BASE = "https://cf.shopee.vn/file";
+const SHOPEE_PRODUCT_BASE = "https://shopee.vn";
+// Cookie session TTL — 25 phút (SPC_F cookie expires ~30 phút)
+const SHOPEE_SESSION_TTL_MS = 25 * 60 * 1000;
+// Rotate UA để tránh fingerprinting
+const SHOPEE_UAS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+];
+
+interface ShopeeScrapedItem {
+  itemId: string;
+  shopId: string;
+  name: string;
+  imageUrl: string;
+  productUrl: string;
+  price: number;
+  originalPrice: number | null;
+  rating: number | null;
+}
+
 function toBrandSlug(merchant: string): string {
   return merchant
     .toLowerCase()
@@ -146,6 +179,11 @@ export class DealSyncService {
   private syncRunning = false;
   readonly syncStatus: SyncStatusPayload = { running: false, completedAt: null, result: null };
 
+  // Shopee session — cookie warm-up cache (SPC_F + csrftoken)
+  private shopeeSession: { cookies: string; csrfToken: string; expiresAt: number } | null = null;
+  // Fast-fail: khi phát hiện IP block, bỏ qua toàn bộ Shopee sync trong 1 giờ
+  private shopeeBlockedUntil = 0;
+
   constructor(
     private readonly cfg: ConfigService,
     private readonly shopee: ShopeeAffiliateClient,
@@ -199,7 +237,7 @@ export class DealSyncService {
 
     if (sourceConfig.type !== "scraper") {
       // Determine AT campaign + affiliate strategy
-      const campaignResult = await this.findCampaignForSource(source, sourceConfig);
+      const campaignResult = await this.findCampaignForSource(source, sourceConfig.atCampaignId);
       atCampaign = campaignResult.campaign;
       const campaignType = campaignResult.campaignType;
       if (atCampaign) {
@@ -490,6 +528,33 @@ export class DealSyncService {
     }
   }
 
+  private async readLazadaConfig(): Promise<{
+    syncMode: "api" | "at";
+    pageSize: number;
+    maxKeywords: number;
+    keywords: Record<string, string[]>;
+  }> {
+    const defaults = {
+      syncMode: "api" as const,
+      pageSize: LAZADA_DEFAULT_PAGE_SIZE,
+      maxKeywords: LAZADA_DEFAULT_MAX_KEYWORDS,
+      keywords: {} as Record<string, string[]>,
+    };
+    try {
+      const row = await this.prisma.syncSource.findUnique({ where: { slug: "lazada" } });
+      if (!row?.config) return defaults;
+      const cfg = JSON.parse(row.config as string);
+      return {
+        syncMode: cfg.lazadaSyncMode === "at" ? "at" : "api",
+        pageSize: Number(cfg.lazadaPageSize) || LAZADA_DEFAULT_PAGE_SIZE,
+        maxKeywords: Number(cfg.lazadaMaxKeywords) || LAZADA_DEFAULT_MAX_KEYWORDS,
+        keywords: cfg.lazadaKeywords || {},
+      };
+    } catch {
+      return defaults;
+    }
+  }
+
   private async readTikiSyncConfig(): Promise<{
     tikiBatchSize: number;
     tikiBatchPauseMin: number;
@@ -564,7 +629,63 @@ export class DealSyncService {
     }
   }
 
+  // ── Shopee config reader ─────────────────────────────────────────────────
+
+  private async readShopeeConfig(): Promise<{
+    syncMode: "api" | "scrape";
+    affiliateId: string;
+    scrapeMaxPages: number;
+    scrapeDelayMs: number;
+    keywords: Record<string, string[]>;
+  }> {
+    const defaults = {
+      syncMode: "api" as const,
+      affiliateId: this.cfg.get<string>("SHOPEE_AFFILIATE_ID") ?? "",
+      scrapeMaxPages: 2,
+      scrapeDelayMs: 2000,
+      keywords: {} as Record<string, string[]>,
+    };
+    try {
+      const row = await this.prisma.syncSource.findUnique({ where: { slug: "shopee" } });
+      if (!row) return defaults;
+      const cfg = JSON.parse(row.config as string);
+      return {
+        syncMode: cfg.syncMode === "scrape" ? "scrape" : "api",
+        affiliateId: cfg.affiliateId ?? this.cfg.get<string>("SHOPEE_AFFILIATE_ID") ?? "",
+        scrapeMaxPages: cfg.scrapeMaxPages ?? 2,
+        scrapeDelayMs: cfg.scrapeDelayMs ?? 2000,
+        keywords: cfg.keywords ?? {},
+      };
+    } catch {
+      return defaults;
+    }
+  }
+
+  // ── Shopee dispatcher ─────────────────────────────────────────────────────
+
   private async fetchShopeeProducts(niche: NicheConfig): Promise<FetchedProduct[]> {
+    const config = await this.readShopeeConfig();
+    if (config.syncMode === "scrape") {
+      if (!config.affiliateId) {
+        this.log.warn(`[Shopee] syncMode=scrape nhưng affiliateId chưa được set — bỏ qua sync`);
+        await this.slog.warn(`[Shopee] Thiếu affiliateId cho scrape mode`, SRC, { niche: niche.id });
+        return [];
+      }
+      // Fast-fail: nếu đã biết IP bị block trong session này, bỏ qua ngay
+      if (Date.now() < this.shopeeBlockedUntil) {
+        this.log.warn(`[Shopee] IP đang bị block — bỏ qua ngách "${niche.name}" (cần SHOPEE_PROXY_URL)`);
+        return [];
+      }
+      this.log.log(`[Shopee] Ngách: ${niche.name} — mode=scrape (JSON API + an_redir)`);
+      return this.fetchShopeeViaScrape(niche, config);
+    }
+    this.log.log(`[Shopee] Ngách: ${niche.name} — mode=api (Affiliate Open API)`);
+    return this.fetchShopeeViaApi(niche);
+  }
+
+  // ── Shopee mode=api (cũ — cần SHOPEE_AFFILIATE_APP_ID + APP_SECRET) ────────
+
+  private async fetchShopeeViaApi(niche: NicheConfig): Promise<FetchedProduct[]> {
     const results: FetchedProduct[] = [];
     const keywords = niche.shopee?.keyword_seeds ?? [];
 
@@ -597,17 +718,223 @@ export class DealSyncService {
           });
         }
       } catch (e: any) {
-        this.log.warn(`Shopee search failed for keyword "${keyword}": ${e.message}`);
-        await this.slog.warn(`Shopee search thất bại`, SRC, {
-          niche: niche.id,
-          keyword,
-          error: e.message,
-          code: e.code,
+        this.log.warn(`[Shopee API] keyword "${keyword}" thất bại: ${e.message}`);
+        await this.slog.warn(`Shopee API search thất bại`, SRC, {
+          niche: niche.id, keyword, error: e.message, code: (e as any).code,
         });
       }
     }
 
     return results;
+  }
+
+  // ── Shopee mode=scrape (Googlebot + an_redir) ─────────────────────────────
+
+  private async fetchShopeeViaScrape(
+    niche: NicheConfig,
+    config: { affiliateId: string; scrapeMaxPages: number; scrapeDelayMs: number; keywords: Record<string, string[]> },
+  ): Promise<FetchedProduct[]> {
+    const results: FetchedProduct[] = [];
+    const keywords = config.keywords[niche.id] ?? niche.shopee?.keyword_seeds ?? [niche.name];
+    let ipBlocked = false;
+
+    for (let ki = 0; ki < keywords.length; ki++) {
+      if (ipBlocked) break;
+      const keyword = keywords[ki];
+      if (ki > 0) await sleep(config.scrapeDelayMs);
+
+      for (let page = 0; page < config.scrapeMaxPages; page++) {
+        if (page > 0) await sleep(config.scrapeDelayMs);
+        try {
+          const items = await this.scrapeShopeeSearchPage(keyword, page);
+          if (items.length === 0) break;
+
+          for (const item of items) {
+            results.push({
+              externalId: `${item.shopId}_${item.itemId}`,
+              source: "shopee",
+              name: item.name.slice(0, 255),
+              imageUrl: item.imageUrl,
+              shopUrl: item.productUrl,
+              affiliateUrl: this.buildShopeeAffiliateUrl(item.productUrl, config.affiliateId),
+              currentPrice: item.price,
+              originalPrice: item.originalPrice,
+              commissionRate: 0,
+              rating: item.rating,
+            });
+          }
+
+          this.log.log(`[Shopee scrape] kw="${keyword}" page=${page}: ${items.length} sản phẩm`);
+          if (items.length < 20) break;
+        } catch (e: any) {
+          const msg: string = e.message ?? "";
+          // Khi bị block IP: set flag, dừng ngay — không thử thêm keywords hay pages
+          if (msg.includes("403") && !this.cfg.get("SHOPEE_PROXY_URL")) {
+            this.shopeeBlockedUntil = Date.now() + 60 * 60 * 1000; // block 1 tiếng
+            this.log.warn(`[Shopee] IP bị block — dừng sync Shopee. Cần SHOPEE_PROXY_URL để tiếp tục`);
+            await this.slog.warn(`[Shopee] IP bị block — dừng toàn bộ sync Shopee`, SRC, {
+              niche: niche.id, hint: "Set SHOPEE_PROXY_URL (residential proxy) trong .env",
+            });
+            ipBlocked = true;
+          } else {
+            this.log.warn(`[Shopee scrape] kw="${keyword}" page=${page} lỗi: ${msg}`);
+            await this.slog.warn(`Shopee scrape thất bại`, SRC, { niche: niche.id, keyword, page, error: msg });
+          }
+          break;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private buildShopeeAffiliateUrl(productUrl: string, affiliateId: string): string {
+    return `${SHOPEE_AN_REDIR_BASE}?origin_link=${encodeURIComponent(productUrl)}&affiliate_id=${affiliateId}`;
+  }
+
+  // Cookie warm-up: seed SPC_F + csrftoken từ Shopee mà không cần login
+  // Pattern từ github.com/akherlan/onlineshop — cookies này đủ cho public search endpoints
+  private async getShopeeCookies(): Promise<{ cookies: string; csrfToken: string }> {
+    if (this.shopeeSession && Date.now() < this.shopeeSession.expiresAt) {
+      return this.shopeeSession;
+    }
+
+    const proxyUrl = this.cfg.get<string>("SHOPEE_PROXY_URL");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const dispatcher = proxyUrl ? new (require("undici").ProxyAgent)(proxyUrl) : undefined;
+
+    try {
+      const res = await fetch(SHOPEE_WARMUP_URL, {
+        method: "GET",
+        // @ts-expect-error undici dispatcher
+        dispatcher,
+        headers: {
+          "User-Agent": SHOPEE_UAS[0],
+          "Accept": "application/json",
+          "Referer": "https://shopee.vn/",
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      // Collect all Set-Cookie headers
+      const setCookies: string[] = [];
+      res.headers.forEach((value, name) => {
+        if (name.toLowerCase() === "set-cookie") setCookies.push(value);
+      });
+      // Node 18+ fetch exposes raw headers differently — try getSetCookie too
+      const rawSetCookie = (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? setCookies;
+
+      const cookieStr = rawSetCookie.map((c) => c.split(";")[0]).join("; ");
+      const csrfToken = rawSetCookie
+        .map((c) => c.split(";")[0])
+        .find((c) => c.startsWith("csrftoken="))
+        ?.replace("csrftoken=", "") ?? "";
+
+      this.shopeeSession = { cookies: cookieStr, csrfToken, expiresAt: Date.now() + SHOPEE_SESSION_TTL_MS };
+      this.log.log(`[Shopee] Session seed OK — SPC_F=${cookieStr.includes("SPC_F") ? "✓" : "✗"} csrftoken=${csrfToken ? "✓" : "✗"}`);
+      return this.shopeeSession;
+    } catch (e: any) {
+      this.log.warn(`[Shopee] Cookie warm-up thất bại: ${e.message} — tiếp tục không có cookie`);
+      return { cookies: "", csrfToken: "" };
+    }
+  }
+
+  // Gọi Shopee internal JSON API (endpoint website frontend dùng)
+  // Shopee lưu giá dưới dạng micro-VND (price × 100000)
+  // Yêu cầu SHOPEE_PROXY_URL khi deploy trên server (Shopee block datacenter IP)
+  private async scrapeShopeeSearchPage(keyword: string, page: number): Promise<ShopeeScrapedItem[]> {
+    const newest = page * 20;
+    const ua = SHOPEE_UAS[page % SHOPEE_UAS.length];
+    const referer = `https://shopee.vn/search?keyword=${encodeURIComponent(keyword)}&order=desc&page=${page}&rating_filter=0&scenario=PAGE_GLOBAL_SEARCH&sortBy=relevancy`;
+
+    const { cookies, csrfToken } = await this.getShopeeCookies();
+
+    const url = new URL(SHOPEE_SEARCH_API);
+    url.searchParams.set("by", "relevancy");
+    url.searchParams.set("keyword", keyword);
+    url.searchParams.set("limit", "20");
+    url.searchParams.set("newest", String(newest));
+    url.searchParams.set("order", "desc");
+    url.searchParams.set("page_type", "search");
+    url.searchParams.set("scenario", "PAGE_GLOBAL_SEARCH");
+    url.searchParams.set("version", "2");
+
+    // Route qua proxy nếu có — cần trên server vì Shopee block datacenter IP
+    const proxyUrl = this.cfg.get<string>("SHOPEE_PROXY_URL");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const dispatcher = proxyUrl ? new (require("undici").ProxyAgent)(proxyUrl) : undefined;
+
+    const headers: Record<string, string> = {
+      "User-Agent": ua,
+      "Accept": "application/json",
+      "Accept-Language": "vi-VN,vi;q=0.9",
+      "Referer": referer,
+      "x-api-source": "pc",
+      "x-shopee-language": "vi",
+      "x-requested-with": "XMLHttpRequest",
+    };
+    if (cookies) headers["Cookie"] = cookies;
+    if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+
+    const res = await fetch(url.toString(), {
+      // @ts-expect-error undici dispatcher — Node 18+ built-in fetch hỗ trợ
+      dispatcher,
+      headers,
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+      if (res.status === 403 && !proxyUrl) {
+        throw new Error(`HTTP 403 — Shopee block datacenter IP. Set SHOPEE_PROXY_URL để dùng residential proxy`);
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const json = await res.json() as Record<string, unknown>;
+
+    // Response: { items: [{ item_basic: {...} }], ... }
+    const rawItems = (json.items as unknown[]) ?? [];
+    if (rawItems.length === 0) return [];
+
+    return rawItems.flatMap((raw) => {
+      const item = ((raw as Record<string, unknown>).item_basic ?? raw) as Record<string, unknown>;
+      const parsed = this.normalizeShopeeApiItem(item);
+      return parsed ? [parsed] : [];
+    });
+  }
+
+  private normalizeShopeeApiItem(i: Record<string, unknown>): ShopeeScrapedItem | null {
+    try {
+      const itemId = String(i.itemid ?? i.item_id ?? "");
+      const shopId = String(i.shopid ?? i.shop_id ?? "");
+      if (!itemId || !shopId) return null;
+
+      const name = String(i.name ?? "").trim();
+      if (!name) return null;
+
+      // Shopee API returns price in micro-VND (price * 100000)
+      const rawPrice = Number(i.price ?? i.price_min ?? 0);
+      if (rawPrice <= 0) return null;
+      const price = Math.round(rawPrice / 100000);
+
+      const rawOriginal = Number(i.price_before_discount ?? 0);
+      const originalPrice = rawOriginal > rawPrice
+        ? Math.round(rawOriginal / 100000)
+        : null;
+
+      const imgPath = String(i.image ?? "");
+      const imageUrl = imgPath ? `${SHOPEE_CDN_BASE}/${imgPath}` : "";
+
+      const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60);
+      const productUrl = `${SHOPEE_PRODUCT_BASE}/${nameSlug}-i.${shopId}.${itemId}`;
+
+      const ratingData = i.item_rating as Record<string, unknown> | undefined;
+      const rating = ratingData ? (Number(ratingData.rating_star) || null) : null;
+
+      return { itemId, shopId, name, imageUrl, productUrl, price, originalPrice, rating };
+    } catch {
+      return null;
+    }
   }
 
   private async fetchShopeeWithAtTracking(niche: NicheConfig, campaign: AccessTradeCampaign): Promise<FetchedProduct[]> {
@@ -690,6 +1017,50 @@ export class DealSyncService {
     });
   }
 
+  // Tạo AT tracking link cho 1 product URL đơn lẻ (dùng từ admin form).
+  // Source slug + atCampaignId lấy từ SyncSource DB — không hardcode.
+  // Delegate campaign resolution về findCampaignForSource (logic dùng chung với auto-sync).
+  async createAtLinkForProduct(productUrl: string, campaignId?: string): Promise<string> {
+    let hostname: string
+    try {
+      hostname = new URL(productUrl).hostname.replace(/^www\./, "")
+    } catch {
+      throw new Error("productUrl không hợp lệ")
+    }
+
+    // Tìm SyncSource khớp với hostname — tránh hardcode tên platform
+    const dbSource = await this.prisma.syncSource.findFirst({
+      where: { baseUrl: { contains: hostname } },
+      select: { slug: true, config: true },
+    })
+    const sourceSlug = dbSource?.slug ?? hostname.split(".")[0]
+
+    // campaignId ưu tiên: param > SyncSource.config.atCampaignId > auto-match
+    let atCampaignIdOverride = campaignId
+    if (!atCampaignIdOverride && dbSource?.config) {
+      try {
+        const cfg = JSON.parse(dbSource.config) as SyncSourceConfig
+        atCampaignIdOverride = cfg.atCampaignId
+      } catch { /* ignore malformed config */ }
+    }
+
+    const { campaign } = await this.findCampaignForSource(sourceSlug, atCampaignIdOverride)
+    if (!campaign) {
+      const all = await this.getApprovedCampaigns()
+      throw new Error(
+        `Không tìm thấy AT campaign cho "${sourceSlug}". Các campaign hiện có: ${all.map((c) => c.name).join(", ") || "không có"}`,
+      )
+    }
+
+    this.log.log(`[create-at-link] campaign="${campaign.name}" id=${campaign.id} url=${productUrl}`)
+    const link = await this.accesstrade.createTrackingLink({
+      campaignId: campaign.id,
+      urls: [productUrl],
+      subIds: { sub1: "manual" },
+    })
+    return link.shortLink ?? link.affiliateLink
+  }
+
   async getApprovedCampaigns(): Promise<AccessTradeCampaign[]> {
     if (this.atCampaignsCache && Date.now() - this.atCampaignsCache.fetchedAt < this.AT_CAMPAIGNS_CACHE_TTL) {
       return this.atCampaignsCache.campaigns;
@@ -738,6 +1109,8 @@ export class DealSyncService {
   // Detect khi lần đầu lưu vào DB; update sau không override để bảo toàn setting thủ công.
   private detectCampaignType(name: string, merchant: string): string {
     const lower = `${name} ${merchant}`.toLowerCase();
+    // "Smartlink" / "smart link" = URL wrapping, luôn là tracking dù platform nào
+    if (lower.includes("smartlink") || lower.includes("smart link")) return "tracking";
     // Chỉ nhận "product" cho các platform lớn có product feed thật sự qua AT /v1/offers
     const productFeedPlatforms = ["lazada", "shopee", "sendo"];
     if (productFeedPlatforms.some((p) => lower.includes(p))) return "product";
@@ -922,7 +1295,7 @@ export class DealSyncService {
   // Tìm AT campaign phù hợp với source slug (theo tên/merchant) + trả về campaignType từ DB
   private async findCampaignForSource(
     sourceSlug: string,
-    config: SyncSourceConfig,
+    atCampaignIdOverride?: string,
   ): Promise<{ campaign: AccessTradeCampaign | null; campaignType: "product" | "tracking" }> {
     this.log.log(`[${sourceSlug}] Lấy danh sách AT campaign (DB-first 4h TTL)...`);
     const campaigns = await this.getAtCampaignsWithFreshnessCheck();
@@ -935,8 +1308,8 @@ export class DealSyncService {
     const typeMap = new Map(dbTypes.map((r) => [r.id, (r.campaignType ?? "product") as "product" | "tracking"]));
 
     // Explicit override từ config
-    if (config.atCampaignId) {
-      const found = campaigns.find((c) => c.id === config.atCampaignId);
+    if (atCampaignIdOverride) {
+      const found = campaigns.find((c) => c.id === atCampaignIdOverride);
       if (found) return { campaign: found, campaignType: (typeMap.get(found.id) ?? "product") as "product" | "tracking" };
     }
 
@@ -1097,20 +1470,14 @@ export class DealSyncService {
           }
 
         } else if (nameLower.includes("lazada")) {
-          // Lazada: chỉ fetch nếu lazadaMode = "at" (Option 2)
-          // Khi source="lazada", fetchLazadaProducts() đã xử lý riêng → skip ở đây
+          // Lazada: khi source="lazada", fetchLazadaProducts() đã xử lý riêng → skip
           if (source === "lazada") {
             this.log.debug(`[${niche.name}] Tracking/Lazada skip — lazada source already running separately`);
-          } else if (srcSettings.lazadaMode === "at") {
-            const integration: NicheIntegration = {
-              enabled: true, atEnabled: false, directEnabled: true,
-              directFallback: false, campaignId: campaign.id,
-            };
-            const r = await this.fetchLazadaDirect(niche, integration);
+          } else {
+            // source="accesstrade": fetch sản phẩm Lazada từ AT offer feed của campaign này
+            const r = await this.fetchOffersForCampaigns([campaign], niche);
             this.log.log(`[${niche.name}] Tracking/Lazada AT (${campaign.name}): ${r.length} products`);
             results.push(...r);
-          } else {
-            this.log.debug(`[${niche.name}] Tracking/Lazada skipped — lazadaMode=affiliate`);
           }
         }
         // Thêm nguồn tracking khác tại đây khi cần
@@ -1171,80 +1538,62 @@ export class DealSyncService {
 
   // ── Lazada integration ──────────────────────────────────────────────────────
 
-  private async fetchLazadaProducts(niche: NicheConfig, integration: NicheIntegration | null): Promise<FetchedProduct[]> {
-    if (!integration?.enabled) return [];
+  private async fetchLazadaProducts(niche: NicheConfig, _integration: NicheIntegration | null): Promise<FetchedProduct[]> {
+    const config = await this.readLazadaConfig();
 
-    let atResults: FetchedProduct[] = [];
-
-    // Cách 1: tìm AT campaign có merchant/tên chứa "lazada"
-    if (integration.atEnabled) {
+    if (config.syncMode === "at") {
       const allCampaigns = await this.getApprovedCampaigns();
-      const lazadaCampaigns = integration.campaignId
-        ? allCampaigns.filter((c) => c.id === integration.campaignId)
-        : allCampaigns.filter((c) =>
-            c.name.toLowerCase().includes("lazada") ||
-            c.merchant.toLowerCase().includes("lazada"),
-          );
-
-      if (lazadaCampaigns.length > 0) {
-        atResults = await this.fetchOffersForCampaigns(lazadaCampaigns, niche);
-        this.log.log(`[${niche.name}] Lazada via AT: ${atResults.length} products from ${lazadaCampaigns.length} campaigns`);
+      const lazadaCampaigns = allCampaigns.filter((c) =>
+        c.name.toLowerCase().includes("lazada") ||
+        c.merchant.toLowerCase().includes("lazada"),
+      );
+      if (lazadaCampaigns.length === 0) {
+        this.log.warn(`[Lazada] Không có AT campaign Lazada — bỏ qua ngách "${niche.name}"`);
+        return [];
       }
+      const results = await this.fetchOffersForCampaigns(lazadaCampaigns, niche);
+      this.log.log(`[Lazada] "${niche.name}" via AT: ${results.length} sản phẩm từ ${lazadaCampaigns.length} campaign`);
+      return results;
     }
 
-    // Cách 2: gọi Lazada Affiliate API qua LazadaAdapter
-    if (integration.directEnabled) {
-      const shouldRunDirect = !integration.directFallback || atResults.length === 0;
-      if (shouldRunDirect) {
-        const directResults = await this.fetchLazadaDirect(niche, integration);
-        this.log.log(`[${niche.name}] Lazada direct API: ${directResults.length} products`);
-        return [...atResults, ...directResults];
-      }
+    // syncMode = "api" — Lazada Affiliate Open Platform
+    const appKey = this.cfg.get<string>("LAZADA_APP_KEY");
+    const appSecret = this.cfg.get<string>("LAZADA_APP_SECRET");
+    if (!appKey || !appSecret) {
+      this.log.warn(`[Lazada] LAZADA_APP_KEY/APP_SECRET chưa cấu hình — bỏ qua ngách "${niche.name}". Xem .env.example`);
+      return [];
     }
 
-    return atResults;
+    const keywords = (config.keywords[niche.id] ?? []).slice(0, config.maxKeywords);
+    if (keywords.length === 0) {
+      this.log.debug(`[Lazada] Không có keyword cho ngách "${niche.name}" — bỏ qua`);
+      return [];
+    }
+
+    return this.fetchLazadaDirect(niche, keywords, config.pageSize);
   }
 
-  private async fetchLazadaDirect(niche: NicheConfig, integration: NicheIntegration): Promise<FetchedProduct[]> {
+  private async fetchLazadaDirect(
+    niche: NicheConfig,
+    keywords: string[],
+    pageSize: number,
+  ): Promise<FetchedProduct[]> {
     const results: FetchedProduct[] = [];
-    const keywords = niche.shopee?.keyword_seeds?.slice(0, 3) ?? [niche.name];
-
-    const allCampaigns = await this.getApprovedCampaigns();
-    const lazadaCampaign = integration.campaignId
-      ? allCampaigns.find((c) => c.id === integration.campaignId) ?? null
-      : allCampaigns.find((c) =>
-          c.name.toLowerCase().includes("lazada") ||
-          c.merchant.toLowerCase().includes("lazada"),
-        ) ?? null;
 
     for (let ki = 0; ki < keywords.length; ki++) {
       const keyword = keywords[ki];
-      if (ki > 0) await sleep(1500);
+      if (ki > 0) await sleep(LAZADA_INTER_KEYWORD_DELAY_MS);
 
       try {
-        const items = await this.lazada.searchByName(keyword, 40);
-
+        const items = await this.lazada.searchByName(keyword, pageSize);
+        let added = 0;
         for (const item of items) {
           const parsed = this.normalizeLazadaProduct(item);
-          if (!parsed) continue;
-
-          // Wrap với AT tracking link nếu có Lazada campaign
-          if (lazadaCampaign) {
-            try {
-              const link = await this.accesstrade.createTrackingLink({
-                campaignId: lazadaCampaign.id,
-                urls: [parsed.shopUrl],
-                subIds: { sub1: niche.id, sub2: "lazada-direct" },
-              });
-              parsed.affiliateUrl = link.shortLink ?? link.affiliateLink;
-            } catch { /* keep raw URL */ }
-          }
-
-          results.push(parsed);
-          await sleep(100);
+          if (parsed) { results.push(parsed); added++; }
         }
+        this.log.debug(`[Lazada] "${keyword}": ${added} sản phẩm`);
       } catch (e: any) {
-        this.log.warn(`[${niche.name}] Lazada direct fetch failed for "${keyword}": ${e.message}`);
+        this.log.warn(`[Lazada] "${niche.name}" fetch thất bại cho "${keyword}": ${e.message}`);
         await this.slog.warn(`Lazada API lỗi khi tìm "${keyword}"`, SRC, {
           niche: niche.id, keyword, error: e.message,
         });

@@ -142,6 +142,9 @@ export class AccessTradePublisherClient {
       if (response.status === 401 || response.status === 403) throw new AccessTradeApiError("auth_failure");
 
       const payload = await this.safeJson(response);
+      if (!response.ok) {
+        throw new AccessTradeApiError("schema_drift", `AT API ${response.status}: ${JSON.stringify(payload).slice(0, 200)}`);
+      }
       const link = normalizeAccessTradeTrackingLink(payload, input.campaignId, originUrl);
       return link;
     } catch (error) {

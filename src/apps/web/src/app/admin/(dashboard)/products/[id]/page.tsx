@@ -14,6 +14,9 @@ const SOURCE_STYLE: Record<string, { label: string; bg: string; text: string }> 
   shopee:      { label: "Shopee",      bg: "bg-[#fff3e0]", text: "text-[#c05800]" },
   accesstrade: { label: "AccessTrade", bg: "bg-[#f3e8ff]", text: "text-[#7c3aed]" },
   lazada:      { label: "Lazada",      bg: "bg-[#e8f5e9]", text: "text-[#1a6b3c]" },
+  cellphones:  { label: "CellphoneS",  bg: "bg-[#fce4ec]", text: "text-[#c2185b]" },
+  kingfoodmart: { label: "KingFoodMart", bg: "bg-[#e8f5e9]", text: "text-[#2e7d32]" },
+  manual:      { label: "Thủ công",    bg: "bg-[#f4f4f1]", text: "text-[#5c403a]" },
 }
 
 function SourceChip({ source, externalId }: { source: string; externalId?: string | null }) {
@@ -35,6 +38,12 @@ export default function EditProduct() {
   const params = useParams()
   const [saving, setSaving] = useState(false)
   const { success, error: toastError } = useToast()
+
+  const copyLink = (url: string, label: string) => {
+    navigator.clipboard.writeText(url)
+      .then(() => success(`Đã copy ${label}!`))
+      .catch(() => toastError("Không copy được"))
+  }
   const [loading, setLoading] = useState(true)
   const [product, setProduct] = useState<Product | null>(null)
   const [isFeatured, setIsFeatured] = useState(false)
@@ -234,10 +243,38 @@ export default function EditProduct() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="font-mono text-[14px] leading-[16px] font-medium text-[#76737b]" htmlFor="affiliateUrl">Link affiliate (AT tracking)</label>
+                <label className="font-mono text-[14px] leading-[16px] font-medium text-[#76737b]" htmlFor="platformUrl">Link platform affiliate</label>
+                {product.platformAffiliateUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => copyLink(product.platformAffiliateUrl!, "Platform link")}
+                    className="font-mono text-[10px] px-1.5 py-0.5 bg-[#e3f2fd] text-[#0d5cb6] border border-[#0d5cb6]/20 hover:bg-[#0d5cb6] hover:text-white transition-colors cursor-copy"
+                    title="Click để copy"
+                  >
+                    ✓ Platform link
+                  </button>
+                ) : (
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#f4f4f1] text-[#76737b] border border-[#e5e1d8]">Chưa có</span>
+                )}
+              </div>
+              <input id="platformUrl" type="url" defaultValue={product.platformAffiliateUrl ?? ""}
+                readOnly
+                className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[14px] leading-[20px] text-[#1a1c1b] opacity-60 cursor-default focus:outline-none" />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-mono text-[14px] leading-[16px] font-medium text-[#76737b]" htmlFor="affiliateUrl">Link AccessTrade (AT)</label>
                 {product.affiliateUrl && product.affiliateUrl !== product.productUrl ? (
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 bg-[#e8f5e9] text-[#1a6b3c] border border-[#1a6b3c]/20">✓ AT link</span>
+                    <button
+                      type="button"
+                      onClick={() => copyLink(product.affiliateUrl!, "AT link")}
+                      className="font-mono text-[10px] px-1.5 py-0.5 bg-[#e8f5e9] text-[#1a6b3c] border border-[#1a6b3c]/20 hover:bg-[#1a6b3c] hover:text-white transition-colors cursor-copy"
+                      title="Click để copy"
+                    >
+                      ✓ AT link
+                    </button>
                     <a href={product.affiliateUrl} target="_blank" rel="noopener noreferrer"
                       className="font-mono text-[10px] text-[#76737b] underline decoration-dashed underline-offset-2 hover:text-[#1a1c1b]">
                       Mở ↗

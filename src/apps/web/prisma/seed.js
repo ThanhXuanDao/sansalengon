@@ -174,13 +174,19 @@ const SYNC_SOURCES = [
     slug: "shopee",
     baseUrl: "https://shopee.vn",
     icon: "https://deo.shopeemobile.com/shopee/shopee-pcmall-live-sg/assets/icon_favicon_1_96.1ce0e05fc18a86e5.png",
-    enabled: true,
-    description: "Shopee — search sản phẩm theo từ khoá, wrap AT tracking link",
+    enabled: false,
+    description: "Shopee — Googlebot scrape + an_redir affiliate link (syncMode=scrape)",
     config: JSON.stringify({
-      // "affiliate" = dùng Shopee Affiliate SDK (cần API key riêng)
-      // "at"        = wrap URL bằng AccessTrade tracking link (như Tiki)
-      mode: "affiliate",
-      // keywords: slug ngách → danh sách từ khoá search Shopee
+      // syncMode: "scrape" — Googlebot scrape shopee.vn + tạo link qua an_redir (chỉ cần affiliateId)
+      // syncMode: "api"    — Shopee Affiliate Open API (cần SHOPEE_AFFILIATE_APP_ID + APP_SECRET)
+      // Để đổi sang API chính thức khi có app_id/secret: chỉ cần sửa syncMode thành "api"
+      syncMode: "scrape",
+      // affiliateId: lấy từ affiliate.shopee.vn → Tài khoản của tôi → ID
+      // Nếu không set ở đây, fallback lấy từ env var SHOPEE_AFFILIATE_ID
+      affiliateId: "17372510071",
+      scrapeMaxPages: 2,
+      scrapeDelayMs: 2000,
+      // keywords: niche slug → mảng keyword search Shopee
       keywords: {
         fashion:     ["áo thun nam", "váy nữ", "giày sneaker", "túi xách nữ", "quần jean nam", "áo khoác", "đầm dự tiệc"],
         electronics: ["tai nghe bluetooth", "ốp lưng điện thoại", "sạc dự phòng", "cáp sạc", "bàn phím cơ", "chuột gaming", "loa bluetooth"],
@@ -204,13 +210,19 @@ const SYNC_SOURCES = [
     baseUrl: "https://lazada.vn",
     icon: "https://img.lazcdn.com/g/tps/images/ims-web/TB1T7K2d8Cw3KVjSZFuXXcAOpXa.png",
     enabled: false,
-    description: "Lazada — search sản phẩm theo từ khoá, wrap AT tracking link",
+    description: "Lazada — Affiliate Open Platform API (LAZADA_APP_KEY/SECRET) hoặc wrap AT tracking link",
     config: JSON.stringify({
-      // "affiliate" = dùng Lazada Affiliate API (cần API key riêng)
-      // "at"        = wrap URL bằng AccessTrade tracking link
-      mode: "affiliate",
-      // keywords: slug ngách → danh sách từ khoá search Lazada
-      keywords: {
+      // lazadaSyncMode:
+      //   "api" — Lazada Affiliate Open Platform (cần LAZADA_APP_KEY + LAZADA_APP_SECRET)
+      //           Đăng ký tại: https://open.lazada.com/ → Create App → lấy API Key + Secret
+      //   "at"  — wrap URL qua AccessTrade tracking link (không cần Lazada key)
+      lazadaSyncMode: "api",
+      // Số sản phẩm per keyword (max 50 theo Lazada API, default 40)
+      lazadaPageSize: 40,
+      // Số keyword tối đa per niche (default 5)
+      lazadaMaxKeywords: 5,
+      // lazadaKeywords: slug ngách → mảng keyword search Lazada
+      lazadaKeywords: {
         fashion:     ["áo thun nam", "váy nữ", "giày sneaker", "túi xách nữ", "quần jean nam", "áo khoác", "đầm dự tiệc"],
         electronics: ["tai nghe bluetooth", "ốp lưng điện thoại", "sạc dự phòng", "cáp sạc", "bàn phím cơ", "chuột gaming", "loa bluetooth"],
         beauty:      ["kem dưỡng ẩm", "serum vitamin c", "son môi", "kem chống nắng", "sữa rửa mặt", "toner", "mặt nạ dưỡng da"],
@@ -264,7 +276,7 @@ const SYNC_SOURCES = [
     slug: "cellphones",
     baseUrl: "https://cellphones.com.vn",
     icon: "https://cdn2.cellphones.com.vn/200x/media/favicon/default/logo-cps.png",
-    enabled: false,
+    enabled: true,
     description: "CellphoneS — GraphQL API, wrap AT tracking link",
     config: JSON.stringify({
       // atCampaignId: "<AT campaign ID>" — để trống thì auto-match theo tên "cellphones"

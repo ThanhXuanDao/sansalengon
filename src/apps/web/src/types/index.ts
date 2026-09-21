@@ -10,6 +10,7 @@ export interface Product {
   imageAlt: string
   productUrl: string
   affiliateUrl: string | null
+  platformAffiliateUrl: string | null
   source: string
   sourceLogoUrl?: string | null
   externalId?: string | null
@@ -18,6 +19,7 @@ export interface Product {
   category: { id: string; name: string; emoji: string }
   isFeatured: boolean
   isSoldOut: boolean
+  atCampaignId?: string | null
   number: number
   createdAt: string
   clicks?: { id: string }[]

@@ -182,7 +182,23 @@ export function normalizeAccessTradeTrackingLink(payload: unknown, campaignId: s
       : [];
 
   if (rawLinks.length === 0) {
-    throw new AccessTradeApiError("no_results", "No AccessTrade tracking link returned");
+    // Đọc error_link để lấy lý do AT từ chối URL
+    const rawErrors = Array.isArray(unwrapped.error_link)
+      ? unwrapped.error_link
+      : Array.isArray(unwrapped.errorLink)
+        ? unwrapped.errorLink
+        : [];
+    const reason = rawErrors
+      .map((e: unknown) => {
+        if (!isRecord(e)) return null;
+        return firstText(e.error_msg, e.errorMsg, e.message, e.error) ?? null;
+      })
+      .filter(Boolean)
+      .join("; ");
+    throw new AccessTradeApiError(
+      "no_results",
+      reason ? `AT từ chối URL: ${reason}` : "No AccessTrade tracking link returned",
+    );
   }
 
   const first = rawLinks[0];
