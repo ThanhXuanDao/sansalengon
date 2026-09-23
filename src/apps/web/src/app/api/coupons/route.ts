@@ -3,9 +3,15 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const niche = searchParams.get("niche")
-  const platform = searchParams.get("platform")       // "shopee" | "tiki" | "lazada"
-  const discountType = searchParams.get("type")       // "percent" | "fixed"
+  // niche: comma-separated Category IDs (matches Coupon.nicheId), e.g. "food,beauty"
+  const nicheParam = searchParams.get("niche")
+  const niches = nicheParam ? nicheParam.split(",").filter(Boolean) : []
+  // platform: comma-separated SyncSource slugs (matches Coupon.platform), e.g. "shopee,tch"
+  const platformParam = searchParams.get("platform")
+  const platforms = platformParam ? platformParam.split(",").filter(Boolean) : []
+  // type: comma-separated discount types, e.g. "percent,fixed"
+  const typeParam = searchParams.get("type")
+  const discountTypes = typeParam ? typeParam.split(",").filter(Boolean) : []
   const sort = searchParams.get("sort") ?? "value"    // "value" | "popular" | "expiring"
   const flashSale = searchParams.get("flash") === "1" // coupons expiring in <24h
   const take = Math.min(50, Number(searchParams.get("take") ?? "20"))
@@ -23,11 +29,11 @@ export async function GET(request: NextRequest) {
           { expiresAt: { gt: now } },
         ],
       },
-      ...(niche && niche !== "all"
-        ? [{ OR: [{ nicheId: niche }, { nicheId: null }] }]
+      ...(niches.length > 0
+        ? [{ nicheId: { in: niches } }]
         : []),
-      ...(platform && platform !== "all" ? [{ platform }] : []),
-      ...(discountType ? [{ discountType }] : []),
+      ...(platforms.length > 0 ? [{ platform: { in: platforms } }] : []),
+      ...(discountTypes.length > 0 ? [{ discountType: { in: discountTypes } }] : []),
       ...(flashSale
         ? [{ expiresAt: { gt: now, lte: in24h } }]
         : []),
@@ -63,6 +69,7 @@ export async function GET(request: NextRequest) {
         affiliateUrl: true,
         expiresAt: true,
         clickCount: true,
+        imageUrl: true,
       },
     }),
     prisma.coupon.count({ where }),

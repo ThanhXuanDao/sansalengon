@@ -2,10 +2,11 @@
 
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowUpDown, ArrowUp, ArrowDown, Star, ChevronDown } from "lucide-react"
-import Image from "next/image"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
 import EmptyState from "@/components/ui/EmptyState"
+import FilterBar from "./FilterBar"
+import type { FilterItem, SortOption } from "./FilterBar"
 import type { Product, Category } from "@/types"
 import type { SyncSourcePublic } from "@/hooks/useSources"
 
@@ -43,7 +44,7 @@ const itemVariants = {
 
 const SKELETON_COUNT = 10
 
-const sortOptions = [
+const sortOptions: SortOption[] = [
   { value: "discount_desc", label: "Giảm nhiều nhất", Icon: ArrowUpDown },
   { value: "newest",        label: "Mới nhất",        Icon: ArrowUpDown },
   { value: "price_asc",     label: "Rẻ nhất",         Icon: ArrowUp },
@@ -96,98 +97,21 @@ export default function ProductGrid({
       </div>
 
       {/* ── Filter + Sort toolbar ───────────────────────────────── */}
-      <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 mb-6 border-b border-[#e5e1d8]">
+      <FilterBar
+        sources={sources?.map((s): FilterItem => ({ slug: s.slug, label: s.name, icon: s.icon }))}
+        activeSources={activeSources}
+        onSourceToggle={onSourceChange}
+        isSourcesLoading={isSourcesLoading}
 
-        {/* Row 0: Source filter pills */}
-        {(isSourcesLoading || (sources && sources.length > 0)) && (
-          <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Nguồn">
-            {isSourcesLoading
-              ? Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
-                ))
-              : sources?.map((src) => {
-                  const isActive = activeSources.includes(src.slug)
-                  return (
-                    <button
-                      key={src.slug}
-                      onClick={() => onSourceChange?.(src.slug)}
-                      aria-pressed={isActive}
-                      title={src.name}
-                      className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 focus-visible:outline-2 focus-visible:outline-filter-active overflow-hidden ${
-                        isActive
-                          ? "bg-filter-active/10 border-filter-active"
-                          : "border-border-color hover:border-filter-active/50 bg-white"
-                      }`}
-                    >
-                      {src.icon ? (
-                        <Image
-                          src={src.icon}
-                          alt={src.name}
-                          width={40}
-                          height={40}
-                          className="object-contain w-[40px] h-[40px]"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="font-bold text-[18px] text-ink/60 select-none">
-                          {src.name.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-          </div>
-        )}
+        categories={categories?.map((c): FilterItem => ({ slug: c.id, label: c.name, emoji: c.emoji }))}
+        activeCategories={activeSlugs}
+        onCategoryToggle={onCategoryChange}
+        isCategoriesLoading={isCategoriesLoading}
 
-        {/* Row 1: Category icon pills */}
-        <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Danh mục">
-          {isCategoriesLoading
-            ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
-              ))
-            : categories?.map((cat) => {
-                const isActive = activeSlugs.includes(cat.id)
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => onCategoryChange?.(cat.id)}
-                    aria-pressed={isActive}
-                    title={cat.name}
-                    className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 text-[28px] focus-visible:ring-2 focus-visible:ring-filter-active ${
-                      isActive
-                        ? "bg-filter-active/10 border-filter-active"
-                        : "bg-white border-border-color hover:border-filter-active/50"
-                    }`}
-                  >
-                    <span aria-hidden="true">{cat.emoji}</span>
-                  </button>
-                )
-              })}
-        </div>
-
-        {/* Row 2: Sort pills */}
-        {onSortChange && (
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide" role="toolbar" aria-label="Sắp xếp">
-            {sortOptions.map(({ value, label, Icon }) => {
-              const isActive = sort === value
-              return (
-                <button
-                  key={value}
-                  onClick={() => onSortChange(value)}
-                  className={`flex items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active ${
-                    isActive
-                      ? "bg-filter-active/10 text-filter-active border-filter-active font-bold"
-                      : "bg-white text-ink/50 border-border-color hover:border-filter-active/50 hover:text-ink"
-                  }`}
-                >
-                  <Icon className="size-3" aria-hidden="true" />
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        sortOptions={onSortChange ? sortOptions : undefined}
+        sort={sort}
+        onSortChange={onSortChange}
+      />
 
       {/* ── Product grid ────────────────────────────────────────── */}
       <motion.div

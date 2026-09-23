@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { formatPrice } from "@/lib/utils"
+import { useFormatPrice } from "@/lib/currency-context"
 
 interface Platform { platformId: string; platformName: string }
 
@@ -22,6 +22,7 @@ type HistoryData = Record<string, { price: number; recordedAt: string }[]>
 export default function PriceCompareChart({ productId, platforms }: Props) {
   const [data, setData] = useState<HistoryData | null>(null)
   const [loading, setLoading] = useState(true)
+  const formatPrice = useFormatPrice()
   const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 type Level = "error" | "warn" | "info" | "debug";
@@ -33,12 +33,10 @@ export class AppLogService {
       const trg = trigger ?? null;
       const now = new Date();
 
-      await this.prisma.$executeRaw(
-        Prisma.sql`
+      await this.prisma.$executeRaw`
           INSERT INTO "AppLog" (id, level, message, context, source, app, trigger, "createdAt")
           VALUES (${id}, ${level}, ${message}, ${ctx}::text, ${src}, ${ap}, ${trg}, ${now})
-        `
-      );
+        `;
     } catch {
       // logger must never crash the caller
     }

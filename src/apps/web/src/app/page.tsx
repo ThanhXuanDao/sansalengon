@@ -32,7 +32,7 @@ function HomeContent() {
   })
 
   const { data: categoryList, isLoading: isCategoriesLoading } = useCategories()
-  const { data: sourceList, isLoading: isSourcesLoading } = useSources()
+  const { data: sourceList, isLoading: isSourcesLoading } = useSources("product")
   const { data: topRatedProducts, isLoading: isTopRatedLoading } = useMostClickedProducts()
   const { data: settings } = useSettings()
 

@@ -111,7 +111,7 @@ export class SyncController {
     @Body() body: { sources?: string } = {},
   ) {
     this.checkAuth(auth)
-    const sources = (body.sources ?? "all") as "all" | "accesstrade" | "platforms"
+    const sources = (body.sources ?? "all") as string
     const result = await this.couponSync.triggerSync(sources)
     return {
       ok: true,

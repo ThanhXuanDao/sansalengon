@@ -177,6 +177,8 @@ const SYNC_SOURCES = [
     enabled: false,
     description: "Shopee — Googlebot scrape + an_redir affiliate link (syncMode=scrape)",
     config: JSON.stringify({
+      type: "platform-sync",
+      badge: { label: "Shopee", bg: "bg-orange-100", text: "text-orange-700" },
       // syncMode: "scrape" — Googlebot scrape shopee.vn + tạo link qua an_redir (chỉ cần affiliateId)
       // syncMode: "api"    — Shopee Affiliate Open API (cần SHOPEE_AFFILIATE_APP_ID + APP_SECRET)
       // Để đổi sang API chính thức khi có app_id/secret: chỉ cần sửa syncMode thành "api"
@@ -212,6 +214,8 @@ const SYNC_SOURCES = [
     enabled: false,
     description: "Lazada — Affiliate Open Platform API (LAZADA_APP_KEY/SECRET) hoặc wrap AT tracking link",
     config: JSON.stringify({
+      type: "platform-sync",
+      badge: { label: "Lazada", bg: "bg-purple-100", text: "text-purple-700" },
       // lazadaSyncMode:
       //   "api" — Lazada Affiliate Open Platform (cần LAZADA_APP_KEY + LAZADA_APP_SECRET)
       //           Đăng ký tại: https://open.lazada.com/ → Create App → lấy API Key + Secret
@@ -247,6 +251,8 @@ const SYNC_SOURCES = [
     enabled: true,
     description: "Tiki — gọi thẳng Tiki public API, wrap AT tracking link",
     config: JSON.stringify({
+      type: "platform-sync",
+      badge: { label: "Tiki", bg: "bg-blue-100", text: "text-blue-700" },
       tikiBatchSize: 2,
       tikiBatchPauseMin: 15,
       tikiInterNicheDelaySec: 15,
@@ -279,6 +285,7 @@ const SYNC_SOURCES = [
     enabled: true,
     description: "CellphoneS — GraphQL API, wrap AT tracking link",
     config: JSON.stringify({
+      type: "product-scraper",
       // atCampaignId: "<AT campaign ID>" — để trống thì auto-match theo tên "cellphones"
       // CellphoneS dùng AT tracking link (at_wrap strategy)
       // Danh sách category ID CellphoneS cho từng ngách:
@@ -301,7 +308,7 @@ const SYNC_SOURCES = [
     enabled: true,
     description: "KingFoodMart — Next.js SSR, đọc __NEXT_DATA__ JSON, không cần CSS selectors",
     config: JSON.stringify({
-      type: "scraper",
+      type: "product-scraper",
       dataSource: "scraper",
       atMerchantSlug: "kingfoodmart",
       // Đọc __NEXT_DATA__ JSON nhúng trong HTML thay vì CSS selectors
@@ -349,6 +356,28 @@ const SYNC_SOURCES = [
         pageParam: "page",
         maxPages: 3,
       },
+    }),
+  },
+  {
+    id: "syncsrc_tch",
+    name: "The Coffee House",
+    slug: "tch",
+    baseUrl: "https://www.thecoffeehouse.com",
+    icon: "https://thecoffeehouse.com/icon/tch-app-icon-192.png",
+    enabled: true,
+    description: "The Coffee House — scrape trang promo, tạo AT tracking link (CPS/Smartlink)",
+    config: JSON.stringify({
+      type: "coupon-scraper",
+      badge: { label: "TCH", bg: "bg-green-100", text: "text-green-700" },
+      parser: "tch-promo",
+      promoUrl: "https://promothecoffeeehouse.com.vn/",
+      // atMerchantSlug: khớp với field `merchant` trong bảng AtCampaign
+      // → service tự lookup campaign ID từ DB thay vì hardcode
+      atMerchantSlug: "thecoffeehouse_cpv",
+      merchant: "The Coffee House",
+      merchantLogo: "https://thecoffeehouse.com/icon/tch-app-icon-192.png",
+      nicheId: "food",
+      platform: "tch",
     }),
   },
 ]

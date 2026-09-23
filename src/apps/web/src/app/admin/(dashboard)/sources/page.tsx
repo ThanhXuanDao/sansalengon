@@ -7,6 +7,7 @@ import {
   CalendarClock, History,
 } from "lucide-react"
 import AdminPageShell from "@/components/admin/AdminPageShell"
+import { getSyncSourceLabel } from "@/lib/sync-source-utils"
 import {
   AdminFilterBar, FilterSelect,
   DataTable, DataTablePagination,
@@ -60,16 +61,15 @@ type FormData = {
 
 const EMPTY_FORM: FormData = {
   name: "", slug: "", baseUrl: "", enabled: true,
-  config: JSON.stringify({ type: "scraper", strategy: "nextjs-data", delayMs: 2000, categories: [] }, null, 2),
+  config: JSON.stringify({ type: "product-scraper", strategy: "nextjs-data", delayMs: 2000, categories: [] }, null, 2),
   description: "",
   icon: null,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function sourceType(config: string): "SCRAPER" | "API" {
-  try { return (JSON.parse(config) as { type?: string }).type === "scraper" ? "SCRAPER" : "API" }
-  catch { return "API" }
+function sourceType(config: string): "PRODUCT" | "PLATFORM" | "COUPON" {
+  return getSyncSourceLabel(config)
 }
 
 function timeAgo(iso: string): string {
@@ -486,10 +486,10 @@ function SourceRow({
               <p className="font-mono text-[11px] text-[#906f69] mt-0.5 truncate max-w-[260px]">{source.baseUrl}</p>
               {runSummary && <p className="font-mono text-[10px] text-[#5c403a] mt-0.5 truncate max-w-[260px]">{runSummary}</p>}
               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                {type === "API" && source.slug === "tiki" && categoryCount > 0 && (
+                {type === "PLATFORM" && source.slug === "tiki" && categoryCount > 0 && (
                   <span className="font-mono text-[10px] text-[#0d5cb6]">{categoryCount} category IDs</span>
                 )}
-                {type === "SCRAPER" && scraperCategories > 0 && (
+                {type === "PRODUCT" && scraperCategories > 0 && (
                   <span className="font-mono text-[10px] text-[#7c5a00]">{scraperCategories} danh mục</span>
                 )}
               </div>
@@ -498,7 +498,11 @@ function SourceRow({
         </td>
         {/* Loại */}
         <td className="py-3 px-4 align-middle text-center">
-          <span className={`font-mono text-[10px] px-1.5 py-0.5 border ${type === "SCRAPER" ? "bg-[#fdf5e0] border-[#f0d080] text-[#7c5a00]" : "bg-[#e8f5fb] border-[#b0d8f0] text-[#1a4a7c]"}`}>
+          <span className={`font-mono text-[10px] px-1.5 py-0.5 border ${
+            type === "PRODUCT"  ? "bg-[#fdf5e0] border-[#f0d080] text-[#7c5a00]" :
+            type === "PLATFORM" ? "bg-[#e8f5fb] border-[#b0d8f0] text-[#1a4a7c]" :
+                                  "bg-[#fde8f0] border-[#f0b0cc] text-[#7c1a40]"
+          }`}>
             {type}
           </span>
         </td>
@@ -600,9 +604,10 @@ function SourceRow({
 // ── Filter options ─────────────────────────────────────────────────────────────
 
 const TYPE_OPTIONS = [
-  { value: "all",     label: "Tất cả loại" },
-  { value: "api",     label: "API"         },
-  { value: "scraper", label: "Scraper"     },
+  { value: "all",      label: "Tất cả loại" },
+  { value: "product",  label: "Product"     },
+  { value: "platform", label: "Platform"    },
+  { value: "coupon",   label: "Coupon"      },
 ]
 
 const STATUS_OPTIONS = [
@@ -708,7 +713,7 @@ export default function SyncSourcesPage() {
   // Client-side filter + paginate
   const filtered = sources.filter((s) => {
     if (q && !s.name.toLowerCase().includes(q.toLowerCase()) && !s.slug.includes(q.toLowerCase())) return false
-    if (typeFilter !== "all" && sourceType(s.config).toLowerCase() !== typeFilter) return false
+    if (typeFilter !== "all" && sourceType(s.config).toLowerCase() !== typeFilter.toLowerCase()) return false
     if (statusFilter === "enabled"  && !s.enabled) return false
     if (statusFilter === "disabled" &&  s.enabled) return false
     return true

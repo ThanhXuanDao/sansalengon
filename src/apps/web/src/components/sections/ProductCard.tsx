@@ -228,7 +228,7 @@ export default function ProductCard({
                 : "bg-[#e8e8e5] text-ink hover:bg-primary hover:text-white cursor-pointer"
             }`}
           >
-            {isSoldOut ? "Hết hàng" : "Chi tiết"}
+            {isSoldOut ? "Hết hàng" : "Xem ngay"}
             {!isSoldOut && <ExternalLink className="size-3" aria-hidden="true" />}
           </button>
 

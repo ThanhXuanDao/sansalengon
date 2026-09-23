@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { TrendingDown, TrendingUp, Minus, ShieldCheck } from "lucide-react"
-import { formatPrice } from "@/lib/utils"
+import { useFormatPrice } from "@/lib/currency-context"
 
 interface PricePoint {
   price: number
@@ -128,6 +128,7 @@ function SvgLineChart({ data, meta }: { data: PricePoint[]; meta: PriceMeta }) {
 export default function PriceHistoryChart({ productId }: PriceHistoryChartProps) {
   const [data, setData] = useState<PricePoint[]>([])
   const [meta, setMeta] = useState<PriceMeta | null>(null)
+  const formatPrice = useFormatPrice()
   const [loading, setLoading] = useState(true)
   const fetchedRef = useRef(false)
 

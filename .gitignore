@@ -1,5 +1,6 @@
 /refs
 /src/apps/api/node_modules
+/src/apps/api/dist
 /src/apps/web/.next
 /src/apps/web/node_modules
 /src/node_modules

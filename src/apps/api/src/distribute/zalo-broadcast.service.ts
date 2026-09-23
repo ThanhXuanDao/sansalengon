@@ -140,7 +140,7 @@ export class ZaloBroadcastService {
       take: 20,
     });
 
-    const clickMap = new Map(clickCounts.map((c) => [c.productId, c._count.id]));
+    const clickMap = new Map<string, number>(clickCounts.map((c) => [c.productId, c._count.id]));
 
     const products = await this.prisma.product.findMany({
       where: {

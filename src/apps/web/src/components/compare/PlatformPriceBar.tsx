@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { TrendingDown } from "lucide-react"
-import { formatPrice } from "@/lib/utils"
+import { useFormatPrice } from "@/lib/currency-context"
 
 interface PlatformEntry {
   platformId: string
@@ -41,6 +41,7 @@ interface Props {
 export default function PlatformPriceBar({ productId, className = "" }: Props) {
   const [data, setData] = useState<CompareData | null>(null)
   const [loading, setLoading] = useState(true)
+  const formatPrice = useFormatPrice()
 
   useEffect(() => {
     let cancelled = false
@@ -90,7 +91,7 @@ export default function PlatformPriceBar({ productId, className = "" }: Props) {
             style={{ background: PLATFORM_COLORS[p.platformId] ?? "#888" }}
             aria-hidden="true"
           />
-          <span style={{ color: p.isCheapest ? "#1a6e3c" : undefined }}>
+          <span className={p.isCheapest ? "text-[#1a6e3c]" : ""}>
             {PLATFORM_SHORT[p.platformId] ?? p.platformId.slice(0, 2).toUpperCase()}
           </span>
           <span className={p.isCheapest ? "text-[#1a6e3c] font-bold" : "text-ink/60"}>

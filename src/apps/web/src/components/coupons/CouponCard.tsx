@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Copy, Check, ExternalLink, Clock, Tag, ShoppingCart, Eye, Flame, Users } from "lucide-react"
+import { Copy, Check, ExternalLink, Clock, Tag, ShoppingCart, Eye, Flame, Users, Share2 } from "lucide-react"
 
 export interface Coupon {
   id: string
@@ -10,6 +10,7 @@ export interface Coupon {
   nicheId: string | null
   merchant: string
   merchantLogo?: string | null
+  imageUrl?: string | null
   code: string | null
   description: string
   discountValue: number
@@ -21,21 +22,20 @@ export interface Coupon {
   clickCount: number
 }
 
-const PLATFORM_BADGE: Record<string, { label: string; bg: string; text: string }> = {
-  shopee:     { label: "Shopee",  bg: "bg-orange-100", text: "text-orange-700" },
-  tiki:       { label: "Tiki",    bg: "bg-blue-100",   text: "text-blue-700" },
-  lazada:     { label: "Lazada",  bg: "bg-purple-100", text: "text-purple-700" },
-  accesstrade:{ label: "AT",      bg: "bg-gray-100",   text: "text-gray-600" },
-}
-
 function formatDiscount(value: number, type: "percent" | "fixed"): string {
   if (type === "percent") return `-${value}%`
   return `-${new Intl.NumberFormat("vi-VN").format(value)}đ`
 }
 
+function formatDiscountShort(value: number, type: "percent" | "fixed"): string {
+  if (type === "percent") return `${value}%`
+  return `${new Intl.NumberFormat("vi-VN").format(value)}đ`
+}
+
 function formatMoney(value: number): string {
   return new Intl.NumberFormat("vi-VN").format(value) + "đ"
 }
+
 
 function useCountdown(iso: string | null) {
   const [left, setLeft] = useState<string | null>(null)
@@ -65,6 +65,8 @@ function useCountdown(iso: string | null) {
 export default function CouponCard({ coupon }: { coupon: Coupon }) {
   const [copied, setCopied] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [shared, setShared] = useState(false)
+  const [imgError, setImgError] = useState(false)
   const countdown = useCountdown(coupon.expiresAt)
 
   const days = coupon.expiresAt
@@ -77,14 +79,34 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
     ? coupon.discountValue >= 30
     : coupon.discountValue >= 100_000
 
-  const platformKey = coupon.platform ?? coupon.source
-  const badge = PLATFORM_BADGE[platformKey]
+  const hasImage = !!coupon.imageUrl && !imgError
 
   const handleRevealAndUse = async () => {
-    // Track click
     fetch(`/api/coupons/${coupon.id}/click`, { method: "POST" }).catch(() => {})
     setRevealed(true)
     window.open(coupon.affiliateUrl, "_blank", "noopener,noreferrer")
+  }
+
+  const handleShare = async () => {
+    const url = coupon.affiliateUrl
+    const text = `${formatDiscount(coupon.discountValue, coupon.discountType)} — ${coupon.merchant}`
+    const triggerShared = () => {
+      setShared(true)
+      setTimeout(() => setShared(false), 1800)
+    }
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: coupon.merchant, text, url })
+      } catch (e) {
+        if (e instanceof Error && e.name !== "AbortError") {
+          await navigator.clipboard.writeText(url).catch(() => {})
+          triggerShared()
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {})
+      triggerShared()
+    }
   }
 
   const handleCopy = async () => {
@@ -107,38 +129,31 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
     <div className={`receipt-card flex overflow-hidden hover-lift relative ${isFlashSale ? "ring-1 ring-amber-400" : ""}`}>
       {/* Flash sale indicator */}
       {isFlashSale && (
-        <div className="absolute top-0 right-0 flex items-center gap-0.5 bg-amber-400 text-amber-900 px-2 py-0.5 text-[9px] font-mono font-bold uppercase">
+        <div className="absolute top-0 right-0 flex items-center gap-0.5 bg-amber-400 text-amber-900 px-2 py-0.5 text-[9px] font-mono font-bold uppercase z-20">
           <Flame className="size-2.5" />
           {countdown}
         </div>
       )}
 
-      {/* Cột trái — discount badge */}
-      <div
-        className={`flex-shrink-0 w-24 flex flex-col items-center justify-center p-3 ${
-          isLarge ? "bg-primary text-white" : "bg-[#e8e8e5] text-ink"
-        }`}
-      >
-        <span className="font-mono text-sm font-bold uppercase leading-none text-center">
-          {coupon.discountType === "percent"
-            ? `${coupon.discountValue}%`
-            : `${new Intl.NumberFormat("vi-VN").format(coupon.discountValue)}đ`}
-        </span>
-        <span className="font-mono text-[9px] mt-0.5 opacity-70">GIẢM</span>
-
-        {/* Platform badge */}
-        {badge && (
-          <span className={`mt-1.5 px-1.5 py-0.5 text-[8px] font-mono font-bold rounded ${badge.bg} ${badge.text}`}>
-            {badge.label}
-          </span>
+      {/* Cột trái — campaign image hoặc discount badge */}
+      <div className="flex-shrink-0 w-28 relative overflow-hidden">
+        {hasImage ? (
+          <div className="w-full aspect-[2/3] relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={coupon.imageUrl!}
+                alt={coupon.merchant}
+                onError={() => setImgError(true)}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            </div>
+        ) : (
+          <div className={`flex items-center justify-center p-3 h-full ${isLarge ? "bg-primary text-white" : "bg-[#e8e8e5] text-ink"}`}>
+            <span className="font-mono text-sm font-bold uppercase leading-none text-center tabular-nums">
+              {formatDiscountShort(coupon.discountValue, coupon.discountType)}
+            </span>
+          </div>
         )}
-      </div>
-
-      {/* Đường nét đứt phân cách */}
-      <div className="relative flex-shrink-0 w-px bg-border-color">
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-bg border border-border-color" />
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-bg border border-border-color" />
-        <div className="h-full border-l border-dashed border-border-color" />
       </div>
 
       {/* Cột phải — nội dung */}
@@ -147,7 +162,7 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-bold text-sm text-ink truncate">{coupon.merchant}</p>
-            <p className="font-mono text-[10px] text-ink/50 leading-tight mt-0.5 line-clamp-2">
+            <p className="font-mono text-xs text-sale-blob leading-tight mt-0.5 line-clamp-2">
               {coupon.description}
             </p>
           </div>
@@ -208,7 +223,7 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
                 <button
                   onClick={handleCopy}
                   aria-label={copied ? "Đã copy" : `Copy mã ${coupon.code}`}
-                  className={`flex-shrink-0 flex items-center gap-1 px-3 py-1 brutalist-border font-mono text-xs font-bold uppercase transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
+                  className={`flex-shrink-0 flex items-center gap-1 px-3 py-1 brutalist-border font-mono text-xs font-bold uppercase transition-colors focus-visible:ring-2 focus-visible:ring-primary cursor-pointer ${
                     copied
                       ? "bg-green-50 text-green-700 border-green-300"
                       : "bg-[#e8e8e5] text-ink hover:bg-primary hover:text-white"
@@ -222,7 +237,7 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
               <button
                 onClick={handleRevealAndUse}
                 aria-label="Lấy mã giảm giá"
-                className="flex-shrink-0 flex items-center gap-1 px-3 py-1 brutalist-border bg-primary text-white font-mono text-xs font-bold uppercase hover:bg-ink transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+                className="flex-shrink-0 flex items-center gap-1 px-3 py-1 brutalist-border bg-primary text-white font-mono text-xs font-bold uppercase focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
               >
                 {revealed ? (
                   <>Dùng <ExternalLink className="size-3" /></>
@@ -230,14 +245,36 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
                   <>Lấy mã <Eye className="size-3" /></>
                 )}
               </button>
+
+              {/* Share */}
+              <button
+                onClick={handleShare}
+                aria-label="Chia sẻ"
+                title={shared ? "Đã sao chép link!" : "Chia sẻ"}
+                className="flex-shrink-0 flex items-center justify-center px-2 py-1 brutalist-border bg-primary text-white font-mono text-xs focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+              >
+                {shared ? <Check className="size-3" /> : <Share2 className="size-3" />}
+              </button>
             </>
           ) : (
-            <button
-              onClick={handleRevealAndUse}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 brutalist-border bg-primary text-white font-mono text-xs font-bold uppercase hover:bg-ink transition-colors focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Nhận ưu đãi <ExternalLink className="size-3" />
-            </button>
+            <>
+              <button
+                onClick={handleRevealAndUse}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 brutalist-border bg-primary text-white font-mono text-xs font-bold uppercase focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+              >
+                Nhận ưu đãi <ExternalLink className="size-3" />
+              </button>
+
+              {/* Share */}
+              <button
+                onClick={handleShare}
+                aria-label="Chia sẻ"
+                title={shared ? "Đã sao chép link!" : "Chia sẻ"}
+                className="flex-shrink-0 flex items-center justify-center px-2 py-1.5 brutalist-border bg-primary text-white font-mono text-xs focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+              >
+                {shared ? <Check className="size-3" /> : <Share2 className="size-3" />}
+              </button>
+            </>
           )}
         </div>
       </div>

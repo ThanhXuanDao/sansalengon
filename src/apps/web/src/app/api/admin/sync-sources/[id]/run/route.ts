@@ -4,6 +4,8 @@ import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { runJob } from "@/lib/jobs/runner"
 import { productSyncHandler } from "@/lib/jobs/handlers/product-sync"
+import { couponSyncPlatformHandler } from "@/lib/jobs/handlers/coupon-sync-platform"
+import { getSyncHandlerType } from "@/lib/sync-source-utils"
 
 export async function POST(
   request: NextRequest,
@@ -21,13 +23,17 @@ export async function POST(
   if (!source) return NextResponse.json({ error: "Không tìm thấy nguồn" }, { status: 404 })
   if (!source.enabled) return NextResponse.json({ error: "Nguồn đang tắt" }, { status: 400 })
 
-  // Find or create the product_sync job record
+  const isCouponScraper = getSyncHandlerType(source.config) === "coupon"
+  const jobKey = isCouponScraper ? "coupon_sync" : "product_sync"
+  const handler = isCouponScraper ? couponSyncPlatformHandler : productSyncHandler
+
+  // Find or create the relevant job record
   const { JOB_SEEDS } = await import("@/lib/jobs/registry")
-  const productSyncSeed = JOB_SEEDS.find((s) => s.key === "product_sync")!
+  const jobSeed = JOB_SEEDS.find((s) => s.key === jobKey)!
   const syncJob = await prisma.syncJob.upsert({
-    where: { key: "product_sync" },
+    where: { key: jobKey },
     update: {},
-    create: productSyncSeed,
+    create: jobSeed,
   })
 
   // Prevent double run for this source
@@ -47,8 +53,8 @@ export async function POST(
   try {
     const { runId, result, durationMs, status } = await runJob({
       jobId: syncJob.id,
-      handler: productSyncHandler,
-      config: { source: source.slug, niche: "all" },
+      handler,
+      config: isCouponScraper ? { sources: source.slug } : { source: source.slug, niche: "all" },
       triggerType: "manual",
       triggeredBy: `source:${source.slug}`,
       sourceSlug: source.slug,

@@ -6,6 +6,7 @@ import { getActiveNiches } from "@/lib/niches"
 import { getPostsByNiche } from "@/lib/blog"
 import PostCard from "@/components/blog/PostCard"
 import type { BlogPostMeta } from "@/content/blog"
+import FormattedDate from "@/components/ui/FormattedDate"
 
 export const revalidate = 1800
 
@@ -78,11 +79,7 @@ function FeaturedPost({ post, nicheId }: { post: BlogPostMeta; nicheId: string }
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#1a1c1b]/10">
             <div className="flex items-center gap-3 font-mono text-[11px] text-[#1a1c1b]/40">
               <time dateTime={post.date}>
-                {new Date(post.date).toLocaleDateString("vi-VN", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                })}
+                <FormattedDate date={post.date} />
               </time>
               <span>·</span>
               <span>{post.readTime} phút đọc</span>

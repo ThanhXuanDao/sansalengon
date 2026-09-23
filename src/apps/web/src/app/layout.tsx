@@ -96,6 +96,7 @@ export default async function RootLayout({
               currencySymbol={s.currencySymbol || "₫"}
               currencyPosition={s.currencyPosition || "after"}
               thousandSeparator={s.thousandSeparator || "."}
+              dateFormat={s.dateFormat || "DD/MM/YYYY"}
             >{children}</Providers>
             <ScrollToTop />
           </>

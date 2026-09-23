@@ -30,7 +30,7 @@ function NicheContent({ niche, initialProducts, initialCoupons, blogPosts = [] }
   // Category is fixed by the path — only source, q, sort come from URL params
   const { q, sources, sort, setQ, toggleSource, setSort, resetAll } = useFilterParams()
 
-  const { data: sourceList, isLoading: isSourcesLoading } = useSources()
+  const { data: sourceList, isLoading: isSourcesLoading } = useSources("product")
 
   const { data, isLoading, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useProducts({
     categorySlugs: [niche.categorySlug],

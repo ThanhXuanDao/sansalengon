@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client";
 import { AppLogService } from "../shared/app-log.service";
 import type { Trigger } from "../shared/app-log.service";
+import { DealSyncService } from "./deal-sync.service";
 
 interface NicheConfig {
   id: string;
@@ -18,6 +19,8 @@ interface RawVoucher {
   merchant: string;
   code: string | null;
   description: string;
+  terms: string | null;
+  imageUrl: string | null;
   discountValue: number;
   discountType: "percent" | "fixed";
   minOrderValue: number | null;
@@ -30,6 +33,17 @@ const AT_VOUCHER_API = "https://api.accesstrade.vn/v1/vouchers";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SRC = "coupon-sync";
 
+interface CouponScraperConfig {
+  type: "coupon-scraper";
+  parser: string;           // e.g. "tch-promo"
+  promoUrl: string;         // URL trang promo để scrape
+  atMerchantSlug: string;   // merchant field trong AtCampaign để lookup campaign ID
+  merchant: string;         // Tên hiển thị
+  merchantLogo?: string;    // URL logo
+  nicheId: string;          // Niche phân loại
+  platform: string;         // Badge key (e.g. "tch")
+}
+
 @Injectable()
 export class CouponSyncService {
   private readonly log = new Logger(CouponSyncService.name);
@@ -39,6 +53,7 @@ export class CouponSyncService {
     private readonly cfg: ConfigService,
     private readonly accesstrade: AccessTradePublisherClient,
     private readonly appLog: AppLogService,
+    private readonly dealSync: DealSyncService,
   ) {}
 
   private get slog() { return this.appLog.scope("api-sync"); }
@@ -49,7 +64,7 @@ export class CouponSyncService {
   }
 
   // Public method called by SyncController (manual / web-scheduled trigger)
-  async triggerSync(sources: "all" | "accesstrade" | "platforms" = "all", trigger: Trigger = "manual"): Promise<{
+  async triggerSync(sources: "all" | "accesstrade" | "platforms" | "merchants" | string = "all", trigger: Trigger = "manual"): Promise<{
     total: number;
     byNiche: Record<string, number>;
     byPlatform: Record<string, number>;
@@ -63,6 +78,26 @@ export class CouponSyncService {
 
     const byNiche: Record<string, number> = {};
     const byPlatform: Record<string, number> = {};
+
+    // Slug cụ thể của một coupon-scraper source → chỉ chạy source đó
+    const KNOWN_SOURCES = new Set(["all", "accesstrade", "platforms", "merchants"]);
+    if (!KNOWN_SOURCES.has(sources)) {
+      const scraperSources = await this.loadCouponScraperSources();
+      const target = scraperSources.find(({ slug }) => slug === sources);
+      if (target) {
+        byPlatform[target.cfg.platform] = await this.syncCouponScraperSource(target.slug, target.cfg).catch(async (e) => {
+          this.log.error(`Coupon scraper [${target.slug}] failed: ${e.message}`);
+          await this.slog.error(`Coupon scraper thất bại: ${target.slug}`, SRC, { slug: target.slug, error: e.message }, trigger);
+          return 0;
+        });
+      } else {
+        this.log.warn(`triggerSync: unknown source slug "${sources}" — bỏ qua`);
+      }
+      const total = Object.values(byPlatform).reduce((a, b) => a + b, 0);
+      this.log.log(`Coupon sync complete — ${total} coupons upserted`);
+      await this.slog.info("Hoàn tất đồng bộ coupon", SRC, { total, byNiche, byPlatform }, trigger);
+      return { total, byNiche, byPlatform, durationMs: Date.now() - t0 };
+    }
 
     if (sources === "all" || sources === "accesstrade") {
       const niches = await this.loadActiveNiches();
@@ -85,6 +120,18 @@ export class CouponSyncService {
       byPlatform.tiki = await this.syncTikiVouchers().catch(() => 0);
       await sleep(3000);
       byPlatform.lazada = await this.syncLazadaVouchers().catch(() => 0);
+    }
+
+    if (sources === "all" || sources === "merchants") {
+      const scraperSources = await this.loadCouponScraperSources();
+      for (const { slug, cfg } of scraperSources) {
+        byPlatform[cfg.platform] = await this.syncCouponScraperSource(slug, cfg).catch(async (e) => {
+          this.log.error(`Coupon scraper [${slug}] failed: ${e.message}`);
+          await this.slog.error(`Coupon scraper thất bại: ${slug}`, SRC, { slug, error: e.message }, trigger);
+          return 0;
+        });
+        await sleep(2000);
+      }
     }
 
     const total = Object.values(byNiche).reduce((a, b) => a + b, 0)
@@ -113,6 +160,8 @@ export class CouponSyncService {
         where: { id: this.buildCouponId(niche.id, v) },
         update: {
           description: v.description,
+          terms: v.terms,
+          imageUrl: v.imageUrl,
           discountValue: v.discountValue,
           discountType: v.discountType,
           minOrderValue: v.minOrderValue,
@@ -128,6 +177,8 @@ export class CouponSyncService {
           merchant: v.merchant,
           code: v.code,
           description: v.description,
+          terms: v.terms,
+          imageUrl: v.imageUrl,
           discountValue: v.discountValue,
           discountType: v.discountType,
           minOrderValue: v.minOrderValue,
@@ -224,8 +275,8 @@ export class CouponSyncService {
         if (!v) continue;
         await this.prisma.coupon.upsert({
           where: { id: this.buildCouponId("shopee", v) },
-          update: { description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("shopee", v), source: "shopee", platform: "shopee", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
+          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
+          create: { id: this.buildCouponId("shopee", v), source: "shopee", platform: "shopee", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
         });
         count++;
       }
@@ -264,8 +315,8 @@ export class CouponSyncService {
         if (!v) continue;
         await this.prisma.coupon.upsert({
           where: { id: this.buildCouponId("tiki", v) },
-          update: { description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("tiki", v), source: "tiki", platform: "tiki", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
+          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
+          create: { id: this.buildCouponId("tiki", v), source: "tiki", platform: "tiki", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
         });
         count++;
       }
@@ -304,8 +355,8 @@ export class CouponSyncService {
         if (!v) continue;
         await this.prisma.coupon.upsert({
           where: { id: this.buildCouponId("lazada", v) },
-          update: { description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("lazada", v), source: "lazada", platform: "lazada", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
+          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
+          create: { id: this.buildCouponId("lazada", v), source: "lazada", platform: "lazada", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
         });
         count++;
       }
@@ -340,7 +391,9 @@ export class CouponSyncService {
       const discountValue = Number(item.discountAmount ?? item.discountRate ?? 0);
       const discountType: "percent" | "fixed" = item.discountType === "FIXED_AMOUNT" || item.discountType === "fixed" ? "fixed" : "percent";
       const affiliateUrl = item.deeplink ?? item.affiliateLink ?? item.url ?? "https://shopee.vn";
-      return { nicheId: null, platform: "shopee", merchant: item.shopName ?? "Shopee", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 200), discountValue: Math.abs(discountValue), discountType, minOrderValue: item.minimumOrderPrice ?? item.minSpend ?? null, maxDiscount: item.maxDiscount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: item.endTime ? new Date(Number(item.endTime) * 1000) : null };
+      const imageUrl = item.bannerImage ?? item.imageUrl ?? item.image ?? item.banner ?? null;
+      const terms = item.usageCondition ?? item.condition ?? item.terms ?? item.termAndCondition ?? null;
+      return { nicheId: null, platform: "shopee", merchant: item.shopName ?? "Shopee", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 500), terms: terms ? String(terms).slice(0, 1000) : null, imageUrl: imageUrl ? String(imageUrl) : null, discountValue: Math.abs(discountValue), discountType, minOrderValue: item.minimumOrderPrice ?? item.minSpend ?? null, maxDiscount: item.maxDiscount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: item.endTime ? new Date(Number(item.endTime) * 1000) : null };
     } catch { return null; }
   }
 
@@ -351,7 +404,9 @@ export class CouponSyncService {
       if (!description) return null;
       const discountValue = Number(item.discount_amount ?? item.discount_percent ?? 0);
       const discountType: "percent" | "fixed" = item.discount_type === "amount" || item.discount_type === "fixed" ? "fixed" : "percent";
-      return { nicheId: null, platform: "tiki", merchant: item.brand ?? "Tiki", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 200), discountValue: Math.abs(discountValue), discountType, minOrderValue: item.min_order_price ?? null, maxDiscount: item.max_discount_amount ?? null, affiliateUrl: item.url ?? item.tracking_url ?? "https://tiki.vn", expiresAt: item.expire_date ? new Date(item.expire_date) : null };
+      const imageUrl = item.image_url ?? item.thumbnail ?? item.banner_url ?? item.image ?? null;
+      const terms = item.condition ?? item.usage_condition ?? item.terms ?? item.requirement ?? null;
+      return { nicheId: null, platform: "tiki", merchant: item.brand ?? "Tiki", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 500), terms: terms ? String(terms).slice(0, 1000) : null, imageUrl: imageUrl ? String(imageUrl) : null, discountValue: Math.abs(discountValue), discountType, minOrderValue: item.min_order_price ?? null, maxDiscount: item.max_discount_amount ?? null, affiliateUrl: item.url ?? item.tracking_url ?? "https://tiki.vn", expiresAt: item.expire_date ? new Date(item.expire_date) : null };
     } catch { return null; }
   }
 
@@ -362,7 +417,9 @@ export class CouponSyncService {
       if (!description) return null;
       const discountValue = Number(item.discount_value ?? item.discount ?? 0);
       const discountType: "percent" | "fixed" = item.voucher_type === "MONETARY" || item.voucher_type === "fixed" ? "fixed" : "percent";
-      return { nicheId: null, platform: "lazada", merchant: item.seller_name ?? "Lazada", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 200), discountValue: Math.abs(discountValue), discountType, minOrderValue: item.min_spend ?? null, maxDiscount: item.max_discount_amount ?? null, affiliateUrl: item.tracking_url ?? item.url ?? "https://lazada.vn", expiresAt: item.end_time ? new Date(item.end_time) : null };
+      const imageUrl = item.image_url ?? item.banner_url ?? item.banner ?? item.image ?? null;
+      const terms = item.terms_and_conditions ?? item.condition ?? item.terms ?? item.usage_terms ?? null;
+      return { nicheId: null, platform: "lazada", merchant: item.seller_name ?? "Lazada", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 500), terms: terms ? String(terms).slice(0, 1000) : null, imageUrl: imageUrl ? String(imageUrl) : null, discountValue: Math.abs(discountValue), discountType, minOrderValue: item.min_spend ?? null, maxDiscount: item.max_discount_amount ?? null, affiliateUrl: item.tracking_url ?? item.url ?? "https://lazada.vn", expiresAt: item.end_time ? new Date(item.end_time) : null };
     } catch { return null; }
   }
 
@@ -373,11 +430,264 @@ export class CouponSyncService {
       if (!description) return null;
       const discountValue = Number(item.discount_value ?? item.value ?? item.amount ?? 0);
       const discountType = item.discount_type === "fixed" || item.type === "fixed" ? "fixed" : "percent";
-      const expiresAt = item.expire_date ?? item.end_date ?? item.expired_at ?? null;
-      let affiliateUrl = item.link ?? item.url ?? item.landing_url ?? "";
+      const expiresAt = item.expire_date ?? item.end_date ?? item.expired_at ?? item.end_time ?? null;
+      let affiliateUrl = item.link ?? item.url ?? item.landing_url ?? item.tracking_url ?? "";
       if (!affiliateUrl) affiliateUrl = `https://accesstrade.vn`;
-      return { nicheId: niche.id, platform: null, merchant: item.merchant ?? item.brand ?? item.shop_name ?? niche.name, code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 200), discountValue: Math.abs(discountValue), discountType: discountType as "percent" | "fixed", minOrderValue: item.min_order ?? item.minimum_order ?? null, maxDiscount: item.max_discount ?? item.maximum_discount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: expiresAt ? new Date(expiresAt) : null };
+      const imageUrl = item.image ?? item.banner ?? item.image_url ?? item.banner_url ?? item.thumbnail ?? null;
+      const terms = item.terms ?? item.condition ?? item.usage_guide ?? item.requirement ?? item.terms_condition ?? null;
+      return { nicheId: niche.id, platform: null, merchant: item.merchant ?? item.brand ?? item.shop_name ?? niche.name, code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 500), terms: terms ? String(terms).slice(0, 1000) : null, imageUrl: imageUrl ? String(imageUrl) : null, discountValue: Math.abs(discountValue), discountType: discountType as "percent" | "fixed", minOrderValue: item.min_order ?? item.minimum_order ?? null, maxDiscount: item.max_discount ?? item.maximum_discount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: expiresAt ? new Date(expiresAt) : null };
     } catch { return null; }
+  }
+
+  // ── Coupon scraper (generic — config-driven) ───────────────
+
+  private async loadCouponScraperSources(): Promise<Array<{ slug: string; cfg: CouponScraperConfig }>> {
+    const rows = await this.prisma.syncSource.findMany({ where: { enabled: true } });
+    const result: Array<{ slug: string; cfg: CouponScraperConfig }> = [];
+    for (const row of rows) {
+      try {
+        const cfg = JSON.parse(row.config as string) as Record<string, unknown>;
+        if (cfg.type === "coupon-scraper") {
+          result.push({ slug: row.slug, cfg: cfg as unknown as CouponScraperConfig });
+        }
+      } catch { /* malformed config — skip */ }
+    }
+    return result;
+  }
+
+  private async syncCouponScraperSource(slug: string, cfg: CouponScraperConfig): Promise<number> {
+    const vouchers = await this.fetchPromoPageVouchers(slug, cfg);
+    if (!vouchers.length) return 0;
+
+    let count = 0;
+    for (const v of vouchers) {
+      await this.prisma.coupon.upsert({
+        where: { id: this.buildCouponId(cfg.nicheId, v) },
+        update: {
+          description: v.description,
+          terms: v.terms,
+          imageUrl: v.imageUrl,
+          discountValue: v.discountValue,
+          discountType: v.discountType,
+          minOrderValue: v.minOrderValue,
+          maxDiscount: v.maxDiscount,
+          affiliateUrl: v.affiliateUrl,
+          expiresAt: v.expiresAt,
+          ...(cfg.merchantLogo && { merchantLogo: cfg.merchantLogo }),
+          isActive: true,
+        },
+        create: {
+          id: this.buildCouponId(cfg.nicheId, v),
+          source: "accesstrade",
+          platform: cfg.platform,
+          nicheId: cfg.nicheId,
+          merchant: cfg.merchant,
+          ...(cfg.merchantLogo && { merchantLogo: cfg.merchantLogo }),
+          code: v.code,
+          description: v.description,
+          terms: v.terms,
+          imageUrl: v.imageUrl,
+          discountValue: v.discountValue,
+          discountType: v.discountType,
+          minOrderValue: v.minOrderValue,
+          maxDiscount: v.maxDiscount,
+          affiliateUrl: v.affiliateUrl,
+          expiresAt: v.expiresAt,
+          isActive: true,
+        },
+      });
+      count++;
+    }
+
+    this.log.log(`[${slug}] ${count} coupon scraper vouchers synced`);
+    await this.slog.info(`Đồng bộ coupon scraper "${slug}" hoàn tất`, SRC, { slug, count });
+    return count;
+  }
+
+  private async fetchPromoPageVouchers(slug: string, cfg: CouponScraperConfig): Promise<RawVoucher[]> {
+    let html: string;
+    try {
+      const res = await fetch(cfg.promoUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      html = await res.text();
+    } catch (e: any) {
+      this.log.warn(`[${slug}] Failed to fetch promo page: ${e.message}`);
+      return [];
+    }
+
+    // Dùng DealSyncService.getApprovedCampaigns() — cache 4h, tự load từ AT API nếu DB trống
+    const allCampaigns = await this.dealSync.getApprovedCampaigns();
+    const campaign = allCampaigns.find((c) => c.merchant === cfg.atMerchantSlug)
+      ?? await this.prisma.atCampaign.findFirst({ where: { merchant: cfg.atMerchantSlug } });
+    if (!campaign) {
+      this.log.warn(`[${slug}] Không tìm thấy AT campaign với merchant="${cfg.atMerchantSlug}"`);
+      this.log.warn(`[${slug}] Các campaign hiện có: ${allCampaigns.map((c) => c.merchant).join(", ") || "không có"}`);
+      return [];
+    }
+
+    // Create one AT tracking link for the promo page
+    let affiliateUrl = cfg.promoUrl;
+    try {
+      const link = await this.accesstrade.createTrackingLink({
+        campaignId: campaign.id,
+        urls: [cfg.promoUrl],
+        utmSource: "affiliate",
+        utmMedium: "coupon",
+        utmCampaign: slug,
+      });
+      affiliateUrl = link.shortLink ?? link.affiliateLink ?? cfg.promoUrl;
+    } catch (e: any) {
+      this.log.warn(`[${slug}] Could not create AT tracking link: ${e.message} — using promo URL`);
+    }
+
+    return await this.parseByParser(slug, cfg, html, affiliateUrl);
+  }
+
+  private async parseByParser(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): Promise<RawVoucher[]> {
+    if (cfg.parser === "tch-promo") return this.parseTchPromoPage(slug, cfg, html, affiliateUrl);
+    this.log.warn(`[${slug}] Unknown coupon-scraper parser: "${cfg.parser}"`);
+    return [];
+  }
+
+  private async parseTchPromoPage(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): Promise<RawVoucher[]> {
+    let baseOrigin = cfg.promoUrl;
+    try { baseOrigin = new URL(cfg.promoUrl).origin; } catch { /* keep promoUrl */ }
+
+    // Parse tất cả blocks từ HTML (sync)
+    const blocks = this.extractTchPromoBlocks(html, baseOrigin, cfg, affiliateUrl);
+    if (!blocks.length) {
+      this.log.warn(`[${slug}] No voucher items found on promo page`);
+      return [];
+    }
+
+    // Enrich song song: gọi /v1/coupon/claim cho mỗi block → lấy expiresAt + imageUrl từ claim page
+    const enriched = await Promise.allSettled(
+      blocks.map(({ dataId, cate, voucher }) =>
+        this.fetchTchClaimData(baseOrigin, dataId, cate).then((claim) => ({
+          ...voucher,
+          expiresAt: claim.expiresAt ?? voucher.expiresAt,
+          imageUrl:  claim.imageUrl  ?? voucher.imageUrl,
+        }))
+      )
+    );
+
+    return enriched
+      .filter((r): r is PromiseFulfilledResult<RawVoucher> => r.status === "fulfilled")
+      .map((r) => r.value);
+  }
+
+  private extractTchPromoBlocks(
+    html: string,
+    baseOrigin: string,
+    cfg: CouponScraperConfig,
+    affiliateUrl: string,
+  ): { dataId: string; cate: string; voucher: RawVoucher }[] {
+    const blockRe = /data-id="([^"]+)"[^>]*data-cate="([^"]+)"[^>]*>([\s\S]*?)<\/div>/g;
+    const seen = new Set<string>();
+    const blocks: { dataId: string; cate: string; voucher: RawVoucher }[] = [];
+    let m: RegExpExecArray | null;
+
+    while ((m = blockRe.exec(html)) !== null) {
+      const dataId = m[1];
+      if (seen.has(dataId)) continue; // bỏ qua clone của owl carousel
+      seen.add(dataId);
+
+      const cate  = m[2];
+      const inner = m[3];
+      const upper = cate.toUpperCase();
+
+      // Ảnh banner từ promo page (dùng làm fallback nếu claim page không có)
+      const imgMatch = inner.match(/\bsrc="([^"]+)"/);
+      const rawSrc = imgMatch ? imgMatch[1] : null;
+      const promoImageUrl = rawSrc
+        ? (rawSrc.startsWith("http") ? rawSrc : `${baseOrigin}${rawSrc.startsWith("/") ? "" : "/"}${rawSrc}`)
+        : null;
+
+      const base: Omit<RawVoucher, "description" | "discountValue" | "discountType"> = {
+        nicheId: cfg.nicheId, platform: cfg.platform, merchant: cfg.merchant,
+        code: null,       // claim-based: mỗi user nhận mã riêng khi bấm link
+        terms: null,
+        imageUrl: promoImageUrl,
+        minOrderValue: null, maxDiscount: null,
+        affiliateUrl,
+        expiresAt: null,  // sẽ được enrich từ claim page
+      };
+
+      let voucher: RawVoucher;
+
+      const buyTangMatch = upper.match(/MUA(\d+)TANG(\d+)/);
+      if (buyTangMatch) {
+        const buy = Number(buyTangMatch[1]);
+        const get = Number(buyTangMatch[2]);
+        const pct = Math.round((get / (buy + get)) * 100);
+        voucher = { ...base, description: `Mua ${buy} tặng ${get} tại ${cfg.merchant}`, discountValue: pct, discountType: "percent" };
+      } else {
+        const pctMatch = upper.match(/GIAM(\d+)%?/);
+        if (pctMatch) {
+          voucher = { ...base, description: `Giảm ${pctMatch[1]}% tại ${cfg.merchant}`, discountValue: Number(pctMatch[1]), discountType: "percent" };
+        } else {
+          const fixedMatch = upper.match(/DONGGIA(\d+)K/);
+          if (fixedMatch) {
+            const val = Number(fixedMatch[1]) * 1000;
+            voucher = { ...base, description: `Đồng giá ${Number(fixedMatch[1]).toLocaleString("vi-VN")}.000đ tại ${cfg.merchant}`, discountValue: val, discountType: "fixed" };
+          } else {
+            voucher = { ...base, description: `Ưu đãi ${cfg.merchant}: ${cate}`, discountValue: 0, discountType: "percent" };
+          }
+        }
+      }
+
+      blocks.push({ dataId, cate, voucher });
+    }
+
+    return blocks;
+  }
+
+  private async fetchTchClaimData(
+    baseOrigin: string,
+    dataId: string,
+    cate: string,
+  ): Promise<{ expiresAt: Date | null; imageUrl: string | null }> {
+    const empty = { expiresAt: null, imageUrl: null };
+    try {
+      // Bước 1: gọi /v1/coupon/claim → nhận redirect path (/claim?uid=...)
+      const claimRes = await fetch(
+        `${baseOrigin}/v1/coupon/claim?product_code=${encodeURIComponent(dataId)}&cate_id=${encodeURIComponent(cate)}`,
+        { signal: AbortSignal.timeout(10_000) },
+      );
+      if (!claimRes.ok) return empty;
+      const claimPath = (await claimRes.text()).trim(); // e.g. "/claim?uid=7075..."
+      if (!claimPath.startsWith("/claim")) return empty;
+
+      // Bước 2: fetch trang claim → extract expire date + ảnh voucher
+      const pageRes = await fetch(`${baseOrigin}${claimPath}`, { signal: AbortSignal.timeout(10_000) });
+      if (!pageRes.ok) return empty;
+      const pageHtml = await pageRes.text();
+
+      // <strong class="voucher-info expire-text">30-09-2026</strong>
+      const expireMatch = pageHtml.match(/expire-text[^>]*>([^<]+)<\/strong>/);
+      const expireStr = expireMatch?.[1]?.trim(); // "30-09-2026"
+      let expiresAt: Date | null = null;
+      if (expireStr) {
+        const parts = expireStr.split("-").map(Number); // [30, 9, 2026]
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          expiresAt = new Date(parts[2], parts[1] - 1, parts[0], 23, 59, 59);
+        }
+      }
+
+      // <img ... class="voucher-image" src="/static/images/claim/xxx.jpg">
+      const imgMatch = pageHtml.match(/voucher-image[^>]+src="([^"]+)"/);
+      const rawImg = imgMatch?.[1];
+      const imageUrl = rawImg
+        ? (rawImg.startsWith("http") ? rawImg : `${baseOrigin}${rawImg.startsWith("/") ? "" : "/"}${rawImg}`)
+        : null;
+
+      return { expiresAt, imageUrl };
+    } catch {
+      return empty;
+    }
   }
 
   private buildCouponId(nicheId: string, v: RawVoucher): string {

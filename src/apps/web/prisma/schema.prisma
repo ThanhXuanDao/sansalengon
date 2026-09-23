@@ -183,8 +183,10 @@ model Coupon {
   nicheId        String?                             // null = áp dụng mọi ngách
   merchant       String
   merchantLogo   String?
+  imageUrl       String?                             // Banner/ảnh coupon từ nguồn
   code           String?                             // null = không có code (click link trực tiếp)
   description    String
+  terms          String?                             // Điều kiện sử dụng chi tiết
   discountValue  Int                                 // số tiền hoặc % giảm
   discountType   String    @default("percent")       // "percent" | "fixed"
   minOrderValue  Int?

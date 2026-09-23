@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { BlogPostMeta } from "@/content/blog"
+import FormattedDate from "@/components/ui/FormattedDate"
 
 interface PostCardProps {
   post: BlogPostMeta
@@ -44,15 +45,8 @@ export default function PostCard({ post }: PostCardProps) {
           {post.description}
         </p>
         <div className="flex items-center justify-between">
-          <time
-            dateTime={post.date}
-            className="font-mono text-[10px] text-[#1a1c1b]/40"
-          >
-            {new Date(post.date).toLocaleDateString("vi-VN", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            })}
+          <time dateTime={post.date}>
+            <FormattedDate date={post.date} className="font-mono text-[10px] text-[#1a1c1b]/40" />
           </time>
           <span className="font-mono text-[10px] text-[#b51c00] group-hover:underline">
             Đọc thêm →

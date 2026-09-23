@@ -1,34 +1,74 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import dynamic from "next/dynamic"
-import { Tag, RefreshCw, ChevronDown, Flame, SlidersHorizontal, X } from "lucide-react"
+import { useSearchParams, usePathname } from "next/navigation"
+import { Tag, RefreshCw, ChevronDown, Flame, ArrowUpDown, Clock, TrendingUp } from "lucide-react"
 import Navbar from "@/components/layout/Navbar"
+import FilterBar from "@/components/sections/FilterBar"
+import type { FilterItem, SortOption } from "@/components/sections/FilterBar"
 import type { Coupon } from "@/components/coupons/CouponCard"
+import { useFormatDate } from "@/lib/currency-context"
+import { useCategories } from "@/hooks/useCategories"
+import { useSources } from "@/hooks/useSources"
 
 const CouponCard = dynamic(() => import("@/components/coupons/CouponCard"))
 const Footer = dynamic(() => import("@/components/layout/Footer"))
 
-interface NicheTab { id: string; label: string; emoji: string }
-
-const STATIC_NICHES: NicheTab[] = [
-  { id: "all",         label: "Tất cả",    emoji: "🎁" },
-  { id: "fashion",     label: "Thời trang", emoji: "👗" },
-  { id: "electronics", label: "Điện tử",   emoji: "📱" },
-  { id: "home",        label: "Nhà cửa",   emoji: "🏠" },
-  { id: "beauty",      label: "Làm đẹp",   emoji: "💄" },
-  { id: "food",        label: "Thực phẩm", emoji: "🛒" },
-  { id: "baby",        label: "Mẹ & Bé",   emoji: "👶" },
+const SORT_OPTIONS: SortOption[] = [
+  { value: "value",    label: "Giảm nhiều nhất", Icon: ArrowUpDown },
+  { value: "popular",  label: "Phổ biến nhất",   Icon: TrendingUp },
+  { value: "expiring", label: "Sắp hết hạn",     Icon: Clock },
 ]
 
-const PLATFORM_TABS = [
-  { id: "all",    label: "Tất cả",  color: "" },
-  { id: "shopee", label: "Shopee",  color: "text-orange-600" },
-  { id: "tiki",   label: "Tiki",    color: "text-blue-600" },
-  { id: "lazada", label: "Lazada",  color: "text-purple-600" },
+// No "Tất cả loại" — multi-select, empty array = all types
+const TYPE_OPTIONS = [
+  { value: "percent", label: "Giảm %" },
+  { value: "fixed",   label: "Giảm tiền" },
 ]
 
 const PAGE_SIZE = 20
+const DEFAULT_SORT = "value"
+
+interface CouponFilterState {
+  platforms: string[]  // [] = all (SyncSource.slug → Coupon.platform), multi-select
+  niches: string[]     // [] = all (Category.id), multi-select
+  types: string[]      // [] = all ("percent"|"fixed"), multi-select
+  sort: string
+}
+
+const DEFAULT_FILTER: CouponFilterState = {
+  platforms: [],
+  niches: [],
+  types: [],
+  sort: DEFAULT_SORT,
+}
+
+function buildCouponUrl(pathname: string, s: CouponFilterState): string {
+  const p = new URLSearchParams()
+  if (s.platforms.length > 0) p.set("platform", s.platforms.join(","))
+  if (s.niches.length > 0) p.set("niche", s.niches.join(","))
+  if (s.types.length > 0) p.set("type", s.types.join(","))
+  if (s.sort !== DEFAULT_SORT) p.set("sort", s.sort)
+  const qs = p.toString()
+  return pathname + (qs ? `?${qs}` : "")
+}
+
+function initFromParams(searchParams: URLSearchParams): CouponFilterState {
+  const platformParam = searchParams.get("platform")
+  const nicheParam = searchParams.get("niche")
+  const typeParam = searchParams.get("type")
+  return {
+    platforms: platformParam ? platformParam.split(",").filter(Boolean) : [],
+    niches:    nicheParam   ? nicheParam.split(",").filter(Boolean)   : [],
+    types:     typeParam    ? typeParam.split(",").filter(Boolean)    : [],
+    sort:      searchParams.get("sort") ?? DEFAULT_SORT,
+  }
+}
+
+function toggleItem(arr: string[], item: string): string[] {
+  return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
+}
 
 function CouponSkeleton() {
   return (
@@ -53,42 +93,48 @@ function EmptyCoupons() {
   )
 }
 
-interface Filters {
-  platform: string
-  type: string   // "" | "percent" | "fixed"
-  sort: string   // "value" | "popular" | "expiring"
-}
+function CouponPageClientInner() {
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
 
-export default function CouponPageClient() {
-  const [activeNiche, setActiveNiche] = useState("all")
-  const [filters, setFilters] = useState<Filters>({ platform: "all", type: "", sort: "value" })
-  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<CouponFilterState>(() => initFromParams(searchParams))
 
-  const [coupons, setCoupons]       = useState<Coupon[]>([])
-  const [flashSale, setFlashSale]   = useState<Coupon[]>([])
-  const [total, setTotal]           = useState(0)
-  const [loading, setLoading]       = useState(true)
+  const { data: categories = [], isLoading: isCategoriesLoading } = useCategories()
+  const { data: sources = [], isLoading: isSourcesLoading } = useSources("coupon")
+
+  const [coupons, setCoupons]         = useState<Coupon[]>([])
+  const [flashSale, setFlashSale]     = useState<Coupon[]>([])
+  const [total, setTotal]             = useState(0)
+  const [loading, setLoading]         = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [skip, setSkip]             = useState(0)
-  const [updatedAt, setUpdatedAt]   = useState("")
+  const [skip, setSkip]               = useState(0)
+  const [updatedAt, setUpdatedAt]     = useState("")
+
+  const formatDate = useFormatDate()
 
   useEffect(() => {
-    setUpdatedAt(new Date().toLocaleDateString("vi-VN", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    }))
-  }, [])
+    const now = new Date()
+    const datePart = formatDate(now)
+    const hh = String(now.getHours()).padStart(2, "0")
+    const mi = String(now.getMinutes()).padStart(2, "0")
+    setUpdatedAt(`${datePart}, ${hh}:${mi}`)
+  }, [formatDate])
 
-  const buildParams = useCallback(
-    (niche: string, f: Filters, currentSkip: number, flash = false) => {
+  // Sync filter state → URL (no navigation, just replaceState)
+  useEffect(() => {
+    window.history.replaceState(null, "", buildCouponUrl(pathname, filters))
+  }, [filters, pathname])
+
+  const buildApiParams = useCallback(
+    (f: CouponFilterState, currentSkip: number, flash = false) => {
       const p = new URLSearchParams({
-        niche,
         take: String(PAGE_SIZE),
         skip: String(currentSkip),
-        platform: f.platform,
         sort: f.sort,
       })
-      if (f.type) p.set("type", f.type)
+      if (f.platforms.length > 0) p.set("platform", f.platforms.join(","))
+      if (f.niches.length > 0) p.set("niche", f.niches.join(","))
+      if (f.types.length > 0) p.set("type", f.types.join(","))
       if (flash) p.set("flash", "1")
       return p
     },
@@ -96,32 +142,28 @@ export default function CouponPageClient() {
   )
 
   const fetchCoupons = useCallback(
-    async (niche: string, f: Filters, currentSkip: number) => {
-      const res = await fetch(`/api/coupons?${buildParams(niche, f, currentSkip)}`)
+    async (f: CouponFilterState, currentSkip: number) => {
+      const res = await fetch(`/api/coupons?${buildApiParams(f, currentSkip)}`)
       if (!res.ok) throw new Error("fetch error")
       return res.json() as Promise<{ data: Coupon[]; total: number }>
     },
-    [buildParams],
+    [buildApiParams],
   )
 
   const fetchFlashSale = useCallback(
-    async (niche: string, f: Filters) => {
-      const res = await fetch(`/api/coupons?${buildParams(niche, f, 0, true)}&take=6`)
+    async (f: CouponFilterState) => {
+      const res = await fetch(`/api/coupons?${buildApiParams(f, 0, true)}&take=6`)
       if (!res.ok) return []
       const { data } = await res.json() as { data: Coupon[]; total: number }
       return data
     },
-    [buildParams],
+    [buildApiParams],
   )
 
-  // Main fetch whenever niche or filters change
   useEffect(() => {
     setLoading(true)
     setSkip(0)
-    Promise.all([
-      fetchCoupons(activeNiche, filters, 0),
-      fetchFlashSale(activeNiche, filters),
-    ])
+    Promise.all([fetchCoupons(filters, 0), fetchFlashSale(filters)])
       .then(([main, flash]) => {
         setCoupons(main.data)
         setTotal(main.total)
@@ -129,13 +171,13 @@ export default function CouponPageClient() {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [activeNiche, filters, fetchCoupons, fetchFlashSale])
+  }, [filters, fetchCoupons, fetchFlashSale])
 
   const handleLoadMore = async () => {
     const nextSkip = skip + PAGE_SIZE
     setLoadingMore(true)
     try {
-      const { data } = await fetchCoupons(activeNiche, filters, nextSkip)
+      const { data } = await fetchCoupons(filters, nextSkip)
       setCoupons((prev) => [...prev, ...data])
       setSkip(nextSkip)
     } finally {
@@ -143,142 +185,108 @@ export default function CouponPageClient() {
     }
   }
 
-  const activeFilterCount = [
-    filters.platform !== "all" ? 1 : 0,
-    filters.type ? 1 : 0,
-    filters.sort !== "value" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0)
-
   const hasMore = coupons.length < total
+
+  // Adapt sources → FilterItem[]
+  const sourceItems: FilterItem[] = sources.map((s) => ({
+    slug: s.slug,
+    label: s.name,
+    icon: s.icon,
+  }))
+
+  // Adapt categories → FilterItem[]
+  const categoryItems: FilterItem[] = categories.map((c) => ({
+    slug: c.id,
+    label: c.name,
+    emoji: c.emoji,
+  }))
+
+  // Type filter pills as extraPills in the sort row — multi-select, no "Tất cả loại"
+  const typePills = (
+    <>
+      <span className="w-px h-4 bg-border-color mx-1 shrink-0" aria-hidden="true" />
+      {TYPE_OPTIONS.map(({ value, label }) => {
+        const isActive = filters.types.includes(value)
+        return (
+          <button
+            key={value}
+            onClick={() => setFilters((f) => ({ ...f, types: toggleItem(f.types, value) }))}
+            className={`flex items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-mono uppercase border transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-filter-active ${
+              isActive
+                ? "bg-filter-active/10 text-filter-active border-filter-active font-bold"
+                : "bg-white text-ink/50 border-border-color hover:border-filter-active/50 hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </>
+  )
 
   return (
     <>
       <Navbar onSearch={() => {}} searchQuery="" />
 
       <div className="w-full bg-white border-t border-dashed border-border-color">
-        <main className="w-full max-w-[1320px] mx-auto px-3 py-10">
+        <main className="w-full max-w-[1320px] mx-auto px-3 pt-6 pb-12">
 
           {/* Header */}
-          <div className="mb-6">
+          <div className="mb-4">
             <div className="flex items-center gap-2 mb-1">
               <Tag className="size-5 text-primary" />
               <h1 className="font-bold text-2xl text-ink">Mã giảm giá hôm nay</h1>
             </div>
-            <p className="font-mono text-sm text-ink/50">
-              Voucher từ Shopee, Tiki, Lazada và các thương hiệu —{" "}
-              <span className="text-green-600 font-semibold">cập nhật 2 lần/ngày</span>
-            </p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <RefreshCw className="size-3 text-ink/30" />
-              <span className="font-mono text-[10px] text-ink/30">Cập nhật lần cuối: {updatedAt}</span>
-            </div>
-          </div>
-
-          {/* Niche tabs */}
-          <div className="flex gap-2 flex-wrap mb-4">
-            {STATIC_NICHES.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveNiche(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 brutalist-border font-mono text-xs font-bold uppercase transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                  activeNiche === tab.id
-                    ? "bg-primary text-white"
-                    : "bg-[#e8e8e5] text-ink hover:bg-primary/10"
-                }`}
-              >
-                <span>{tab.emoji}</span>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Platform tabs + filter toggle */}
-          <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-            <div className="flex gap-1.5">
-              {PLATFORM_TABS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setFilters((f) => ({ ...f, platform: p.id }))}
-                  className={`px-3 py-1 font-mono text-xs font-bold uppercase border transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
-                    filters.platform === p.id
-                      ? "bg-ink text-white border-ink"
-                      : `bg-transparent border-border-color text-ink/60 hover:border-ink/40 ${p.color}`
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowFilter(!showFilter)}
-              className="flex items-center gap-1.5 px-3 py-1 font-mono text-xs font-bold uppercase border border-border-color hover:border-ink/40 transition-colors focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <SlidersHorizontal className="size-3" />
-              Bộ lọc
-              {activeFilterCount > 0 && (
-                <span className="size-4 rounded-full bg-primary text-white text-[9px] flex items-center justify-center">
-                  {activeFilterCount}
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="font-mono text-sm text-ink/50">
+                Voucher từ Shopee, Tiki, Lazada và các thương hiệu —{" "}
+                <span className="text-green-600 font-semibold">cập nhật 2 lần/ngày</span>
+              </p>
+              {updatedAt && (
+                <span className="flex items-center gap-1 font-mono text-[10px] text-ink/30">
+                  <RefreshCw className="size-3" />
+                  {updatedAt}
                 </span>
               )}
-            </button>
+            </div>
           </div>
 
-          {/* Filter panel */}
-          {showFilter && (
-            <div className="mb-6 p-4 border border-border-color bg-[#fafaf7] flex flex-wrap gap-6">
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase text-ink/50 mb-2">Loại giảm</p>
-                <div className="flex gap-2">
-                  {[{ v: "", l: "Tất cả" }, { v: "percent", l: "Giảm %" }, { v: "fixed", l: "Giảm tiền" }].map(({ v, l }) => (
-                    <button
-                      key={v}
-                      onClick={() => setFilters((f) => ({ ...f, type: v }))}
-                      className={`px-2 py-1 font-mono text-xs border transition-colors ${
-                        filters.type === v ? "bg-primary text-white border-primary" : "border-border-color text-ink/60 hover:border-ink/40"
-                      }`}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          {/* ── Sticky filter bar — dùng chung FilterBar với trang chủ ── */}
+          <FilterBar
+            sources={sourceItems}
+            activeSources={filters.platforms}
+            onSourceToggle={(slug) =>
+              setFilters((f) => ({ ...f, platforms: toggleItem(f.platforms, slug) }))
+            }
+            isSourcesLoading={isSourcesLoading}
+            sourcesAriaLabel="Nguồn"
 
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase text-ink/50 mb-2">Sắp xếp</p>
-                <div className="flex gap-2">
-                  {[
-                    { v: "value",    l: "Giảm nhiều nhất" },
-                    { v: "popular",  l: "Phổ biến nhất" },
-                    { v: "expiring", l: "Sắp hết hạn" },
-                  ].map(({ v, l }) => (
-                    <button
-                      key={v}
-                      onClick={() => setFilters((f) => ({ ...f, sort: v }))}
-                      className={`px-2 py-1 font-mono text-xs border transition-colors ${
-                        filters.sort === v ? "bg-primary text-white border-primary" : "border-border-color text-ink/60 hover:border-ink/40"
-                      }`}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            categories={categoryItems}
+            activeCategories={filters.niches}
+            onCategoryToggle={(id) =>
+              setFilters((f) => ({ ...f, niches: toggleItem(f.niches, id) }))
+            }
+            isCategoriesLoading={isCategoriesLoading}
+            categoriesAriaLabel="Ngành hàng"
 
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={() => setFilters({ platform: "all", type: "", sort: "value" })}
-                  className="flex items-center gap-1 px-2 py-1 font-mono text-xs text-ink/50 hover:text-primary transition-colors self-end"
-                >
-                  <X className="size-3" /> Xóa bộ lọc
-                </button>
-              )}
-            </div>
-          )}
+            sortOptions={SORT_OPTIONS}
+            sort={filters.sort}
+            onSortChange={(v) => setFilters((f) => ({ ...f, sort: v }))}
+
+            extraPills={typePills}
+          />
+
+          {/* Tip */}
+          <div className="mt-16 mb-5 p-3 border border-dashed border-border-color bg-[#fafaf7]">
+            <p className="font-mono text-xs text-ink/50">
+              <strong className="text-ink/70">Cách dùng:</strong> Nhấn "Lấy mã" để xem mã đầy đủ → Nhấn "Copy" → Dán vào ô voucher khi thanh toán.
+              Mã cập nhật tự động — nếu mã hết hiệu lực, hệ thống sẽ tự xóa trong vòng 24 giờ.
+            </p>
+          </div>
 
           {/* Flash sale section */}
           {!loading && flashSale.length > 0 && (
-            <div className="mb-8">
+            <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <Flame className="size-4 text-amber-500" />
                 <h2 className="font-bold text-base text-ink">Flash Sale — Hết hạn trong 24h</h2>
@@ -291,13 +299,13 @@ export default function CouponPageClient() {
                   <CouponCard key={c.id} coupon={c} />
                 ))}
               </div>
-              <hr className="border-dashed border-border-color mt-8 mb-6" />
+              <hr className="border-dashed border-border-color mt-6 mb-5" />
             </div>
           )}
 
           {/* Counter */}
           {!loading && (
-            <p className="font-mono text-xs text-ink/40 mb-4">
+            <p className="font-mono text-xs text-ink/40 mb-3">
               {total > 0 ? `${total} mã giảm giá đang hoạt động` : ""}
             </p>
           )}
@@ -318,35 +326,35 @@ export default function CouponPageClient() {
               </div>
 
               {hasMore && (
-                <div className="flex justify-center mt-8">
+                <div className="mt-8 flex justify-center">
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="flex items-center gap-2 px-6 py-2 brutalist-border bg-[#e8e8e5] text-ink font-mono text-xs font-bold uppercase hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+                    className="flex items-center gap-3 bg-primary hover:brightness-90 text-white px-10 py-3 rounded-full font-semibold text-sm transition-all active:scale-[.97] disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary cursor-pointer min-w-[200px] justify-center"
                   >
                     {loadingMore ? (
-                      <RefreshCw className="size-3 animate-spin" />
+                      <RefreshCw className="size-4 animate-spin" />
                     ) : (
-                      <ChevronDown className="size-3" />
+                      <ChevronDown className="size-4" />
                     )}
-                    Xem thêm ({total - coupons.length} mã còn lại)
+                    Xem thêm ({total - coupons.length} mã)
                   </button>
                 </div>
               )}
             </>
           )}
-
-          {/* Tip */}
-          <div className="mt-12 p-4 border border-dashed border-border-color bg-[#fafaf7]">
-            <p className="font-mono text-xs text-ink/50">
-              <strong className="text-ink/70">Cách dùng:</strong> Nhấn "Lấy mã" để xem mã đầy đủ → Nhấn "Copy" → Dán vào ô voucher khi thanh toán.
-              Mã cập nhật tự động — nếu mã hết hiệu lực, hệ thống sẽ tự xóa trong vòng 24 giờ.
-            </p>
-          </div>
         </main>
       </div>
 
       <Footer />
     </>
+  )
+}
+
+export default function CouponPageClient() {
+  return (
+    <Suspense>
+      <CouponPageClientInner />
+    </Suspense>
   )
 }

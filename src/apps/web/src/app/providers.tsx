@@ -9,6 +9,7 @@ interface ProvidersProps {
   currencySymbol?: string
   currencyPosition?: string
   thousandSeparator?: string
+  dateFormat?: string
 }
 
 export default function Providers({
@@ -16,6 +17,7 @@ export default function Providers({
   currencySymbol = "₫",
   currencyPosition = "after",
   thousandSeparator = ".",
+  dateFormat = "DD/MM/YYYY",
 }: ProvidersProps) {
   const [queryClient] = useState(
     () =>
@@ -31,7 +33,7 @@ export default function Providers({
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CurrencyProvider opts={{ currencySymbol, currencyPosition, thousandSeparator }}>
+      <CurrencyProvider opts={{ currencySymbol, currencyPosition, thousandSeparator, dateFormat }}>
         {children}
       </CurrencyProvider>
     </QueryClientProvider>

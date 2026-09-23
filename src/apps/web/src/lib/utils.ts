@@ -43,6 +43,17 @@ export function formatPrice(price: number, opts?: PriceFormatOpts): string {
   return position === "before" ? `${symbol}${formatted}` : `${formatted}${symbol}`
 }
 
+// Hỗ trợ: "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD", "DD-MM-YYYY", "DD MMM YYYY"
+export function formatDate(date: Date | string | null | undefined, fmt: string): string {
+  if (!date) return ""
+  const d = typeof date === "string" ? new Date(date) : date
+  if (isNaN(d.getTime())) return ""
+  const dd   = String(d.getDate()).padStart(2, "0")
+  const mm   = String(d.getMonth() + 1).padStart(2, "0")
+  const yyyy = String(d.getFullYear())
+  return fmt.replace("DD", dd).replace("MM", mm).replace("YYYY", yyyy)
+}
+
 export const NUMBER_RANGE_CHUNK_SIZE = 100
 
 export function buildNumberRanges(total: number): { label: string; from: number; to: number }[] {

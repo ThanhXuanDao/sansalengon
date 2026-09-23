@@ -6,6 +6,7 @@ import { ChevronRight, ExternalLink, TrendingDown, CheckCircle2, ShoppingBag, Ta
 import { prisma } from "@/lib/prisma"
 import { getActiveNiches, getNiche } from "@/lib/niches"
 import { formatPrice } from "@/lib/utils"
+import { getSiteSettings } from "@/lib/get-site-settings"
 import { getOrGenerateCompareSeo } from "@/lib/seo-generator"
 import PriceCompareChart from "@/components/compare/PriceCompareChart"
 
@@ -141,6 +142,13 @@ export default async function ComparePage(
 
   const compareUrl = `${BASE_URL}/${nicheId}/compare/${slug}`
 
+  const siteSettings = await getSiteSettings()
+  const priceOpts = {
+    currencySymbol: siteSettings.currencySymbol || "₫",
+    currencyPosition: siteSettings.currencyPosition || "after",
+    thousandSeparator: siteSettings.thousandSeparator || ".",
+  }
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
@@ -150,8 +158,7 @@ export default async function ComparePage(
 
         {/* ── Hero ─────────────────────────────────────────────────── */}
         <div
-          className="relative w-full overflow-hidden"
-          style={{ height: "clamp(220px, 38vw, 380px)" }}
+          className="relative w-full overflow-hidden h-[clamp(220px,38vw,380px)]"
         >
           {/* Product image as background */}
           <img
@@ -184,8 +191,7 @@ export default async function ComparePage(
 
             {/* Product name */}
             <h1
-              className="font-mono font-bold text-white leading-tight mb-2.5"
-              style={{ fontSize: "clamp(15px, 3.5vw, 26px)" }}
+              className="font-mono font-bold text-white leading-tight mb-2.5 text-[clamp(15px,3.5vw,26px)]"
             >
               {product.name}
             </h1>
@@ -194,7 +200,7 @@ export default async function ComparePage(
             {savings > 0 && (
               <div className="flex items-center gap-1.5 font-mono text-[11px] md:text-[12px] text-[#6ee7a7]">
                 <TrendingDown className="size-3.5 shrink-0" aria-hidden="true" />
-                <span>Tiết kiệm tới <strong>{formatPrice(savings)}</strong> khi chọn đúng sàn</span>
+                <span>Tiết kiệm tới <strong>{formatPrice(savings, priceOpts)}</strong> khi chọn đúng sàn</span>
               </div>
             )}
           </div>
@@ -271,16 +277,15 @@ export default async function ComparePage(
                         {/* Price */}
                         <div className="text-right shrink-0">
                           <p
-                            className={`font-mono text-base font-bold ${
+                            className={`font-mono text-base font-bold tabular-nums ${
                               isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"
                             } ${!p.inStock ? "opacity-35" : ""}`}
-                            style={{ fontVariantNumeric: "tabular-nums" }}
                           >
-                            {formatPrice(p.currentPrice)}
+                            {formatPrice(p.currentPrice, priceOpts)}
                           </p>
                           {p.originalPrice && p.originalPrice > p.currentPrice && (
                             <p className="font-mono text-[10px] text-[#1a1c1b]/35 line-through">
-                              {formatPrice(p.originalPrice)}
+                              {formatPrice(p.originalPrice, priceOpts)}
                             </p>
                           )}
                         </div>
@@ -401,12 +406,12 @@ export default async function ComparePage(
                   <span className="font-mono text-[10px] text-[#fdc73a] uppercase tracking-widest block mb-1.5">
                     Giá rẻ nhất hôm nay
                   </span>
-                  <p className="font-mono text-[22px] font-bold text-white leading-none mb-1" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatPrice(cheapestPrice)}
+                  <p className="font-mono text-[22px] font-bold text-white leading-none mb-1 tabular-nums">
+                    {formatPrice(cheapestPrice, priceOpts)}
                   </p>
                   <p className="font-mono text-[11px] text-white/50 mb-4">
                     tại {cheapestPlatform.platformName}
-                    {savings > 0 && ` · tiết kiệm ${formatPrice(savings)}`}
+                    {savings > 0 && ` · tiết kiệm ${formatPrice(savings, priceOpts)}`}
                   </p>
                   <a
                     href={cheapestPlatform.platformUrl}
@@ -441,10 +446,9 @@ export default async function ComparePage(
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span
-                            className={`font-mono text-[12px] font-bold ${isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"} ${!p.inStock ? "opacity-35" : ""}`}
-                            style={{ fontVariantNumeric: "tabular-nums" }}
+                            className={`font-mono text-[12px] font-bold tabular-nums ${isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"} ${!p.inStock ? "opacity-35" : ""}`}
                           >
-                            {p.inStock ? formatPrice(p.currentPrice) : "Hết hàng"}
+                            {p.inStock ? formatPrice(p.currentPrice, priceOpts) : "Hết hàng"}
                           </span>
                           {isCheapest && (
                             <CheckCircle2 className="size-3 text-[#1a6e3c] shrink-0" aria-hidden="true" />

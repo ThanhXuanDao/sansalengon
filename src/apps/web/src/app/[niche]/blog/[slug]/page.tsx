@@ -5,6 +5,8 @@ import dynamic from "next/dynamic"
 import { ChevronRight, Clock, Calendar, BookOpen, Tag, ShoppingBag } from "lucide-react"
 import { getActiveNiches } from "@/lib/niches"
 import { getPost, getAllPosts, getRelatedPosts } from "@/lib/blog"
+import { getSiteSettings } from "@/lib/get-site-settings"
+import { formatDate } from "@/lib/utils"
 import { POST_LOADERS } from "@/content/blog"
 import ReadingProgress from "@/components/blog/ReadingProgress"
 import CopyLinkButton from "@/components/blog/CopyLinkButton"
@@ -63,11 +65,8 @@ export default async function BlogPostPage({ params }: Props) {
 
   const postUrl = `${BASE_URL}/${nicheId}/blog/${slug}`
 
-  const publishedDate = new Date(post.date).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  })
+  const s = await getSiteSettings()
+  const publishedDate = formatDate(post.date, s.dateFormat || "DD/MM/YYYY")
 
   const articleSchema = {
     "@context": "https://schema.org",
@@ -108,8 +107,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* ── Hero ─────────────────────────────────────────────────── */}
         {post.coverImage ? (
-          <div className="relative w-full overflow-hidden"
-            style={{ height: "clamp(260px, 45vw, 440px)" }}
+          <div className="relative w-full overflow-hidden h-[clamp(260px,45vw,440px)]"
           >
             <img
               src={post.coverImage}
@@ -143,8 +141,7 @@ export default async function BlogPostPage({ params }: Props) {
               </div>
 
               {/* Title — responsive clamp */}
-              <h1 className="font-mono font-bold text-white leading-tight"
-                style={{ fontSize: "clamp(16px, 4vw, 28px)" }}
+              <h1 className="font-mono font-bold text-white leading-tight text-[clamp(16px,4vw,28px)]"
               >
                 {post.title}
               </h1>
@@ -181,8 +178,7 @@ export default async function BlogPostPage({ params }: Props) {
                   </span>
                 ))}
               </div>
-              <h1 className="font-mono font-bold text-white leading-tight"
-                style={{ fontSize: "clamp(18px, 5vw, 30px)" }}
+              <h1 className="font-mono font-bold text-white leading-tight text-[clamp(18px,5vw,30px)]"
               >
                 {post.title}
               </h1>
