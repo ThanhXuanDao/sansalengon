@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+﻿import type { Metadata } from "next"
 import Link from "next/link"
 import ContentPageShell from "@/components/layout/ContentPageShell"
 
@@ -51,8 +51,8 @@ export default function AffiliatePage() {
         </Link>
       </div>
 
-      <div className="mt-12 text-center border-t border-dashed border-[#e5e1d8] pt-6">
-        <p className="font-mono text-label-mono text-[#5c403a] uppercase tracking-widest">
+      <div className="mt-12 text-center border-t border-dashed border-[site-sand] pt-6">
+        <p className="font-mono text-label-mono text-[site-brown] uppercase tracking-widest">
           *** Shopee Affiliate Partner ***
         </p>
       </div>

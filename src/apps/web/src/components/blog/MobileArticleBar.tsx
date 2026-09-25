@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
@@ -42,7 +42,7 @@ export default function MobileArticleBar({ nicheId, nicheName, postTitle, postUr
     <div
       className={`
         lg:hidden fixed bottom-0 left-0 right-0 z-50 h-14
-        bg-[#1a1c1b] border-t-2 border-[#fdc73a]/20
+        bg-[site-ink] border-t-2 border-[site-yellow]/20
         flex items-stretch
         transition-transform duration-300 ease-out
         ${visible ? "translate-y-0" : "translate-y-full"}
@@ -63,7 +63,7 @@ export default function MobileArticleBar({ nicheId, nicheName, postTitle, postUr
       <div className="flex-1 flex flex-col items-center justify-center px-4 gap-1.5">
         <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#fdc73a] rounded-full transition-none"
+            className="h-full bg-[site-yellow] rounded-full transition-none"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -86,7 +86,7 @@ export default function MobileArticleBar({ nicheId, nicheName, postTitle, postUr
       {/* Deal CTA */}
       <Link
         href={`/${nicheId}`}
-        className="flex items-center justify-center gap-1.5 px-5 bg-[#b51c00] text-white font-mono text-[12px] font-bold active:bg-[#b51c00]/80 transition-colors border-l border-white/10"
+        className="flex items-center justify-center gap-1.5 px-5 bg-[site-red] text-white font-mono text-[12px] font-bold active:bg-[site-red]/80 transition-colors border-l border-white/10"
         aria-label={`Xem deal ${nicheName}`}
       >
         <ShoppingBag className="size-4 shrink-0" />

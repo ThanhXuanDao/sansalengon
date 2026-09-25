@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useRef, useEffect, useCallback } from "react"
-import { Search, X, Phone, Tag } from "lucide-react"
+import { useRef, useEffect, useCallback, useState } from "react"
+import { usePathname } from "next/navigation"
+import { Search, X, Phone, Tag, Flame, Percent } from "lucide-react"
 import { useSettings } from "@/hooks/useSettings"
 
 interface NavbarProps {
@@ -12,7 +13,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
-  const [activeNav, setActiveNav] = useState("")
+  const pathname = usePathname()
   const [inputValue, setInputValue] = useState(searchQuery)
   const [logoError, setLogoError] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -48,9 +49,9 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
     return () => window.removeEventListener("keydown", handleKey)
   }, [])
 
-  const navLinkClass = (id: string) =>
+  const navLinkClass = (href: string) =>
     `relative flex items-center gap-1 px-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-      activeNav === id
+      pathname === href
         ? "text-secondary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-secondary after:rounded-full"
         : "text-[#4F586D] hover:text-secondary"
     }`
@@ -152,23 +153,65 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
       {/* ─── Row 2: Navigation links ─── */}
       <div className="bg-white border-b border-[#DFE0E4]">
       <div className="max-w-[1320px] mx-auto px-3 flex items-center justify-between">
-        {/* Left nav */}
-        <div className="flex items-center gap-5">
-          <Link href="/ma-giam-gia" onClick={() => setActiveNav("coupons")} className={navLinkClass("coupons")}>
-            Mã giảm giá
+
+        {/* Left nav — 3 featured items + secondary links */}
+        <div className="flex items-center gap-1.5">
+
+          {/* Khuyến mãi HOT → trang chủ */}
+          <Link
+            href="/"
+            className={`group relative flex items-center gap-1.5 px-3.5 py-1.5 my-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+              pathname === "/"
+                ? "bg-secondary text-white shadow-[0_3px_12px_rgba(255,107,0,0.45)]"
+                : "bg-secondary/10 text-secondary hover:bg-secondary hover:text-white hover:shadow-[0_3px_12px_rgba(255,107,0,0.35)] hover:scale-[1.04]"
+            }`}
+          >
+            <Flame className="size-3.5 shrink-0 group-hover:animate-bounce" aria-hidden="true" />
+            <span>Khuyến mãi HOT</span>
+            {/* Pulsing live dot */}
+            <span className="relative flex size-2 shrink-0">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-70 ${pathname === "/" ? "bg-white" : "bg-secondary"}`} />
+              <span className={`relative inline-flex rounded-full size-2 ${pathname === "/" ? "bg-white" : "bg-secondary"}`} />
+            </span>
           </Link>
 
-          <Link href="/affiliate" onClick={() => setActiveNav("affiliate")} className={`${navLinkClass("affiliate")} hidden md:flex`}>
+          {/* Mã giảm giá */}
+          <Link
+            href="/ma-giam-gia"
+            className={`group flex items-center gap-1.5 px-3.5 py-1.5 my-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+              pathname === "/ma-giam-gia"
+                ? "bg-primary text-white shadow-[0_3px_10px_rgba(0,194,146,0.35)]"
+                : "text-[#4F586D] hover:bg-primary/10 hover:text-primary hover:scale-[1.04]"
+            }`}
+          >
+            <Tag className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>Mã giảm giá</span>
+          </Link>
+
+          {/* Ưu đãi dịch vụ */}
+          <Link
+            href="/uu-dai-dich-vu"
+            className={`group flex items-center gap-1.5 px-3.5 py-1.5 my-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
+              pathname === "/uu-dai-dich-vu"
+                ? "bg-blue-500 text-white shadow-[0_3px_10px_rgba(59,130,246,0.35)]"
+                : "text-[#4F586D] hover:bg-blue-500/10 hover:text-blue-600 hover:scale-[1.04]"
+            }`}
+          >
+            <Percent className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>Ưu đãi dịch vụ</span>
+          </Link>
+
+          <Link href="/affiliate" className={`${navLinkClass("/affiliate")} hidden md:flex ml-2`}>
             Affiliate
           </Link>
         </div>
 
         {/* Right nav */}
         <div className="hidden md:flex items-center gap-5">
-          <Link href="/about" onClick={() => setActiveNav("about")} className={navLinkClass("about")}>
+          <Link href="/about" className={navLinkClass("/about")}>
             Giới thiệu
           </Link>
-          <Link href="/contact" onClick={() => setActiveNav("contact")} className={navLinkClass("contact")}>
+          <Link href="/contact" className={navLinkClass("/contact")}>
             Liên hệ
           </Link>
         </div>

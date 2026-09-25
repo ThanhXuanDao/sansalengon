@@ -1,21 +1,30 @@
 import { Controller, Post, Get, Param, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger, InternalServerErrorException } from "@nestjs/common"
 import { fetchShopeeProductInfo, fetchLazadaProductInfo } from "./product-url-fetcher"
 import { ConfigService } from "@nestjs/config"
-import { DealSyncService } from "./deal-sync.service"
+import { PrismaClient } from "@prisma/client"
+import { PlatformSyncService } from "./platform-sync.service"
+import { ATFeedSyncService } from "./at-feed-sync.service"
+import { LeadCampaignSyncService } from "./lead-campaign-sync.service"
 import { CouponSyncService } from "./coupon-sync.service"
-import { PlatformSyncService } from "../platforms/platform-sync.service"
+import { ProductMatchingService } from "../platforms/platform-sync.service"
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client"
+import { AtCampaignService } from "../shared/at-campaign.service"
 
 @Controller("sync")
 export class SyncController {
   private readonly log = new Logger(SyncController.name);
 
+  private readonly prisma = new PrismaClient()
+
   constructor(
     private readonly cfg: ConfigService,
-    private readonly dealSync: DealSyncService,
+    private readonly dealSync: PlatformSyncService,
+    private readonly atFeedSync: ATFeedSyncService,
+    private readonly leadSync: LeadCampaignSyncService,
     private readonly couponSync: CouponSyncService,
-    private readonly platformSync: PlatformSyncService,
+    private readonly platformSync: ProductMatchingService,
     private readonly atClient: AccessTradePublisherClient,
+    private readonly atCampaignSvc: AtCampaignService,
   ) {}
 
   private checkAuth(auth: string | undefined): void {
@@ -43,7 +52,7 @@ export class SyncController {
     @Headers("authorization") auth: string | undefined,
   ) {
     this.checkAuth(auth)
-    const campaigns = await this.dealSync.getApprovedCampaigns()
+    const { campaigns } = await this.atCampaignSvc.getCampaigns()
     return { ok: true, campaigns, total: campaigns.length }
   }
 
@@ -68,10 +77,38 @@ export class SyncController {
       throw new BadRequestException(`source không hợp lệ: "${rawSource}". Các nguồn hợp lệ: ${validSlugs.join(", ")}`)
     }
     const source = rawSource
-    // Fire-and-forget: don't await so the HTTP response is sent immediately
-    void this.dealSync.triggerSync(body.niche, source, "manual").catch((e: Error) => {
-      this.log.error(`[sync/deals] Background sync error: ${e.message}`)
+
+    // Resolve source type from DB (type is stored inside the config JSON, not a top-level column)
+    const dbSource = await this.prisma.syncSource.findFirst({
+      where: { slug: source },
+      select: { config: true },
     })
+    let sourceType = "platform-sync"
+    try {
+      const parsed = dbSource?.config ? JSON.parse(dbSource.config as string) : {}
+      sourceType = parsed?.type ?? "platform-sync"
+    } catch { /* malformed config — default to platform-sync */ }
+
+    if (sourceType === "offer-sync") {
+      if (this.atFeedSync.syncRunning) {
+        return { ok: false, inProgress: true, message: "offer-sync đang chạy, vui lòng đợi" }
+      }
+      void this.atFeedSync.syncSource(source, "manual", body.niche).catch((e: Error) => {
+        this.log.error(`[sync/deals] offer-sync background error: ${e.message}`)
+      })
+    } else if (sourceType === "lead-campaign") {
+      if (this.leadSync.syncRunning) {
+        return { ok: false, inProgress: true, message: "lead-campaign sync đang chạy, vui lòng đợi" }
+      }
+      void this.leadSync.syncSource(source, "manual").catch((e: Error) => {
+        this.log.error(`[sync/deals] lead-campaign background error: ${e.message}`)
+      })
+    } else {
+      // Fire-and-forget: don't await so the HTTP response is sent immediately
+      void this.dealSync.triggerSync(body.niche, source, "manual").catch((e: Error) => {
+        this.log.error(`[sync/deals] Background sync error: ${e.message}`)
+      })
+    }
     return { ok: true, started: true, startedAt: new Date().toISOString() }
   }
 

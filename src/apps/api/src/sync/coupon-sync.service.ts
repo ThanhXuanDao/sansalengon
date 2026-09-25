@@ -4,8 +4,9 @@ import { PrismaClient } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client";
 import { AppLogService } from "../shared/app-log.service";
+import { sleep } from "./sync.constants";
 import type { Trigger } from "../shared/app-log.service";
-import { DealSyncService } from "./deal-sync.service";
+import { AtCampaignService } from "../shared/at-campaign.service";
 
 interface NicheConfig {
   id: string;
@@ -30,7 +31,6 @@ interface RawVoucher {
 }
 
 const AT_VOUCHER_API = "https://api.accesstrade.vn/v1/vouchers";
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SRC = "coupon-sync";
 
 interface CouponScraperConfig {
@@ -53,7 +53,7 @@ export class CouponSyncService {
     private readonly cfg: ConfigService,
     private readonly accesstrade: AccessTradePublisherClient,
     private readonly appLog: AppLogService,
-    private readonly dealSync: DealSyncService,
+    private readonly atCampaignSvc: AtCampaignService,
   ) {}
 
   private get slog() { return this.appLog.scope("api-sync"); }
@@ -156,38 +156,7 @@ export class CouponSyncService {
 
     let count = 0;
     for (const v of vouchers) {
-      await this.prisma.coupon.upsert({
-        where: { id: this.buildCouponId(niche.id, v) },
-        update: {
-          description: v.description,
-          terms: v.terms,
-          imageUrl: v.imageUrl,
-          discountValue: v.discountValue,
-          discountType: v.discountType,
-          minOrderValue: v.minOrderValue,
-          maxDiscount: v.maxDiscount,
-          expiresAt: v.expiresAt,
-          isActive: true,
-        },
-        create: {
-          id: this.buildCouponId(niche.id, v),
-          source: "accesstrade",
-          platform: v.platform,
-          nicheId: v.nicheId,
-          merchant: v.merchant,
-          code: v.code,
-          description: v.description,
-          terms: v.terms,
-          imageUrl: v.imageUrl,
-          discountValue: v.discountValue,
-          discountType: v.discountType,
-          minOrderValue: v.minOrderValue,
-          maxDiscount: v.maxDiscount,
-          affiliateUrl: v.affiliateUrl,
-          expiresAt: v.expiresAt,
-          isActive: true,
-        },
-      });
+      await this.upsertCoupon(this.buildCouponId(niche.id, v), v, "accesstrade");
       count++;
     }
 
@@ -273,11 +242,7 @@ export class CouponSyncService {
       for (const item of items) {
         const v = this.parseShopeeVoucher(item);
         if (!v) continue;
-        await this.prisma.coupon.upsert({
-          where: { id: this.buildCouponId("shopee", v) },
-          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("shopee", v), source: "shopee", platform: "shopee", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
-        });
+        await this.upsertCoupon(this.buildCouponId("shopee", v), v, "shopee");
         count++;
       }
       this.log.log(`[Shopee] ${count} vouchers synced`);
@@ -313,11 +278,7 @@ export class CouponSyncService {
       for (const item of items) {
         const v = this.parseTikiVoucher(item);
         if (!v) continue;
-        await this.prisma.coupon.upsert({
-          where: { id: this.buildCouponId("tiki", v) },
-          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("tiki", v), source: "tiki", platform: "tiki", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
-        });
+        await this.upsertCoupon(this.buildCouponId("tiki", v), v, "tiki");
         count++;
       }
       this.log.log(`[Tiki] ${count} vouchers synced`);
@@ -353,11 +314,7 @@ export class CouponSyncService {
       for (const item of items) {
         const v = this.parseLazadaVoucher(item);
         if (!v) continue;
-        await this.prisma.coupon.upsert({
-          where: { id: this.buildCouponId("lazada", v) },
-          update: { description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, expiresAt: v.expiresAt, isActive: true },
-          create: { id: this.buildCouponId("lazada", v), source: "lazada", platform: "lazada", nicheId: v.nicheId, merchant: v.merchant, code: v.code, description: v.description, terms: v.terms, imageUrl: v.imageUrl, discountValue: v.discountValue, discountType: v.discountType, minOrderValue: v.minOrderValue, maxDiscount: v.maxDiscount, affiliateUrl: v.affiliateUrl, expiresAt: v.expiresAt, isActive: true },
-        });
+        await this.upsertCoupon(this.buildCouponId("lazada", v), v, "lazada");
         count++;
       }
       this.log.log(`[Lazada] ${count} vouchers synced`);
@@ -461,41 +418,7 @@ export class CouponSyncService {
 
     let count = 0;
     for (const v of vouchers) {
-      await this.prisma.coupon.upsert({
-        where: { id: this.buildCouponId(cfg.nicheId, v) },
-        update: {
-          description: v.description,
-          terms: v.terms,
-          imageUrl: v.imageUrl,
-          discountValue: v.discountValue,
-          discountType: v.discountType,
-          minOrderValue: v.minOrderValue,
-          maxDiscount: v.maxDiscount,
-          affiliateUrl: v.affiliateUrl,
-          expiresAt: v.expiresAt,
-          ...(cfg.merchantLogo && { merchantLogo: cfg.merchantLogo }),
-          isActive: true,
-        },
-        create: {
-          id: this.buildCouponId(cfg.nicheId, v),
-          source: "accesstrade",
-          platform: cfg.platform,
-          nicheId: cfg.nicheId,
-          merchant: cfg.merchant,
-          ...(cfg.merchantLogo && { merchantLogo: cfg.merchantLogo }),
-          code: v.code,
-          description: v.description,
-          terms: v.terms,
-          imageUrl: v.imageUrl,
-          discountValue: v.discountValue,
-          discountType: v.discountType,
-          minOrderValue: v.minOrderValue,
-          maxDiscount: v.maxDiscount,
-          affiliateUrl: v.affiliateUrl,
-          expiresAt: v.expiresAt,
-          isActive: true,
-        },
-      });
+      await this.upsertCoupon(this.buildCouponId(cfg.nicheId, v), v, "accesstrade", cfg.merchantLogo ?? null);
       count++;
     }
 
@@ -518,8 +441,7 @@ export class CouponSyncService {
       return [];
     }
 
-    // Dùng DealSyncService.getApprovedCampaigns() — cache 4h, tự load từ AT API nếu DB trống
-    const allCampaigns = await this.dealSync.getApprovedCampaigns();
+    const { campaigns: allCampaigns } = await this.atCampaignSvc.getCampaigns()
     const campaign = allCampaigns.find((c) => c.merchant === cfg.atMerchantSlug)
       ?? await this.prisma.atCampaign.findFirst({ where: { merchant: cfg.atMerchantSlug } });
     if (!campaign) {
@@ -688,6 +610,53 @@ export class CouponSyncService {
     } catch {
       return empty;
     }
+  }
+
+  // ── Single upsert method — dùng cho tất cả nguồn coupon ─────────────────────
+  // Fix: affiliateUrl luôn được update (trước đây thiếu ở AT/Shopee/Tiki/Lazada).
+  // merchantLogo chỉ set khi caller truyền (coupon-scraper source).
+
+  private async upsertCoupon(
+    couponId: string,
+    v: RawVoucher,
+    source: string,
+    merchantLogo: string | null = null,
+  ): Promise<void> {
+    await this.prisma.coupon.upsert({
+      where: { id: couponId },
+      update: {
+        description: v.description,
+        terms: v.terms,
+        imageUrl: v.imageUrl,
+        discountValue: v.discountValue,
+        discountType: v.discountType,
+        minOrderValue: v.minOrderValue,
+        maxDiscount: v.maxDiscount,
+        affiliateUrl: v.affiliateUrl,
+        expiresAt: v.expiresAt,
+        isActive: true,
+        ...(merchantLogo && { merchantLogo }),
+      },
+      create: {
+        id: couponId,
+        source,
+        platform: v.platform,
+        nicheId: v.nicheId,
+        merchant: v.merchant,
+        code: v.code,
+        description: v.description,
+        terms: v.terms,
+        imageUrl: v.imageUrl,
+        discountValue: v.discountValue,
+        discountType: v.discountType,
+        minOrderValue: v.minOrderValue,
+        maxDiscount: v.maxDiscount,
+        affiliateUrl: v.affiliateUrl,
+        expiresAt: v.expiresAt,
+        isActive: true,
+        ...(merchantLogo && { merchantLogo }),
+      },
+    });
   }
 
   private buildCouponId(nicheId: string, v: RawVoucher): string {

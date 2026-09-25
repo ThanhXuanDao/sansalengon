@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { X } from "lucide-react"
@@ -30,7 +30,7 @@ export default function NotificationBanner() {
     <div
       role="alert"
       aria-live="polite"
-      className="relative w-full bg-[#FFC93C] text-[#1a1c1b] border-b-2 border-[#1a1c1b] px-4 py-3 md:py-2 shadow-[0_4px_0px_0px_rgba(26,28,27,1)]"
+      className="relative w-full bg-[#FFC93C] text-[site-ink] border-b-2 border-[site-ink] px-4 py-3 md:py-2 shadow-[0_4px_0px_0px_rgba(26,28,27,1)]"
     >
       <div className="max-w-[1320px] mx-auto flex items-start md:items-center justify-between gap-4">
         <p className="font-mono text-[12px] md:text-[13px] leading-[18px] tracking-[0.05em]">
@@ -38,7 +38,7 @@ export default function NotificationBanner() {
         </p>
         <button
           onClick={handleDismiss}
-          className="shrink-0 p-1 rounded text-[#1a1c1b]/60 hover:text-[#1a1c1b] hover:bg-[#1a1c1b]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
+          className="shrink-0 p-1 rounded text-[site-ink]/60 hover:text-[site-ink] hover:bg-[site-ink]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[site-red] focus-visible:outline-none"
           aria-label="Đóng thông báo"
         >
           <X className="size-4" aria-hidden="true" />

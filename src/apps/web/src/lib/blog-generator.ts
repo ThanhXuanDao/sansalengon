@@ -1,7 +1,10 @@
 import { writeFileSync, readFileSync, mkdirSync } from "fs"
 import { join } from "path"
 import { getProviderForTask, getProviderIdForTask, isFeatureEnabled } from "./ai-config"
+import { createTextProvider } from "./ai-provider"
 import { generateImage, buildBlogCoverPrompt } from "./image-generator"
+import { toSlug } from "./slug"
+export { toSlug } from "./slug"
 
 export interface BlogGenerateInput {
   niche: string
@@ -16,6 +19,7 @@ export interface BlogGenerateInput {
 export interface BlogGenerateResult {
   slug: string
   filePath: string
+  htmlContent: string   // pure HTML for DB storage
   meta: {
     slug: string
     niche: string
@@ -25,21 +29,8 @@ export interface BlogGenerateResult {
     readTime: number
     tags: string[]
     author: string
+    coverImage?: string
   }
-}
-
-/** Convert Vietnamese title to URL-safe slug */
-export function toSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80)
 }
 
 /** Estimate read time from word count (200 words/min) */
@@ -49,7 +40,10 @@ function estimateReadTime(tsx: string): number {
 }
 
 /** Generate blog post TSX content using the configured AI provider */
-export async function generateBlogPost(input: BlogGenerateInput): Promise<BlogGenerateResult> {
+export async function generateBlogPost(
+  input: BlogGenerateInput,
+  providerOverride?: string,
+): Promise<BlogGenerateResult> {
   const productList = input.products
     .slice(0, 5)
     .map((p, i) => {
@@ -83,7 +77,9 @@ Yêu cầu định dạng — chỉ trả về phần bên trong JSX, KHÔNG có
 Bắt đầu ngay với <>:`
 
   const [textProvider, imageProviderId] = await Promise.all([
-    getProviderForTask("blog_writing"),
+    providerOverride
+      ? Promise.resolve(createTextProvider(providerOverride, "quality"))
+      : getProviderForTask("blog_writing"),
     getProviderIdForTask("image_generation"),
   ])
 
@@ -98,6 +94,13 @@ Bắt đầu ngay với <>:`
   if (!rawJsx.endsWith("</>")) rawJsx = `${rawJsx}\n</>`
 
   const tsx = `export default function PostContent() {\n  return (\n    ${rawJsx.split("\n").join("\n    ")}\n  )\n}\n`
+
+  // Extract pure HTML for DB (strip <> </> wrappers, convert JSX attrs)
+  const htmlContent = rawJsx
+    .replace(/^<>\n?/, "")
+    .replace(/\n?<\/>$/, "")
+    .replace(/className=/g, "class=")
+    .trim()
 
   const slug = toSlug(input.title)
   const date = new Date().toISOString().slice(0, 10)
@@ -134,10 +137,10 @@ Bắt đầu ngay với <>:`
     ...(coverImage ? { coverImage } : {}),
   }
 
-  // Register in generated-posts.ts
+  // Register in generated-posts.ts (backward compat)
   registerGeneratedPost(meta, input.niche, slug)
 
-  return { slug, filePath, meta }
+  return { slug, filePath, htmlContent, meta }
 }
 
 /** Append new post to generated-posts.ts by rewriting the entire file */
@@ -228,6 +231,83 @@ ${loadersLines}
 `
 
   writeFileSync(registryPath, output, "utf-8")
+}
+
+export interface BlogSuggestResult {
+  title: string
+  description: string
+  keywords: string[]
+  tags: string[]
+  htmlContent: string
+}
+
+/** Generate all blog metadata + content from a short topic string */
+export async function suggestBlogFromTopic(
+  topic: string,
+  niche: string,
+  providerOverride?: string,
+): Promise<BlogSuggestResult> {
+  const textProvider = providerOverride
+    ? createTextProvider(providerOverride, "quality")
+    : await getProviderForTask("blog_writing")
+
+  const nicheHint: Record<string, string> = {
+    electronics: "kỹ thuật số — review tập trung vào specs thực tế, hiệu năng chip, camera, pin, so sánh với đối thủ và giá bán",
+    fashion: "thời trang — tập trung vào chất liệu, xu hướng, cách phối đồ, thương hiệu uy tín",
+    beauty: "làm đẹp/skincare — tập trung vào thành phần hoạt chất, công dụng thực tế, phù hợp loại da",
+    home: "gia dụng/nội thất — tập trung vào chất liệu, tính năng, độ bền, so sánh giá thương hiệu",
+    sports: "thể thao/gym — tập trung vào hiệu suất, chất liệu thoáng khí, phù hợp bộ môn cụ thể",
+    gaming: "gaming/PC — tập trung vào FPS, độ trễ, cấu hình tương thích, giá/hiệu năng",
+    health: "sức khoẻ — tập trung vào thành phần, liều dùng khuyến nghị, bằng chứng khoa học",
+    food: "thực phẩm — tập trung vào nguyên liệu, hương vị, giá trị dinh dưỡng, nơi mua",
+  }
+  const nicheContext = nicheHint[niche] ?? niche
+
+  const prompt = `Bạn là chuyên gia viết blog affiliate marketing tiếng Việt.
+Chủ đề: "${topic}"
+Lĩnh vực: ${nicheContext}
+
+Viết bài blog đánh giá/hướng dẫn THỰC CHẤT — tránh sáo rỗng, cần có:
+- Thông số/số liệu cụ thể (specs, giá, thông số kỹ thuật)
+- Ưu điểm và nhược điểm thật sự (không chỉ khen)
+- Lời khuyên mua hàng có căn cứ
+
+Trả về MỘT object JSON (không markdown, không \`\`\`json):
+{
+  "title": "tiêu đề SEO 55-65 ký tự, có từ khoá chính, hấp dẫn",
+  "description": "mô tả SEO 140-155 ký tự, nêu rõ giá trị bài viết",
+  "keywords": ["từ khoá chính", "từ khoá 2", "từ khoá 3", "từ khoá 4", "từ khoá 5"],
+  "tags": ["tag1", "tag2", "tag3"],
+  "htmlContent": "Nội dung HTML đầy đủ: 4-5 thẻ h2 với nội dung chi tiết (dùng p, ul/li, strong cho thông số quan trọng), 1 bảng so sánh thực tế (table > thead > tr > th + tbody > tr > td, ít nhất 3 cột và 3-4 hàng dữ liệu), đoạn kết luận với lời khuyên có/không nên mua. Tổng cộng 700-900 từ, viết tự nhiên như người dùng thật. KHÔNG có html/body/head."
+}
+
+Bắt đầu với {:`
+
+  const raw = await textProvider.generateText(prompt, { maxTokens: 3500 })
+  const cleaned = raw.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "").trim()
+
+  let parsed: BlogSuggestResult
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    // Try to extract JSON from the response if there's surrounding text
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error("AI không trả về JSON hợp lệ. Hãy thử lại.")
+    parsed = JSON.parse(jsonMatch[0])
+  }
+
+  // Validate required fields
+  if (!parsed.title || !parsed.htmlContent) {
+    throw new Error("AI trả về thiếu dữ liệu (title hoặc htmlContent). Hãy thử lại.")
+  }
+
+  return {
+    title: parsed.title ?? "",
+    description: parsed.description ?? "",
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    htmlContent: parsed.htmlContent ?? "",
+  }
 }
 
 function fmtVND(n: number): string {

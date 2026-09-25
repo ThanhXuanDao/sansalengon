@@ -1,6 +1,6 @@
 /**
  * Standalone functions để lấy thông tin sản phẩm từ affiliate URL.
- * Không phụ thuộc vào DealSyncService hay bất kỳ injectable nào.
+ * Không phụ thuộc vào PlatformSyncService hay bất kỳ injectable nào.
  * Dùng cho tính năng "import từ URL" (bán tự động).
  */
 

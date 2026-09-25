@@ -12,10 +12,6 @@ export async function POST(request: NextRequest) {
   const csrf = await csrfGuard(request)
   if (csrf) return csrf
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 })
-  }
-
   let body: unknown
   try {
     body = await request.json()
@@ -23,12 +19,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const { niche, title, description, keywords, tags } = body as {
+  const { niche, title, description, keywords, tags, provider } = body as {
     niche: string
     title: string
     description?: string
     keywords?: string[]
     tags?: string[]
+    provider?: string
+  }
+
+  // Validate provider key availability if explicitly requested
+  if (provider) {
+    const { isProviderAvailable } = await import("@/lib/ai-provider")
+    if (!isProviderAvailable(provider)) {
+      return NextResponse.json(
+        { error: `API key cho provider "${provider}" chưa được cấu hình trong .env.local` },
+        { status: 503 },
+      )
+    }
   }
 
   if (!niche || !title) {
@@ -59,6 +67,36 @@ export async function POST(request: NextRequest) {
       keywords: keywords ?? [],
       tags: tags ?? [nicheConfig.name.toLowerCase()],
       products,
+    }, provider)
+
+    // Save to DB (upsert — overwrite if same slug regenerated)
+    const now = new Date()
+    const dbPost = await prisma.blogPost.upsert({
+      where: { niche_slug: { niche, slug: result.slug } },
+      update: {
+        title: result.meta.title,
+        description: result.meta.description,
+        content: result.htmlContent,
+        coverImage: result.meta.coverImage ?? null,
+        author: result.meta.author,
+        tags: result.meta.tags,
+        keywords: keywords ?? [],
+        readTime: result.meta.readTime,
+        updatedAt: now,
+      },
+      create: {
+        slug: result.slug,
+        niche,
+        title: result.meta.title,
+        description: result.meta.description,
+        content: result.htmlContent,
+        coverImage: result.meta.coverImage ?? null,
+        author: result.meta.author,
+        tags: result.meta.tags,
+        keywords: keywords ?? [],
+        readTime: result.meta.readTime,
+        published: false,
+      },
     })
 
     return NextResponse.json({
@@ -67,6 +105,8 @@ export async function POST(request: NextRequest) {
       niche,
       url: `/${niche}/blog/${result.slug}`,
       meta: result.meta,
+      postId: dbPost.id,
+      htmlContent: result.htmlContent,
     })
   } catch (err) {
     console.error("Blog generation failed:", err)

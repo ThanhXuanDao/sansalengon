@@ -9,7 +9,7 @@ import { AccessTradePublisherClient } from "./affiliate/accesstrade/client";
 import { AccessTradeRateLimitGuard } from "./affiliate/accesstrade/rate-limit-guard";
 
 // Core sync services
-import { DealSyncService } from "./sync/deal-sync.service";
+import { PlatformSyncService } from "./sync/platform-sync.service";
 import { CouponSyncService } from "./sync/coupon-sync.service";
 import { SyncController } from "./sync/sync.controller";
 import { PricePredictionService } from "./sync/price-prediction.service";
@@ -23,11 +23,15 @@ import { LazadaAdapter } from "./platforms/lazada/lazada.adapter";
 import { TikiAdapter } from "./platforms/tiki/tiki.adapter";
 import { ProductMatcherService } from "./platforms/matcher/product-matcher.service";
 import { EmbeddingService } from "./platforms/matcher/embedding.service";
-import { PlatformSyncService } from "./platforms/platform-sync.service";
+import { ProductMatchingService } from "./platforms/platform-sync.service";
 import { PlatformAdapter } from "./platforms/platform.adapter";
 
 import { AppLogService } from "./shared/app-log.service"
-import { ScraperSyncService } from "./scraper/scraper-sync.service";
+import { AtCampaignService } from "./shared/at-campaign.service"
+import { ScraperSyncService } from "./scraper/scraper-sync.service"
+import { GraphQLSyncService } from "./sync/graphql-sync.service"
+import { ATFeedSyncService } from "./sync/at-feed-sync.service"
+import { LeadCampaignSyncService } from "./sync/lead-campaign-sync.service"
 
 // Stub observability — thay bằng Sentry thật khi cần
 const ObsStubs = [
@@ -54,10 +58,14 @@ const ObsStubs = [
 
     // Shared
     AppLogService,
+    AtCampaignService,
 
     // Core sync
-    DealSyncService,
+    PlatformSyncService,
+    ATFeedSyncService,
+    LeadCampaignSyncService,
     ScraperSyncService,
+    GraphQLSyncService,
     CouponSyncService,
     PricePredictionService,
     ContentGeneratorService,
@@ -78,7 +86,7 @@ const ObsStubs = [
     // Matching + sync
     EmbeddingService,
     ProductMatcherService,
-    PlatformSyncService,
+    ProductMatchingService,
   ],
 })
 export class AppModule {}

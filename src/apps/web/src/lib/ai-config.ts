@@ -33,11 +33,27 @@ export interface ProviderInfo {
 export const TEXT_PROVIDER_CATALOG: ProviderInfo[] = [
   {
     id: "gemini",
-    name: "Google Gemini Flash",
-    tagline: "Miễn phí hoàn toàn",
-    freeTier: "1M tokens/ngày — hoàn toàn miễn phí qua Google AI Studio",
+    name: "Google Gemini Flash Lite",
+    tagline: "Miễn phí — ~3-5s/request",
+    freeTier: "1M tokens/ngày miễn phí — Flash Lite, không reasoning · aistudio.google.com",
     getKeyUrl: "https://aistudio.google.com/apikey",
     envKey: "GOOGLE_AI_API_KEY",
+  },
+  {
+    id: "groq",
+    name: "Groq (Nhanh nhất)",
+    tagline: "Miễn phí — Llama 3.3 70B, <5s/bài",
+    freeTier: "14,400 req/day miễn phí — Llama 3.1/3.3, tốc độ 500 tokens/s · console.groq.com",
+    getKeyUrl: "https://console.groq.com/keys",
+    envKey: "GROQ_API_KEY",
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter (Nemotron free)",
+    tagline: "Miễn phí — chậm hơn, free tier",
+    freeTier: "nvidia/nemotron-3.5-lightning:free — 20 req/min · openrouter.ai/keys",
+    getKeyUrl: "https://openrouter.ai/keys",
+    envKey: "OPENROUTER_API_KEY",
   },
   {
     id: "deepseek",
@@ -97,9 +113,9 @@ export const IMAGE_PROVIDER_CATALOG: ProviderInfo[] = [
 const DB_KEY = (task: AITask) => `ai:provider:${task}`
 
 export const DEFAULT_PROVIDERS: Record<AITask, string> = {
-  post_generation:  "claude",
-  blog_writing:     "claude",
-  seo_meta:         "claude",
+  post_generation:  "gemini",
+  blog_writing:     "gemini",
+  seo_meta:         "gemini",
   image_generation: "pollinations",
 }
 

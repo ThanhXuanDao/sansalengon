@@ -29,10 +29,13 @@ export function syncSourceHasCoupons(config: unknown): boolean {
 
 /**
  * Which sync handler to run when manually triggering this source from admin.
- * coupon-scraper → "coupon"; everything else → "product".
+ * coupon-scraper → "coupon"; lead-campaign / offer-sync → "lead"; everything else → "product".
  */
-export function getSyncHandlerType(config: unknown): "coupon" | "product" {
-  return parseConfigType(config) === SYNC_SOURCE_TYPE.COUPON_SCRAPER ? "coupon" : "product"
+export function getSyncHandlerType(config: unknown): "coupon" | "product" | "lead" {
+  const t = parseConfigType(config)
+  if (t === SYNC_SOURCE_TYPE.COUPON_SCRAPER) return "coupon"
+  if (t === ("lead-campaign" as string) || t === ("offer-sync" as string)) return "lead"
+  return "product"
 }
 
 /** Human-readable label for display in admin UI. */

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Copy, Check, ExternalLink, Clock, Tag, ShoppingCart, Eye, Flame, Users, Share2 } from "lucide-react"
+import { Copy, Check, ExternalLink, Clock, Tag, ShoppingCart, Eye, Flame, Users, Share2, Percent } from "lucide-react"
 
 export interface Coupon {
   id: string
@@ -14,20 +14,23 @@ export interface Coupon {
   code: string | null
   description: string
   discountValue: number
-  discountType: "percent" | "fixed"
+  discountType: "percent" | "fixed" | "lead"
   minOrderValue: number | null
   maxDiscount: number | null
   affiliateUrl: string
   expiresAt: string | null
   clickCount: number
+  terms?: string | null
 }
 
-function formatDiscount(value: number, type: "percent" | "fixed"): string {
+function formatDiscount(value: number, type: "percent" | "fixed" | "lead"): string {
+  if (type === "lead") return "Ưu đãi dịch vụ"
   if (type === "percent") return `-${value}%`
   return `-${new Intl.NumberFormat("vi-VN").format(value)}đ`
 }
 
-function formatDiscountShort(value: number, type: "percent" | "fixed"): string {
+function formatDiscountShort(value: number, type: "percent" | "fixed" | "lead"): string {
+  if (type === "lead") return "DV"
   if (type === "percent") return `${value}%`
   return `${new Intl.NumberFormat("vi-VN").format(value)}đ`
 }
@@ -75,9 +78,8 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
   const isExpiringSoon = days !== null && days <= 3
   const isFlashSale = countdown !== null
 
-  const isLarge = coupon.discountType === "percent"
-    ? coupon.discountValue >= 30
-    : coupon.discountValue >= 100_000
+  const isLarge = coupon.discountType === "lead"
+    || (coupon.discountType === "percent" ? coupon.discountValue >= 30 : coupon.discountValue >= 100_000)
 
   const hasImage = !!coupon.imageUrl && !imgError
 
@@ -89,7 +91,9 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
 
   const handleShare = async () => {
     const url = coupon.affiliateUrl
-    const text = `${formatDiscount(coupon.discountValue, coupon.discountType)} — ${coupon.merchant}`
+    const text = coupon.discountType === "lead"
+      ? coupon.merchant
+      : `${formatDiscount(coupon.discountValue, coupon.discountType)} — ${coupon.merchant}`
     const triggerShared = () => {
       setShared(true)
       setTimeout(() => setShared(false), 1800)
@@ -162,7 +166,7 @@ export default function CouponCard({ coupon }: { coupon: Coupon }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-bold text-sm text-ink truncate">{coupon.merchant}</p>
-            <p className="font-mono text-xs text-sale-blob leading-tight mt-0.5 line-clamp-2">
+            <p className={`font-mono text-xs text-sale-blob leading-tight mt-0.5 ${coupon.discountType === "lead" ? "line-clamp-3" : "line-clamp-2"}`}>
               {coupon.description}
             </p>
           </div>

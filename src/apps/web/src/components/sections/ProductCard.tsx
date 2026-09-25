@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import dynamic from "next/dynamic"
@@ -164,8 +164,8 @@ export default function ProductCard({
           {imgError ? (
             <div className="absolute inset-0 flex items-center justify-center bg-[#e2e3e0]">
               <div className="text-center">
-                <ImageOff className="size-8 mx-auto text-[#5c403a]/40" aria-hidden="true" />
-                <p className="font-mono text-[10px] text-[#5c403a]/50 mt-1">No Image</p>
+                <ImageOff className="size-8 mx-auto text-[site-brown]/40" aria-hidden="true" />
+                <p className="font-mono text-[10px] text-[site-brown]/50 mt-1">No Image</p>
               </div>
             </div>
           ) : (
@@ -224,7 +224,7 @@ export default function ProductCard({
             aria-disabled={isSoldOut}
             className={`flex-1 shrink-0 px-3 py-1 font-bold text-xs uppercase whitespace-nowrap brutalist-border transition-colors flex justify-center items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-primary ${
               isSoldOut
-                ? "bg-[#e2e3e0] text-[#906f69] cursor-not-allowed"
+                ? "bg-[#e2e3e0] text-[site-mocha] cursor-not-allowed"
                 : "bg-[#e8e8e5] text-ink hover:bg-primary hover:text-white cursor-pointer"
             }`}
           >

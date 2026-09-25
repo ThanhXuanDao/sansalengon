@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 
@@ -17,7 +17,7 @@ export default function ReadingProgress() {
 
   return (
     <div
-      className="fixed top-0 left-0 h-[3px] bg-[#b51c00] z-[200] transition-none pointer-events-none"
+      className="fixed top-0 left-0 h-[3px] bg-[site-red] z-[200] transition-none pointer-events-none"
       style={{ width: `${progress}%` }}
       role="progressbar"
       aria-valuenow={Math.round(progress)}

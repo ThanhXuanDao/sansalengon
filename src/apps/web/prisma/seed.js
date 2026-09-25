@@ -138,6 +138,17 @@ const NICHES = [
     postPrefix: "💊 Deal sức khỏe hôm nay",
     hashtags: "#suckhoe #vitamin #shopee #sale #health",
   },
+  {
+    id: "finance",
+    name: "Tài chính",
+    emoji: "💰",
+    status: "active",
+    description: "Vay tín chấp online, thẻ tín dụng, bảo hiểm — giải pháp tài chính cá nhân lãi suất tốt nhất.",
+    metaKeywords: "vay tín chấp online, vay tiền nhanh không thế chấp, thẻ tín dụng miễn phí, bảo hiểm nhân thọ, vay ngân hàng",
+    sortOrder: 130,
+    postPrefix: "💰 Ưu đãi tài chính hôm nay",
+    hashtags: "#taichinh #vaytinchap #nganhang #thetindung #finance",
+  },
 ]
 
 // NicheIntegration: kích hoạt Tiki direct sync cho tất cả ngách.
@@ -212,34 +223,10 @@ const SYNC_SOURCES = [
     baseUrl: "https://lazada.vn",
     icon: "https://img.lazcdn.com/g/tps/images/ims-web/TB1T7K2d8Cw3KVjSZFuXXcAOpXa.png",
     enabled: false,
-    description: "Lazada — Affiliate Open Platform API (LAZADA_APP_KEY/SECRET) hoặc wrap AT tracking link",
+    description: "Lazada — lấy sản phẩm qua AccessTrade /v1/offers feed (offer-sync, cần ACCESSTRADE_ACCESS_KEY)",
     config: JSON.stringify({
-      type: "platform-sync",
+      type: "offer-sync",
       badge: { label: "Lazada", bg: "bg-purple-100", text: "text-purple-700" },
-      // lazadaSyncMode:
-      //   "api" — Lazada Affiliate Open Platform (cần LAZADA_APP_KEY + LAZADA_APP_SECRET)
-      //           Đăng ký tại: https://open.lazada.com/ → Create App → lấy API Key + Secret
-      //   "at"  — wrap URL qua AccessTrade tracking link (không cần Lazada key)
-      lazadaSyncMode: "api",
-      // Số sản phẩm per keyword (max 50 theo Lazada API, default 40)
-      lazadaPageSize: 40,
-      // Số keyword tối đa per niche (default 5)
-      lazadaMaxKeywords: 5,
-      // lazadaKeywords: slug ngách → mảng keyword search Lazada
-      lazadaKeywords: {
-        fashion:     ["áo thun nam", "váy nữ", "giày sneaker", "túi xách nữ", "quần jean nam", "áo khoác", "đầm dự tiệc"],
-        electronics: ["tai nghe bluetooth", "ốp lưng điện thoại", "sạc dự phòng", "cáp sạc", "bàn phím cơ", "chuột gaming", "loa bluetooth"],
-        beauty:      ["kem dưỡng ẩm", "serum vitamin c", "son môi", "kem chống nắng", "sữa rửa mặt", "toner", "mặt nạ dưỡng da"],
-        home:        ["nồi chiên không dầu", "máy lọc không khí", "đèn ngủ", "chăn ga gối", "thùng rác thông minh", "giá để đồ", "máy xay sinh tố"],
-        sports:      ["giày chạy bộ", "tạ tập gym", "thảm yoga", "dây kháng lực", "bình nước gym", "quần legging", "áo tập gym"],
-        kids:        ["đồ chơi trẻ em", "quần áo trẻ em", "tã bỉm", "sữa tắm trẻ em", "xe đẩy em bé", "ghế ngồi ăn", "bình sữa"],
-        food:        ["cà phê", "trà sữa", "snack ăn vặt", "mỳ ăn liền", "nước tương", "yến mạch", "protein shake"],
-        pets:        ["thức ăn chó", "thức ăn mèo", "cát vệ sinh mèo", "vòng cổ thú cưng", "đồ chơi chó mèo", "bát ăn thú cưng"],
-        tools:       ["máy khoan", "đa năng cầm tay", "ổ cắm điện", "đèn pin", "kìm điện", "băng dính điện", "máy mài"],
-        gaming:      ["tai nghe gaming", "chuột gaming", "bàn phím cơ", "ghế gaming", "màn hình gaming", "webcam", "lót chuột gaming"],
-        books:       ["sách kỹ năng sống", "sách kinh doanh", "bút bi", "vở học sinh", "máy tính casio", "balo học sinh", "đồ dùng học tập"],
-        health:      ["vitamin C", "dầu cá omega 3", "máy đo huyết áp", "khẩu trang y tế", "nhiệt kế", "thuốc bổ gan", "collagen"],
-      },
     }),
   },
   {
@@ -285,18 +272,17 @@ const SYNC_SOURCES = [
     enabled: true,
     description: "CellphoneS — GraphQL API, wrap AT tracking link",
     config: JSON.stringify({
-      type: "product-scraper",
+      type: "graphql-sync",
       // atCampaignId: "<AT campaign ID>" — để trống thì auto-match theo tên "cellphones"
-      // CellphoneS dùng AT tracking link (at_wrap strategy)
-      // Danh sách category ID CellphoneS cho từng ngách:
-      //   mobile:3, laptop:380, tablet:4, audio:220, smartwatch:610
-      cpsCategories: {
-        electronics: ["3", "220", "610", "4"],  // mobile, audio, smartwatch, tablet
-        gaming:      ["380"],                    // laptop (bao gồm gaming laptop)
-      },
-      cpsPageSize: 20,
-      cpsMaxPages: 2,
-      cpsProvinceId: 30, // HCM
+      // CellphoneS dùng GraphQL API, wrap AT tracking link
+      // categoryIds: CPS category IDs — mobile:3, audio:220, smartwatch:610, tablet:4, laptop:380
+      categories: [
+        { id: "cps-electronics", name: "Điện tử",  nicheSlug: "electronics", categoryIds: ["3", "220", "610", "4"] },
+        { id: "cps-gaming",      name: "Gaming",   nicheSlug: "gaming",      categoryIds: ["380"] },
+      ],
+      pageSize: 20,
+      maxPages: 2,
+      provinceId: 30, // HCM
     }),
   },
   {
@@ -378,6 +364,72 @@ const SYNC_SOURCES = [
       merchantLogo: "https://thecoffeehouse.com/icon/tch-app-icon-192.png",
       nicheId: "food",
       platform: "tch",
+    }),
+  },
+  {
+    id: "syncsrc_vpbank_vaytinchap",
+    name: "VPBank Vay Tín Chấp",
+    slug: "vpbank-vaytinchap",
+    baseUrl: "https://vayonline.vpbank.com.vn",
+    icon: "https://content.accesstrade.vn/adv/1775708523_avatar_1775708523.jpg",
+    enabled: true,
+    description: "Vay tín chấp VPBank online — không cần tài sản thế chấp, lãi từ 1.2%/tháng, giải ngân nhanh lên đến 200 triệu.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      // atMerchantSlug: khớp với field merchant trong AtCampaign → service dùng để match & wrap link
+      atMerchantSlug: "vpbank3t_vaytinchap",
+      // landingUrl: trang đăng ký ổn định (không phải CTKM theo tháng) → được wrap thành affiliateUrl
+      landingUrl: "https://vayonline.vpbank.com.vn/",
+      // nicheId: dùng khi upsert vào Coupon để public site filter theo ngách
+      nicheId: "finance",
+      badge: { label: "VPBank", bg: "bg-blue-100", text: "text-blue-700" },
+      cta: "Đăng ký vay ngay",
+      // Data display (commission, description, logoUrl...) được LeadCampaignSyncService
+      // lấy từ AtCampaign rồi upsert vào bảng Coupon — không lưu ở đây
+    }),
+  },
+  {
+    id: "syncsrc_vascara",
+    name: "Vascara",
+    slug: "vascara",
+    baseUrl: "https://www.vascara.com",
+    icon: "https://www.vascara.com/uploads/web/900/Logo/vascara.png",
+    enabled: true,
+    description: "Vascara — HTML scraper (custom template, không phải Next.js), wrap AT tracking link (CPS)",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "html-selectors",
+      // atMerchantSlug: normalizeSlug(c.merchant) phải khớp với "vascara"
+      // → kiểm tra field merchant trong AtCampaign table sau khi import AT campaigns
+      atMerchantSlug: "vascara",
+      delayMs: 2500,
+      headers: {
+        "Referer": "https://www.vascara.com/",
+      },
+      selectors: {
+        productCard:   ".product-item",
+        name:          "h2.title-product a",
+        price:         ".price .ins",
+        originalPrice: ".price .del",
+        image:         ".product-thuml img",
+        linkUrl:       "h2.title-product a",
+      },
+      pagination: {
+        type:     "page-param",
+        pageParam: "page",
+        maxPages: 3,
+      },
+      categories: [
+        { id: "vsc-giay-cao-got", name: "Giày cao gót",  url: "https://www.vascara.com/giay/giay-cao-got",      nicheSlug: "fashion" },
+        { id: "vsc-giay-sandals", name: "Giày sandals",  url: "https://www.vascara.com/giay/giay-sandals",      nicheSlug: "fashion" },
+        { id: "vsc-giay-bit",     name: "Giày bít",      url: "https://www.vascara.com/giay/giay-bit",          nicheSlug: "fashion" },
+        { id: "vsc-giay-bup-be",  name: "Giày búp bê",   url: "https://www.vascara.com/giay/giay-bup-be",       nicheSlug: "fashion" },
+        { id: "vsc-giay-sneaker", name: "Giày sneaker",  url: "https://www.vascara.com/giay/giay-sneaker",      nicheSlug: "fashion" },
+        { id: "vsc-giay-boots",   name: "Giày boots",    url: "https://www.vascara.com/giay/giay-boots",        nicheSlug: "fashion" },
+        { id: "vsc-tui-xach",     name: "Túi xách",      url: "https://www.vascara.com/tui-xach",               nicheSlug: "fashion" },
+        { id: "vsc-vi-bop",       name: "Ví bóp",        url: "https://www.vascara.com/vi-bop",                 nicheSlug: "fashion" },
+        { id: "vsc-mat-kinh",     name: "Mắt kính",      url: "https://www.vascara.com/mat-kinh-vascara",       nicheSlug: "fashion" },
+      ],
     }),
   },
 ]

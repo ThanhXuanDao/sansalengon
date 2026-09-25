@@ -14,8 +14,8 @@ const MATCH_BATCH_SIZE        = 20    // products per cron tick to avoid overloa
 const SRC = "platform-sync"
 
 @Injectable()
-export class PlatformSyncService {
-  private readonly log = new Logger(PlatformSyncService.name)
+export class ProductMatchingService {
+  private readonly log = new Logger(ProductMatchingService.name)
   private readonly prisma = new PrismaClient()
 
   constructor(

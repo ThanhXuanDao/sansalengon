@@ -58,6 +58,18 @@
   --color-border-color: #DFE0E4;
   --color-filter-active: #1D8CE8;
 
+  /* ── Public site color tokens ─────────────────────────────────────────── */
+  --color-site-ink:     #1a1c1b; /* dark text / primary text (417 uses)    */
+  --color-site-red:     #b51c00; /* brand red / CTA (267 uses)             */
+  --color-site-brown:   #5c403a; /* muted brown tags/text (353 uses)       */
+  --color-site-sand:    #e5e1d8; /* warm border/card (254 uses)            */
+  --color-site-mocha:   #906f69; /* pink-brown muted (118 uses)            */
+  --color-site-bg:      #f4f4f1; /* page background off-white (101 uses)   */
+  --color-site-peach:   #e5beb6; /* light pink (76 uses)                   */
+  --color-site-crimson: #ba1a1a; /* dark red variant (63 uses)             */
+  --color-site-cream:   #fafaf7; /* lightest background (58 uses)          */
+  --color-site-yellow:  #fdc73a; /* yellow accent (38 uses)                */
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -236,6 +248,15 @@
     100% { top: 100%; }
   }
 
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-pageIn {
+    animation: pageIn 0.22s ease-out both;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .hero-scan-line {
       position: absolute;
@@ -280,6 +301,32 @@
   .clip-bevel-tr-md { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
   .clip-bevel-tr-lg { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%); }
   .clip-bevel-tr-xl { clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%); }
+
+  /* Bevel mask — wrapper class that injects a ::after triangle to hide the clip-path border
+     artifact. The ::after is a child of the WRAPPER (not the clipped Link), so it is never
+     clipped. It paints a white triangle over the top-right corner, erasing the artifact. */
+  .bevel-mask-tr-md { position: relative; }
+  .bevel-mask-tr-md::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 14px; height: 14px;
+    clip-path: polygon(100% 0, 100% 100%, 0 0);
+    background-color: var(--color-white);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .bevel-mask-tr-xl { position: relative; }
+  .bevel-mask-tr-xl::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 18px; height: 18px;
+    clip-path: polygon(100% 0, 100% 100%, 0 0);
+    background-color: var(--color-white);
+    pointer-events: none;
+    z-index: 1;
+  }
 
   /* ── Scrollbar utility ──────────────────────────────────────────────────────
      Use instead of style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -471,4 +518,30 @@
   .prose-blog tr:nth-child(even) td {
     background: #f4f4f1;
   }
+
+  /* ── TipTap admin editor ───────────────────────────────────── */
+  .ProseMirror { outline: none; }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: #adb5bd;
+    pointer-events: none;
+    height: 0;
+  }
+  .prose h1 { font-size: 1.6rem; font-weight: 700; margin: 1.25rem 0 0.5rem; line-height: 1.3; }
+  .prose h2 { font-size: 1.3rem; font-weight: 700; margin: 1.25rem 0 0.5rem; line-height: 1.35; }
+  .prose h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.4rem; line-height: 1.4; }
+  .prose h4 { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.3rem; }
+  .prose p  { margin: 0.6rem 0; line-height: 1.7; }
+  .prose ul { list-style: disc; padding-left: 1.4rem; margin: 0.6rem 0; }
+  .prose ol { list-style: decimal; padding-left: 1.4rem; margin: 0.6rem 0; }
+  .prose li { margin: 0.25rem 0; line-height: 1.65; }
+  .prose blockquote { border-left: 3px solid #d1d5db; padding-left: 1rem; color: #6b7280; margin: 0.75rem 0; font-style: italic; }
+  .prose code { background: #f3f4f6; border-radius: 3px; padding: 0.15em 0.35em; font-size: 0.85em; font-family: ui-monospace, monospace; }
+  .prose pre  { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 0.75rem 0; font-size: 0.85rem; }
+  .prose a    { color: #0ea5e9; text-decoration: underline; }
+  .prose strong { font-weight: 600; }
+  .prose em     { font-style: italic; }
+  .prose hr  { border: none; border-top: 1px solid #e5e7eb; margin: 1.25rem 0; }
+  .prose img { max-width: 100%; border-radius: 6px; margin: 0.75rem 0; }
 }

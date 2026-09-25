@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, type FormEvent } from "react"
 import { Send, CheckCircle, AlertCircle } from "lucide-react"
@@ -46,14 +46,14 @@ export default function FeedbackSection() {
   }
 
   return (
-    <section className="w-full bg-white border-t border-dashed border-[#e5beb6]">
+    <section className="w-full bg-white border-t border-dashed border-[site-peach]">
       <div className="max-w-[1320px] mx-auto px-3 py-16 md:py-20">
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-10">
-            <h2 className="font-sans text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] font-extrabold text-[#1a1c1b] uppercase">
+            <h2 className="font-sans text-[28px] md:text-[36px] leading-[1.1] tracking-[-0.02em] font-extrabold text-[site-ink] uppercase">
               Góp ý & Phản hồi
             </h2>
-            <p className="font-sans text-[14px] leading-[22px] text-[#5c403a] mt-3 max-w-sm mx-auto">
+            <p className="font-sans text-[14px] leading-[22px] text-[site-brown] mt-3 max-w-sm mx-auto">
               Chúng tôi rất vui được nghe ý kiến của bạn. Hãy gửi góp ý để chúng tôi cải thiện.
             </p>
           </div>
@@ -61,13 +61,13 @@ export default function FeedbackSection() {
           {status === "success" ? (
             <div className="bg-white border border-[#4caf50] p-6 text-center" role="alert">
               <CheckCircle className="size-10 mx-auto text-[#4caf50] mb-3" aria-hidden="true" />
-              <p className="font-sans text-[16px] font-bold text-[#1a1c1b]">Cảm ơn bạn!</p>
-              <p className="font-sans text-[13px] text-[#5c403a] mt-1">
+              <p className="font-sans text-[16px] font-bold text-[site-ink]">Cảm ơn bạn!</p>
+              <p className="font-sans text-[13px] text-[site-brown] mt-1">
                 Chúng tôi đã nhận được góp ý của bạn.
               </p>
               <button
                 onClick={() => setStatus("idle")}
-                className="mt-4 font-mono text-[13px] text-[#b51c00] underline hover:no-underline focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
+                className="mt-4 font-mono text-[13px] text-[site-red] underline hover:no-underline focus-visible:ring-2 focus-visible:ring-[site-red] focus-visible:outline-none"
               >
                 Gửi thêm
               </button>
@@ -75,7 +75,7 @@ export default function FeedbackSection() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               <div>
-                <label htmlFor="feedback-name" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1.5 font-bold">
+                <label htmlFor="feedback-name" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[site-brown] mb-1.5 font-bold">
                   Họ tên
                 </label>
                 <input
@@ -85,12 +85,12 @@ export default function FeedbackSection() {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Tên của bạn"
                   required
-                  className="w-full border border-[#e5e1d8] bg-white px-4 py-3 font-sans text-[14px] text-[#1a1c1b] placeholder:text-[#906f69]/50 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none transition-colors"
+                  className="w-full border border-[site-sand] bg-white px-4 py-3 font-sans text-[14px] text-[site-ink] placeholder:text-[site-mocha]/50 focus:border-[site-ink] focus:ring-0 focus:outline-none transition-colors"
                 />
               </div>
 
               <div>
-                <label htmlFor="feedback-email" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1.5 font-bold">
+                <label htmlFor="feedback-email" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[site-brown] mb-1.5 font-bold">
                   Email
                 </label>
                 <input
@@ -100,12 +100,12 @@ export default function FeedbackSection() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="email@example.com"
                   required
-                  className="w-full border border-[#e5e1d8] bg-white px-4 py-3 font-sans text-[14px] text-[#1a1c1b] placeholder:text-[#906f69]/50 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none transition-colors"
+                  className="w-full border border-[site-sand] bg-white px-4 py-3 font-sans text-[14px] text-[site-ink] placeholder:text-[site-mocha]/50 focus:border-[site-ink] focus:ring-0 focus:outline-none transition-colors"
                 />
               </div>
 
               <div>
-                <label htmlFor="feedback-message" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[#5c403a] mb-1.5 font-bold">
+                <label htmlFor="feedback-message" className="block font-mono text-[11px] uppercase tracking-[0.05em] text-[site-brown] mb-1.5 font-bold">
                   Tin nhắn
                 </label>
                 <textarea
@@ -115,12 +115,12 @@ export default function FeedbackSection() {
                   placeholder="Viết góp ý của bạn tại đây..."
                   required
                   rows={4}
-                  className="w-full border border-[#e5e1d8] bg-white px-4 py-3 font-sans text-[14px] text-[#1a1c1b] placeholder:text-[#906f69]/50 focus:border-[#1a1c1b] focus:ring-0 focus:outline-none transition-colors resize-y"
+                  className="w-full border border-[site-sand] bg-white px-4 py-3 font-sans text-[14px] text-[site-ink] placeholder:text-[site-mocha]/50 focus:border-[site-ink] focus:ring-0 focus:outline-none transition-colors resize-y"
                 />
               </div>
 
               {status === "error" && errorText && (
-                <div className="flex items-center gap-2 text-[#ba1a1a]" role="alert">
+                <div className="flex items-center gap-2 text-[site-crimson]" role="alert">
                   <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
                   <p className="font-sans text-[13px]">{errorText}</p>
                 </div>
@@ -129,7 +129,7 @@ export default function FeedbackSection() {
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="w-full flex items-center justify-center gap-2 bg-[#1a1c1b] text-white font-mono text-[14px] tracking-[0.05em] py-3.5 px-6 hover:bg-[#2a2c2b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[#b51c00] focus-visible:outline-none"
+                className="w-full flex items-center justify-center gap-2 bg-[site-ink] text-white font-mono text-[14px] tracking-[0.05em] py-3.5 px-6 hover:bg-[#2a2c2b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[site-red] focus-visible:outline-none"
               >
                 {status === "loading" ? (
                   <>

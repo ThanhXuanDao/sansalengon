@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <ContentPageShell title="Điều khoản sử dụng">
+    <ContentPageShell title="Điều khoản sử dụng" breadcrumb={[{ label: "Trang chủ", href: "/" }, { label: "Điều khoản sử dụng" }]}>
       <div className="space-y-8 font-sans text-body-md text-ink">
         <section>
           <h2 className="text-headline-md font-bold mb-3">Sử dụng dịch vụ</h2>

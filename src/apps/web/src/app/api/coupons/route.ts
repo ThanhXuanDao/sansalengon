@@ -23,20 +23,19 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = {
     isActive: true,
     AND: [
+      // Loại trừ lead campaign — chúng hiển thị ở trang /uu-dai-dich-vu riêng
+      ...(discountTypes.length > 0
+        ? [{ discountType: { in: discountTypes } }]
+        : [{ discountType: { not: "lead" } }]),
       {
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: now } },
         ],
       },
-      ...(niches.length > 0
-        ? [{ nicheId: { in: niches } }]
-        : []),
+      ...(niches.length > 0 ? [{ nicheId: { in: niches } }] : []),
       ...(platforms.length > 0 ? [{ platform: { in: platforms } }] : []),
-      ...(discountTypes.length > 0 ? [{ discountType: { in: discountTypes } }] : []),
-      ...(flashSale
-        ? [{ expiresAt: { gt: now, lte: in24h } }]
-        : []),
+      ...(flashSale ? [{ expiresAt: { gt: now, lte: in24h } }] : []),
     ],
   }
 

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState } from "react"
 import { CurrencyProvider } from "@/lib/currency-context"
+import NavigationProgress from "@/components/ui/NavigationProgress"
 
 interface ProvidersProps {
   children: React.ReactNode
@@ -34,6 +35,7 @@ export default function Providers({
   return (
     <QueryClientProvider client={queryClient}>
       <CurrencyProvider opts={{ currencySymbol, currencyPosition, thousandSeparator, dateFormat }}>
+        <NavigationProgress />
         {children}
       </CurrencyProvider>
     </QueryClientProvider>

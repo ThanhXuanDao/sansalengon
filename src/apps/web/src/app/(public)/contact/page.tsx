@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useActionState } from "react"
 import ContentPageShell from "@/components/layout/ContentPageShell"
@@ -49,6 +49,7 @@ export default function ContactPage() {
       title="Liên hệ"
       subtitle="Có câu hỏi? Chúng tôi sẵn sàng giúp đỡ."
       width="sm"
+      breadcrumb={[{ label: "Trang chủ", href: "/" }, { label: "Liên hệ" }]}
     >
       {state.success && (
         <div
@@ -75,7 +76,7 @@ export default function ContactPage() {
             aria-invalid={!!state.errors.name}
             aria-describedby={state.errors.name ? "name-error" : undefined}
             disabled={pending}
-            className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] text-[#1a1c1b] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50"
+            className="w-full border-0 border-b-2 border-[site-sand] bg-transparent pb-2 font-sans text-[16px] text-[site-ink] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50"
           />
           {state.errors.name && (
             <p id="name-error" className="font-mono text-[12px] text-red-600 mt-1" role="alert">
@@ -100,7 +101,7 @@ export default function ContactPage() {
             aria-invalid={!!state.errors.email}
             aria-describedby={state.errors.email ? "email-error" : undefined}
             disabled={pending}
-            className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] text-[#1a1c1b] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50"
+            className="w-full border-0 border-b-2 border-[site-sand] bg-transparent pb-2 font-sans text-[16px] text-[site-ink] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink disabled:opacity-50"
           />
           {state.errors.email && (
             <p id="email-error" className="font-mono text-[12px] text-red-600 mt-1" role="alert">
@@ -124,7 +125,7 @@ export default function ContactPage() {
             aria-invalid={!!state.errors.message}
             aria-describedby={state.errors.message ? "message-error" : undefined}
             disabled={pending}
-            className="w-full border-0 border-b-2 border-[#e5e1d8] bg-transparent pb-2 font-sans text-[16px] text-[#1a1c1b] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink resize-none disabled:opacity-50"
+            className="w-full border-0 border-b-2 border-[site-sand] bg-transparent pb-2 font-sans text-[16px] text-[site-ink] focus:border-ink focus:ring-0 focus-visible:ring-2 focus-visible:ring-ink resize-none disabled:opacity-50"
           />
           {state.errors.message && (
             <p id="message-error" className="font-mono text-[12px] text-red-600 mt-1" role="alert">
@@ -152,8 +153,8 @@ export default function ContactPage() {
         </button>
       </form>
 
-      <div className="mt-10 pt-6 border-t border-dashed border-[#e5e1d8] text-center space-y-1">
-        <p className="font-sans text-[14px] text-[#5c403a]">Hoặc gửi email tới</p>
+      <div className="mt-10 pt-6 border-t border-dashed border-[site-sand] text-center space-y-1">
+        <p className="font-sans text-[14px] text-[site-brown]">Hoặc gửi email tới</p>
         <a
           href="mailto:hello@sansalengon.vn"
           className="font-mono text-[14px] text-primary underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-primary"

@@ -3,26 +3,13 @@ import { ConfigService } from "@nestjs/config"
 import { PrismaClient } from "@prisma/client"
 import type { Trigger } from "../shared/app-log.service"
 import { AppLogService } from "../shared/app-log.service"
-import { AccessTradePublisherClient } from "../affiliate/accesstrade/client"
+import { AtCampaignService } from "../shared/at-campaign.service"
 import type { AccessTradeCampaign } from "../affiliate/accesstrade/types"
 import { ScraperEngine } from "./scraper-engine"
 import type { ScraperSourceConfig, ScraperCategory, ScrapedProduct } from "./scraper.types"
+import { AT_OFFERS_API, sleep } from "../sync/sync.constants"
 
 const SRC = "scraper-sync"
-const AT_OFFERS_API = "https://api.accesstrade.vn/v1/offers"
-const AT_TTL_MS = 4 * 60 * 60 * 1000
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
-
-function normalizeSlug(s: string): string {
-  return s.toLowerCase().replace(/[\s\-_.]+/g, "")
-}
-
-function domainSlug(url: string): string {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "")
-    return host.split(".")[0] ?? ""
-  } catch { return "" }
-}
 
 export interface ScraperSyncResult {
   sources: number
@@ -49,22 +36,31 @@ export class ScraperSyncService {
 
   constructor(
     private readonly appLog: AppLogService,
-    private readonly accesstrade: AccessTradePublisherClient,
     private readonly cfg: ConfigService,
+    private readonly atCampaignSvc: AtCampaignService,
   ) {}
 
   private get slog() { return this.appLog.scope("api-sync") }
 
   // ── Entry point ─────────────────────────────────────────────────────────────
 
-  async syncAll(trigger: Trigger = "manual"): Promise<ScraperSyncResult> {
+  async syncAll(trigger: Trigger = "manual", slugFilter?: string): Promise<ScraperSyncResult> {
     const t0 = Date.now()
 
     const allSources = await this.prisma.syncSource.findMany({ where: { enabled: true } })
-    const scraperSources = allSources.filter((s) => {
-      try { return (JSON.parse(s.config as string) as ScraperSourceConfig).type === "scraper" }
-      catch { return false }
+    // "product-scraper" + có categories → ScraperEngine (KingFoodMart, Vascara…)
+    // "product-scraper" không có categories → platform API (CellphoneS) → bỏ qua
+    let scraperSources = allSources.filter((s) => {
+      try {
+        const cfg = JSON.parse(s.config as string) as Record<string, unknown>
+        return cfg["type"] === "product-scraper" && Array.isArray(cfg["categories"]) && (cfg["categories"] as unknown[]).length > 0
+      } catch { return false }
     })
+
+    // Nếu caller chỉ định slug cụ thể (vd: trigger từ 1 source), chỉ chạy source đó
+    if (slugFilter) {
+      scraperSources = scraperSources.filter((s) => s.slug === slugFilter)
+    }
 
     if (scraperSources.length === 0) {
       return { sources: 0, fetched: 0, newDeals: 0, skipped: 0, durationMs: 0 }
@@ -72,8 +68,6 @@ export class ScraperSyncService {
 
     this.log.log(`[Scraper] Bắt đầu — ${scraperSources.length} nguồn: ${scraperSources.map((s) => s.slug).join(", ")}`)
     await this.slog.info(`Bắt đầu scraper sync`, SRC, { sources: scraperSources.map((s) => s.slug) }, trigger)
-
-    const { campaigns: atCampaigns, atTypeMap } = await this.loadAtCampaigns()
 
     let totalFetched = 0
     let totalNew = 0
@@ -86,7 +80,7 @@ export class ScraperSyncService {
       this.log.log(`[${slug}] Bắt đầu — ${source.name}`)
       await this.slog.info(`[${slug}] Bắt đầu scrape source "${source.name}"`, SRC, {}, trigger)
 
-      const { saved, skipped } = await this.syncSource(source.slug, config, atCampaigns, atTypeMap, trigger)
+      const { saved, skipped } = await this.syncSource(source.slug, config, trigger)
       totalFetched += saved
       totalNew += saved
       totalSkipped += skipped
@@ -111,12 +105,10 @@ export class ScraperSyncService {
   private async syncSource(
     slug: string,
     config: ScraperSourceConfig,
-    atCampaigns: AccessTradeCampaign[],
-    atTypeMap: Map<string, string>,
     trigger: Trigger,
   ): Promise<{ saved: number; skipped: number }> {
-    // Step 1: Find matching AT campaign
-    const campaign = this.matchAtCampaign(slug, config, atCampaigns)
+    // Step 1: Find matching AT campaign (DB-first 4h TTL, same call as syncAll — cached)
+    const { campaign, campaignType } = await this.atCampaignSvc.matchCampaign(slug, config.atMerchantSlug)
     if (!campaign) {
       this.log.log(`[${slug}] Không tìm thấy AT campaign — bỏ qua (không có link hoa hồng)`)
       await this.slog.info(`[${slug}] Không tìm thấy AT campaign → bỏ qua`, SRC, {})
@@ -124,7 +116,6 @@ export class ScraperSyncService {
     }
 
     // Step 2: Determine strategy
-    const campaignType = atTypeMap.get(campaign.id) ?? "cps"
     const typeLabel = campaignType === "product_feed" ? "product feed (AT /v1/offers)" : "CPS tracking link"
     this.log.log(`[${slug}] AT campaign: "${campaign.name}" — loại: ${typeLabel}`)
     await this.slog.info(
@@ -183,7 +174,11 @@ export class ScraperSyncService {
     if (!affiliateMap) {
       // Tạo AT tracking link cho từng sản phẩm (CPS strategy)
       this.log.log(`[${slug}] Tạo AT tracking link cho ${products.length} sản phẩm...`)
-      affiliateMap = await this.buildAffiliateMap(campaign.id, products)
+      affiliateMap = await this.atCampaignSvc.wrapUrls(
+        campaign.id,
+        products.map((p) => p.url),
+        { sub1: slug, sub2: "scraper" },
+      )
       const wrapped = [...affiliateMap.entries()].filter(([k, v]) => v !== k).length
       this.log.log(`[${slug}] Wrap AT link: ${wrapped}/${affiliateMap.size} thành công`)
       await this.slog.info(
@@ -326,30 +321,6 @@ export class ScraperSyncService {
     return this.engine.scrapeCategory(slug, category, config)
   }
 
-  // ── AT tracking link builder: proven, giống Tiki/deal-sync ──────────────────
-
-  private async buildAffiliateMap(
-    campaignId: string,
-    products: ScrapedProduct[],
-  ): Promise<Map<string, string>> {
-    const result = new Map<string, string>()
-    const seen = new Set<string>()
-
-    for (const product of products) {
-      if (seen.has(product.url)) continue
-      seen.add(product.url)
-
-      try {
-        const link = await this.accesstrade.createTrackingLink({ campaignId, urls: [product.url] })
-        result.set(product.url, link.shortLink ?? link.affiliateLink)
-      } catch {
-        result.set(product.url, product.url)
-      }
-    }
-
-    return result
-  }
-
   // ── DB upsert: nơi DUY NHẤT ghi sản phẩm vào DB ────────────────────────────
 
   private async upsertProducts(
@@ -359,16 +330,28 @@ export class ScraperSyncService {
     brandId: string | null = null,
     atCampaignId: string | null = null,
   ): Promise<{ saved: number; skipped: number }> {
+    const valid = products.filter((p) => p.name && p.price > 0 && p.url)
+    const invalidCount = products.length - valid.length
+
+    // Load giá hiện tại trong DB để phát hiện thay đổi — single query trước loop
+    const existing = await this.prisma.product.findMany({
+      where: { OR: valid.map((p) => ({ source: p.sourceSlug, externalId: p.externalId })) },
+      select: { id: true, source: true, externalId: true, price: true },
+    })
+    const lastPriceMap = new Map(existing.map((p) => [`${p.source}:${p.externalId}`, p.price]))
+
     let saved = 0
-    let skipped = 0
+    let skipped = invalidCount
+    const priceHistoryBatch: { productId: string; price: number }[] = []
 
-    for (const p of products) {
-      if (!p.name || p.price <= 0 || !p.url) { skipped++; continue }
-
+    for (const p of valid) {
       const affiliateUrl = affiliateMap?.get(p.url) ?? p.url
+      const discountPct = (p.originalPrice && p.originalPrice > p.price)
+        ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
+        : null
 
       try {
-        await this.prisma.product.upsert({
+        const product = await this.prisma.product.upsert({
           where: { source_externalId: { source: p.sourceSlug, externalId: p.externalId } },
           update: {
             categoryId: p.nicheSlug,
@@ -378,6 +361,8 @@ export class ScraperSyncService {
             affiliateUrl,
             lastSyncedAt: new Date(),
             isSoldOut: false,
+            discountPct,
+            isFeatured: discountPct != null && discountPct >= 40,
             ...(sourceLogoUrl && { sourceLogoUrl }),
             ...(brandId && { brandId }),
             ...(atCampaignId && { atCampaignId }),
@@ -396,20 +381,17 @@ export class ScraperSyncService {
             rating: 0,
             categoryId: p.nicheSlug,
             sourceLogoUrl,
+            discountPct,
+            isFeatured: discountPct != null && discountPct >= 40,
             ...(brandId && { brandId }),
             ...(atCampaignId && { atCampaignId }),
           },
+          select: { id: true },
         })
 
-        if (p.originalPrice && p.originalPrice > p.price) {
-          const discountPct = Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
-          await this.prisma.product.update({
-            where: { source_externalId: { source: p.sourceSlug, externalId: p.externalId } },
-            data: {
-              discountPct: discountPct > 0 ? discountPct : null,
-              isFeatured: discountPct >= 40,
-            },
-          })
+        const lastPrice = lastPriceMap.get(`${p.sourceSlug}:${p.externalId}`)
+        if (lastPrice !== p.price) {
+          priceHistoryBatch.push({ productId: product.id, price: p.price })
         }
 
         saved++
@@ -419,171 +401,14 @@ export class ScraperSyncService {
       }
     }
 
+    if (priceHistoryBatch.length > 0) {
+      await this.prisma.priceHistory.createMany({ data: priceHistoryBatch })
+      this.log.log(`[Scraper] PriceHistory: ${priceHistoryBatch.length} thay đổi giá ghi nhận`)
+    }
+
     return { saved, skipped }
   }
 
   // ── AT campaign loader: DB-first 4h TTL ─────────────────────────────────────
 
-  private async loadAtCampaigns(): Promise<{
-    campaigns: AccessTradeCampaign[]
-    atTypeMap: Map<string, string>
-  }> {
-    const agg = await this.prisma.atCampaign.aggregate({
-      _max: { lastSeenAt: true },
-      where: { approval: "successful" },
-    })
-    const maxLastSeen = agg._max.lastSeenAt
-    const isFresh = maxLastSeen && (Date.now() - maxLastSeen.getTime()) < AT_TTL_MS
-
-    if (isFresh) {
-      this.log.log(`[Scraper] AT campaigns: DB cache còn hiệu lực (${maxLastSeen!.toISOString()})`)
-      const rows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } })
-      const campaigns = rows.map((r) => ({
-        id: r.id, name: r.name, merchant: r.merchant, url: r.url,
-        approval: r.approval, scope: null, cookieDuration: r.cookieDuration ?? null, status: r.status,
-        logoUrl: r.logoUrl ?? null, description: r.description ?? null,
-        category: r.category ?? null, commission: r.commission ?? null,
-      }))
-      this.log.log(`[Scraper] AT campaigns: ${campaigns.length} từ DB cache`)
-      return { campaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
-    }
-
-    const reason = maxLastSeen ? "cache > 4h" : "DB trống"
-    this.log.log(`[Scraper] AT campaigns: ${reason} → gọi AT API...`)
-    await this.slog.info(`[Scraper] AT campaigns: ${reason} → gọi AT API`, SRC, {})
-
-    let apiCampaigns: AccessTradeCampaign[] = []
-    try {
-      apiCampaigns = await this.accesstrade.listCampaigns({ approval: "successful" })
-      this.log.log(`[Scraper] AT campaigns: tải ${apiCampaigns.length} từ API`)
-      await this.slog.info(`[Scraper] AT campaigns: tải ${apiCampaigns.length} từ AT API`, SRC, { count: apiCampaigns.length })
-    } catch (e: any) {
-      this.log.warn(`[Scraper] AT API lỗi: ${e.message} — dùng DB`)
-      const rows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } })
-      const campaigns = rows.map((r) => ({
-        id: r.id, name: r.name, merchant: r.merchant, url: r.url,
-        approval: r.approval, scope: null, cookieDuration: r.cookieDuration ?? null, status: r.status,
-        logoUrl: r.logoUrl ?? null, description: r.description ?? null,
-        category: r.category ?? null, commission: r.commission ?? null,
-      }))
-      return { campaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
-    }
-
-    if (apiCampaigns.length > 0) {
-      const now = new Date()
-      await this.prisma.$transaction(
-        apiCampaigns.map((c) =>
-          this.prisma.atCampaign.upsert({
-            where: { id: c.id },
-            update: {
-              name: c.name, merchant: c.merchant, url: c.url, approval: c.approval, lastSeenAt: now,
-              ...(c.logoUrl !== undefined && { logoUrl: c.logoUrl }),
-              ...(c.description !== undefined && { description: c.description }),
-              ...(c.category !== undefined && { category: c.category }),
-              ...(c.commission !== undefined && { commission: c.commission }),
-            },
-            create: {
-              id: c.id, name: c.name, merchant: c.merchant, url: c.url,
-              approval: c.approval, status: c.status ?? 0, lastSeenAt: now,
-              campaignType: "cps",
-              logoUrl: c.logoUrl ?? null, description: c.description ?? null,
-              category: c.category ?? null, commission: c.commission ?? null,
-            },
-          })
-        )
-      )
-      this.log.log(`[Scraper] AT campaigns: upsert ${apiCampaigns.length} vào DB`)
-      void this.scrapeOgImages(apiCampaigns).catch((e: Error) =>
-        this.log.warn(`[Scraper] scrapeOgImages failed: ${e.message}`)
-      )
-    }
-
-    const rows = await this.prisma.atCampaign.findMany({ where: { approval: "successful" } })
-    return { campaigns: apiCampaigns, atTypeMap: new Map(rows.map((r) => [r.id, r.campaignType ?? "cps"])) }
-  }
-
-  private async scrapeOgImage(url: string): Promise<string | null> {
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; AffiliateBot/1.0)" },
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!res.ok) return null;
-      const html = await res.text();
-      const m =
-        /<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i.exec(html) ??
-        /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i.exec(html);
-      const imgUrl = m?.[1]?.trim();
-      return imgUrl && imgUrl.startsWith("http") ? imgUrl : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private async scrapeOgImages(campaigns: AccessTradeCampaign[]): Promise<void> {
-    const needScrape = await this.prisma.atCampaign.findMany({
-      where: { id: { in: campaigns.map((c) => c.id) }, ogImageUrl: null },
-      select: { id: true, url: true },
-    });
-    if (needScrape.length === 0) return;
-    this.log.log(`[Scraper] Scraping og:image cho ${needScrape.length} campaign(s)...`);
-    for (let i = 0; i < needScrape.length; i++) {
-      if (i > 0) await new Promise<void>((r) => setTimeout(r, 300));
-      const { id, url } = needScrape[i];
-      const ogImageUrl = await this.scrapeOgImage(url);
-      if (!ogImageUrl) { this.log.debug(`[Scraper] og:image ${id}: không tìm thấy`); continue; }
-      try {
-        await this.prisma.atCampaign.update({ where: { id }, data: { ogImageUrl } });
-        this.log.debug(`[Scraper] og:image ${id}: ${ogImageUrl}`);
-      } catch { /* bỏ qua */ }
-    }
-  }
-
-  private async upsertBannersToDB(campaigns: AccessTradeCampaign[]): Promise<void> {
-    for (let i = 0; i < campaigns.length; i++) {
-      const c = campaigns[i]
-      if (i > 0) await new Promise<void>((r) => setTimeout(r, 200))
-      try {
-        const banners = await this.accesstrade.getBanners(c.id)
-        if (banners.length === 0) { this.log.debug(`[Scraper] Banners: campaign ${c.id} (${c.name}) → 0`); continue; }
-        const now = new Date()
-        await this.prisma.$transaction([
-          this.prisma.atCampaignBanner.deleteMany({ where: { campaignId: c.id } }),
-          ...banners.map((b) =>
-            this.prisma.atCampaignBanner.create({
-              data: {
-                id: b.id, campaignId: c.id, imageUrl: b.imageUrl,
-                width: b.width ?? null, height: b.height ?? null,
-                type: b.type ?? null, affiliateLink: b.affiliateLink ?? null,
-                syncedAt: now,
-              },
-            })
-          ),
-        ])
-        this.log.debug(`[Scraper] Banners: campaign ${c.id} → ${banners.length} banner(s)`)
-      } catch (e: any) {
-        this.log.warn(`[Scraper] Bỏ qua banner campaign ${c.id}: ${e.message}`)
-      }
-    }
-  }
-
-  // ── Campaign matcher: 3-tier fallback ───────────────────────────────────────
-
-  private matchAtCampaign(
-    sourceSlug: string,
-    config: ScraperSourceConfig,
-    campaigns: AccessTradeCampaign[],
-  ): AccessTradeCampaign | null {
-    if (campaigns.length === 0) return null
-    const explicit = config.atMerchantSlug?.trim()
-
-    for (const c of campaigns) {
-      const merchantNorm = normalizeSlug(c.merchant)
-      if (explicit && merchantNorm === explicit) return c
-      if (!explicit && merchantNorm === normalizeSlug(sourceSlug)) return c
-      if (!explicit && domainSlug(c.url) === sourceSlug) return c
-    }
-
-    return null
-  }
 }

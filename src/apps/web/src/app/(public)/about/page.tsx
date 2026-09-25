@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+﻿import type { Metadata } from "next"
 import Link from "next/link"
 import ContentPageShell from "@/components/layout/ContentPageShell"
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <ContentPageShell title="Về SanSaleNgon">
+    <ContentPageShell title="Về SanSaleNgon" breadcrumb={[{ label: "Trang chủ", href: "/" }, { label: "Về chúng tôi" }]}>
       <div className="space-y-8 font-sans text-body-md text-ink">
         <section>
           <p className="text-lg leading-relaxed">
@@ -56,8 +56,8 @@ export default function AboutPage() {
         </section>
       </div>
 
-      <div className="mt-12 text-center border-t border-dashed border-[#e5e1d8] pt-6">
-        <p className="font-mono text-label-mono text-[#5c403a] uppercase tracking-widest">
+      <div className="mt-12 text-center border-t border-dashed border-[site-sand] pt-6">
+        <p className="font-mono text-label-mono text-[site-brown] uppercase tracking-widest">
           *** Săn sale ngon mỗi ngày ***
         </p>
       </div>

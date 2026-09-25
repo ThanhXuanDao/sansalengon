@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+﻿import type { Metadata } from "next"
 import Link from "next/link"
 import ContentPageShell from "@/components/layout/ContentPageShell"
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <ContentPageShell title="Chính sách bảo mật">
+    <ContentPageShell title="Chính sách bảo mật" breadcrumb={[{ label: "Trang chủ", href: "/" }, { label: "Chính sách bảo mật" }]}>
       <div className="space-y-8 font-sans text-body-md text-ink">
         <section>
           <h2 className="text-headline-md font-bold mb-3">Dữ liệu chúng tôi thu thập</h2>
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <p className="text-sm text-[#5c403a] italic">Cập nhật lần cuối: Tháng 7 năm 2026</p>
+          <p className="text-sm text-[site-brown] italic">Cập nhật lần cuối: Tháng 7 năm 2026</p>
         </section>
       </div>
 

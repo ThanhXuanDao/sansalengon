@@ -5,6 +5,7 @@ import { csrfGuard } from "@/lib/csrf"
 import { runJob } from "@/lib/jobs/runner"
 import { productSyncHandler } from "@/lib/jobs/handlers/product-sync"
 import { couponSyncPlatformHandler } from "@/lib/jobs/handlers/coupon-sync-platform"
+import { leadSyncHandler } from "@/lib/jobs/handlers/lead-sync"
 import { getSyncHandlerType } from "@/lib/sync-source-utils"
 
 export async function POST(
@@ -23,9 +24,13 @@ export async function POST(
   if (!source) return NextResponse.json({ error: "Không tìm thấy nguồn" }, { status: 404 })
   if (!source.enabled) return NextResponse.json({ error: "Nguồn đang tắt" }, { status: 400 })
 
-  const isCouponScraper = getSyncHandlerType(source.config) === "coupon"
-  const jobKey = isCouponScraper ? "coupon_sync" : "product_sync"
-  const handler = isCouponScraper ? couponSyncPlatformHandler : productSyncHandler
+  const handlerType = getSyncHandlerType(source.config)
+  const jobKey = handlerType === "coupon" ? "coupon_sync" : "product_sync"
+  const handler = handlerType === "coupon"
+    ? couponSyncPlatformHandler
+    : handlerType === "lead"
+    ? leadSyncHandler
+    : productSyncHandler
 
   // Find or create the relevant job record
   const { JOB_SEEDS } = await import("@/lib/jobs/registry")
@@ -54,7 +59,7 @@ export async function POST(
     const { runId, result, durationMs, status } = await runJob({
       jobId: syncJob.id,
       handler,
-      config: isCouponScraper ? { sources: source.slug } : { source: source.slug, niche: "all" },
+      config: handlerType === "coupon" ? { sources: source.slug } : { source: source.slug, niche: "all" },
       triggerType: "manual",
       triggeredBy: `source:${source.slug}`,
       sourceSlug: source.slug,

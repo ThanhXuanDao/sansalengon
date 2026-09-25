@@ -1,8 +1,9 @@
-import { notFound } from "next/navigation"
+﻿import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ChevronRight, ExternalLink, TrendingDown, CheckCircle2, ShoppingBag, Tag } from "lucide-react"
+import Breadcrumb from "@/components/ui/Breadcrumb"
 import { prisma } from "@/lib/prisma"
 import { getActiveNiches, getNiche } from "@/lib/niches"
 import { formatPrice } from "@/lib/utils"
@@ -169,22 +170,24 @@ export default async function ComparePage(
           />
 
           {/* Gradient overlay — heavier at bottom for text legibility */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1a1c1b]/95 via-[#1a1c1b]/50 to-[#1a1c1b]/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[site-ink]/95 via-[site-ink]/50 to-[site-ink]/20" />
 
           {/* Hero content overlaid at bottom */}
           <div className="absolute bottom-0 left-0 right-0 px-4 md:px-8 pb-6 md:pb-10">
             {/* Breadcrumb */}
-            <nav className="hidden sm:flex items-center gap-1.5 font-mono text-[10px] text-white/50 mb-3 flex-wrap">
-              <Link href="/" className="hover:text-white/80 transition-colors">Trang chủ</Link>
-              <ChevronRight className="size-3" />
-              <Link href={`/${niche.id}`} className="hover:text-white/80 transition-colors">{niche.name}</Link>
-              <ChevronRight className="size-3" />
-              <span className="text-white/70">So sánh giá</span>
-            </nav>
+            <Breadcrumb
+              variant="dark"
+              items={[
+                { label: "Trang chủ", href: "/" },
+                { label: niche.name, href: `/${niche.id}` },
+                { label: "So sánh giá" },
+              ]}
+              className="hidden sm:flex mb-3"
+            />
 
             {/* Category tag */}
             <div className="mb-2">
-              <span className="font-mono text-[9px] md:text-[10px] text-[#fdc73a] border border-[#fdc73a]/50 px-1.5 py-0.5 backdrop-blur-sm uppercase tracking-widest">
+              <span className="font-mono text-[9px] md:text-[10px] text-[site-yellow] border border-[site-yellow]/50 px-1.5 py-0.5 backdrop-blur-sm uppercase tracking-widest">
                 {product.category.name}
               </span>
             </div>
@@ -207,9 +210,9 @@ export default async function ComparePage(
         </div>
 
         {/* Mobile breadcrumb */}
-        <div className="sm:hidden bg-white border-b border-[#1a1c1b]/10 px-4 py-2.5 overflow-x-auto">
-          <nav className="flex items-center gap-1.5 font-mono text-[10px] text-[#1a1c1b]/50 whitespace-nowrap">
-            <Link href={`/${niche.id}`} className="text-[#b51c00] flex items-center gap-1 font-medium">
+        <div className="sm:hidden bg-white border-b border-[site-ink]/10 px-4 py-2.5 overflow-x-auto">
+          <nav className="flex items-center gap-1.5 font-mono text-[10px] text-[site-ink]/50 whitespace-nowrap">
+            <Link href={`/${niche.id}`} className="text-[site-red] flex items-center gap-1 font-medium">
               <ChevronRight className="size-3 rotate-180" />
               Deal {niche.name}
             </Link>
@@ -225,11 +228,11 @@ export default async function ComparePage(
 
               {/* Price comparison table */}
               <section className="mb-10" aria-label="Bảng so sánh giá">
-                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[#1a1c1b]/15 pb-3">
-                  <h2 className="font-mono text-[12px] font-bold text-[#1a1c1b] uppercase tracking-wider">
+                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[site-ink]/15 pb-3">
+                  <h2 className="font-mono text-[12px] font-bold text-[site-ink] uppercase tracking-wider">
                     So sánh giá theo sàn
                   </h2>
-                  <span className="font-mono text-[10px] text-[#1a1c1b]/35">cập nhật mỗi 4 giờ</span>
+                  <span className="font-mono text-[10px] text-[site-ink]/35">cập nhật mỗi 4 giờ</span>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -245,7 +248,7 @@ export default async function ComparePage(
                         className={`flex items-center gap-3 md:gap-4 p-3.5 md:p-4 border transition-colors ${
                           isCheapest
                             ? "border-[#1a6e3c] bg-[#edfaf1]"
-                            : "border-[#1a1c1b]/12 bg-white"
+                            : "border-[site-ink]/12 bg-white"
                         }`}
                       >
                         {/* Platform dot + name */}
@@ -255,7 +258,7 @@ export default async function ComparePage(
                             style={{ background: PLATFORM_COLORS[p.platformId] ?? "#888" }}
                             aria-hidden="true"
                           />
-                          <span className="font-mono text-[12px] font-bold text-[#1a1c1b]">{p.platformName}</span>
+                          <span className="font-mono text-[12px] font-bold text-[site-ink]">{p.platformName}</span>
                         </div>
 
                         {/* Price bar */}
@@ -278,13 +281,13 @@ export default async function ComparePage(
                         <div className="text-right shrink-0">
                           <p
                             className={`font-mono text-base font-bold tabular-nums ${
-                              isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"
+                              isCheapest ? "text-[#1a6e3c]" : "text-[site-ink]"
                             } ${!p.inStock ? "opacity-35" : ""}`}
                           >
                             {formatPrice(p.currentPrice, priceOpts)}
                           </p>
                           {p.originalPrice && p.originalPrice > p.currentPrice && (
-                            <p className="font-mono text-[10px] text-[#1a1c1b]/35 line-through">
+                            <p className="font-mono text-[10px] text-[site-ink]/35 line-through">
                               {formatPrice(p.originalPrice, priceOpts)}
                             </p>
                           )}
@@ -293,7 +296,7 @@ export default async function ComparePage(
                         {/* Badges */}
                         <div className="flex items-center gap-1.5 shrink-0 w-20 justify-end">
                           {discount && (
-                            <span className="font-mono text-[10px] font-bold text-white bg-[#ba1a1a] px-1.5 py-0.5">
+                            <span className="font-mono text-[10px] font-bold text-white bg-[site-crimson] px-1.5 py-0.5">
                               -{discount}%
                             </span>
                           )}
@@ -304,7 +307,7 @@ export default async function ComparePage(
                             </span>
                           )}
                           {!p.inStock && (
-                            <span className="font-mono text-[10px] text-[#1a1c1b]/35">Hết hàng</span>
+                            <span className="font-mono text-[10px] text-[site-ink]/35">Hết hàng</span>
                           )}
                         </div>
 
@@ -315,10 +318,10 @@ export default async function ComparePage(
                           rel="noopener noreferrer"
                           className={`flex items-center gap-1 px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase border shrink-0 transition-colors ${
                             !p.inStock
-                              ? "border-[#1a1c1b]/15 text-[#1a1c1b]/25 cursor-default pointer-events-none"
+                              ? "border-[site-ink]/15 text-[site-ink]/25 cursor-default pointer-events-none"
                               : isCheapest
                                 ? "border-[#1a6e3c] bg-[#1a6e3c] text-white hover:bg-[#145c32]"
-                                : "border-[#1a1c1b] bg-white text-[#1a1c1b] hover:bg-[#1a1c1b] hover:text-white"
+                                : "border-[site-ink] bg-white text-[site-ink] hover:bg-[site-ink] hover:text-white"
                           }`}
                           aria-disabled={!p.inStock}
                         >
@@ -333,8 +336,8 @@ export default async function ComparePage(
 
               {/* Price history chart */}
               <section className="mb-10" aria-label="Lịch sử giá theo sàn">
-                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[#1a1c1b]/15 pb-3">
-                  <h2 className="font-mono text-[12px] font-bold text-[#1a1c1b] uppercase tracking-wider">
+                <div className="flex items-center gap-3 mb-4 border-b border-dashed border-[site-ink]/15 pb-3">
+                  <h2 className="font-mono text-[12px] font-bold text-[site-ink] uppercase tracking-wider">
                     Lịch sử giá 30 ngày
                   </h2>
                 </div>
@@ -345,8 +348,8 @@ export default async function ComparePage(
               </section>
 
               {/* How we compare — editorial note */}
-              <div className="mb-8 border-l-4 border-[#fdc73a] pl-4">
-                <p className="font-mono text-[12px] text-[#1a1c1b]/55 leading-relaxed italic">
+              <div className="mb-8 border-l-4 border-[site-yellow] pl-4">
+                <p className="font-mono text-[12px] text-[site-ink]/55 leading-relaxed italic">
                   Giá được cập nhật tự động từ API chính thức của Shopee, Lazada và Tiki mỗi 4 giờ.
                   Chúng tôi không nhận phí để ưu tiên bất kỳ sàn nào — kết quả sắp xếp thuần túy theo giá.
                 </p>
@@ -354,7 +357,7 @@ export default async function ComparePage(
 
               {/* Share row */}
               <div className="mt-5 flex items-center gap-2.5 flex-wrap">
-                <span className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-wider">Chia sẻ:</span>
+                <span className="font-mono text-[10px] text-[site-ink]/40 uppercase tracking-wider">Chia sẻ:</span>
                 <a
                   href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(compareUrl)}`}
                   target="_blank"
@@ -376,10 +379,10 @@ export default async function ComparePage(
               </div>
 
               {/* Bottom nav */}
-              <div className="mt-8 md:mt-10 pt-5 border-t border-[#1a1c1b]/10 flex items-center justify-between gap-3">
+              <div className="mt-8 md:mt-10 pt-5 border-t border-[site-ink]/10 flex items-center justify-between gap-3">
                 <Link
                   href={`/${niche.id}`}
-                  className="font-mono text-[12px] text-[#5c403a] hover:text-[#b51c00] transition-colors flex items-center gap-1 py-1"
+                  className="font-mono text-[12px] text-[site-brown] hover:text-[site-red] transition-colors flex items-center gap-1 py-1"
                 >
                   <ChevronRight className="size-3.5 rotate-180 shrink-0" />
                   <span className="hidden sm:inline">Tất cả deal</span>
@@ -387,7 +390,7 @@ export default async function ComparePage(
                 </Link>
                 <Link
                   href={`/${niche.id}`}
-                  className="flex items-center gap-1.5 bg-[#b51c00] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[#1a1c1b] active:scale-95 transition-all"
+                  className="flex items-center gap-1.5 bg-[site-red] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[site-ink] active:scale-95 transition-all"
                 >
                   <ShoppingBag className="size-3.5 shrink-0" />
                   <span>Deal {niche.emoji} {niche.name}</span>
@@ -401,9 +404,9 @@ export default async function ComparePage(
               {/* Best deal CTA */}
               {cheapestPlatform && (
                 <div
-                  className="bg-[#1a1c1b] p-5 text-white clip-bevel-tr-lg"
+                  className="bg-[site-ink] p-5 text-white clip-bevel-tr-lg"
                 >
-                  <span className="font-mono text-[10px] text-[#fdc73a] uppercase tracking-widest block mb-1.5">
+                  <span className="font-mono text-[10px] text-[site-yellow] uppercase tracking-widest block mb-1.5">
                     Giá rẻ nhất hôm nay
                   </span>
                   <p className="font-mono text-[22px] font-bold text-white leading-none mb-1 tabular-nums">
@@ -417,7 +420,7 @@ export default async function ComparePage(
                     href={cheapestPlatform.platformUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 bg-[#b51c00] text-white font-mono text-[12px] px-4 py-2.5 hover:bg-[#fdc73a] hover:text-[#1a1c1b] transition-colors"
+                    className="flex items-center justify-center gap-1.5 bg-[site-red] text-white font-mono text-[12px] px-4 py-2.5 hover:bg-[site-yellow] hover:text-[site-ink] transition-colors"
                   >
                     Mua tại {cheapestPlatform.platformName}
                     <ExternalLink className="size-3.5" aria-hidden="true" />
@@ -426,9 +429,9 @@ export default async function ComparePage(
               )}
 
               {/* Platform summary */}
-              <div className="bg-white border border-[#1a1c1b]/10 p-4">
-                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2 mb-3 flex items-center gap-1.5">
-                  <Tag className="size-3 text-[#b51c00]" />
+              <div className="bg-white border border-[site-ink]/10 p-4">
+                <h3 className="font-mono text-[10px] text-[site-ink]/40 uppercase tracking-widest border-b border-[site-ink]/10 pb-2 mb-3 flex items-center gap-1.5">
+                  <Tag className="size-3 text-[site-red]" />
                   Giá trên tất cả sàn
                 </h3>
                 <div className="space-y-2.5">
@@ -442,11 +445,11 @@ export default async function ComparePage(
                             style={{ background: PLATFORM_COLORS[p.platformId] ?? "#888" }}
                             aria-hidden="true"
                           />
-                          <span className="font-mono text-[11px] text-[#1a1c1b]/70 truncate">{p.platformName}</span>
+                          <span className="font-mono text-[11px] text-[site-ink]/70 truncate">{p.platformName}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span
-                            className={`font-mono text-[12px] font-bold tabular-nums ${isCheapest ? "text-[#1a6e3c]" : "text-[#1a1c1b]"} ${!p.inStock ? "opacity-35" : ""}`}
+                            className={`font-mono text-[12px] font-bold tabular-nums ${isCheapest ? "text-[#1a6e3c]" : "text-[site-ink]"} ${!p.inStock ? "opacity-35" : ""}`}
                           >
                             {p.inStock ? formatPrice(p.currentPrice, priceOpts) : "Hết hàng"}
                           </span>
@@ -461,44 +464,44 @@ export default async function ComparePage(
               </div>
 
               {/* Product meta */}
-              <div className="bg-white border border-[#1a1c1b]/10 p-4 space-y-3">
-                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2">
+              <div className="bg-white border border-[site-ink]/10 p-4 space-y-3">
+                <h3 className="font-mono text-[10px] text-[site-ink]/40 uppercase tracking-widest border-b border-[site-ink]/10 pb-2">
                   Thông tin sản phẩm
                 </h3>
                 <div className="flex gap-3 items-start">
                   <img
                     src={product.imageUrl}
                     alt={product.imageAlt}
-                    className="w-14 h-14 object-cover border border-[#1a1c1b]/10 shrink-0"
+                    className="w-14 h-14 object-cover border border-[site-ink]/10 shrink-0"
                   />
-                  <p className="font-mono text-[11px] text-[#1a1c1b]/70 leading-snug line-clamp-4">
+                  <p className="font-mono text-[11px] text-[site-ink]/70 leading-snug line-clamp-4">
                     {product.name}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1 pt-1">
-                  <span className="font-mono text-[9px] text-[#5c403a] border border-[#5c403a]/25 px-1.5 py-0.5">
+                  <span className="font-mono text-[9px] text-[site-brown] border border-[site-brown]/25 px-1.5 py-0.5">
                     {product.category.name}
                   </span>
-                  <span className="font-mono text-[9px] text-[#5c403a] border border-[#5c403a]/25 px-1.5 py-0.5">
+                  <span className="font-mono text-[9px] text-[site-brown] border border-[site-brown]/25 px-1.5 py-0.5">
                     {niche.emoji} {niche.name}
                   </span>
                 </div>
               </div>
 
               {/* Back to niche */}
-              <div className="bg-white border border-[#1a1c1b]/10 p-4">
-                <h3 className="font-mono text-[10px] text-[#1a1c1b]/40 uppercase tracking-widest border-b border-[#1a1c1b]/10 pb-2 mb-3">
+              <div className="bg-white border border-[site-ink]/10 p-4">
+                <h3 className="font-mono text-[10px] text-[site-ink]/40 uppercase tracking-widest border-b border-[site-ink]/10 pb-2 mb-3">
                   Xem thêm deal
                 </h3>
                 <Link
                   href={`/${niche.id}`}
-                  className="block text-center bg-[#1a1c1b] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[#b51c00] transition-colors"
+                  className="block text-center bg-[site-ink] text-white font-mono text-[11px] px-4 py-2.5 hover:bg-[site-red] transition-colors"
                 >
                   {niche.emoji} Tất cả deal {niche.name} →
                 </Link>
                 <Link
                   href={`/${niche.id}/blog`}
-                  className="block text-center mt-2 font-mono text-[11px] text-[#1a1c1b]/50 hover:text-[#b51c00] transition-colors py-1.5 border border-[#1a1c1b]/10 hover:border-[#b51c00]/30"
+                  className="block text-center mt-2 font-mono text-[11px] text-[site-ink]/50 hover:text-[site-red] transition-colors py-1.5 border border-[site-ink]/10 hover:border-[site-red]/30"
                 >
                   Blog {niche.name}
                 </Link>

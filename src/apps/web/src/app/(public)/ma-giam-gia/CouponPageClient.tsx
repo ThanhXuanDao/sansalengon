@@ -1,10 +1,10 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useCallback, Suspense } from "react"
 import dynamic from "next/dynamic"
 import { useSearchParams, usePathname } from "next/navigation"
 import { Tag, RefreshCw, ChevronDown, Flame, ArrowUpDown, Clock, TrendingUp } from "lucide-react"
-import Navbar from "@/components/layout/Navbar"
+import Breadcrumb from "@/components/ui/Breadcrumb"
 import FilterBar from "@/components/sections/FilterBar"
 import type { FilterItem, SortOption } from "@/components/sections/FilterBar"
 import type { Coupon } from "@/components/coupons/CouponCard"
@@ -13,7 +13,6 @@ import { useCategories } from "@/hooks/useCategories"
 import { useSources } from "@/hooks/useSources"
 
 const CouponCard = dynamic(() => import("@/components/coupons/CouponCard"))
-const Footer = dynamic(() => import("@/components/layout/Footer"))
 
 const SORT_OPTIONS: SortOption[] = [
   { value: "value",    label: "Giảm nhiều nhất", Icon: ArrowUpDown },
@@ -226,10 +225,12 @@ function CouponPageClientInner() {
 
   return (
     <>
-      <Navbar onSearch={() => {}} searchQuery="" />
-
-      <div className="w-full bg-white border-t border-dashed border-border-color">
-        <main className="w-full max-w-[1320px] mx-auto px-3 pt-6 pb-12">
+      <div className="animate-pageIn w-full bg-white border-t border-dashed border-border-color">
+        <main className="w-full max-w-[1320px] mx-auto px-3 pt-[120px] sm:pt-[160px] pb-12">
+          <Breadcrumb
+            items={[{ label: "Trang chủ", href: "/" }, { label: "Mã giảm giá" }]}
+            className="mb-4"
+          />
 
           {/* Header */}
           <div className="mb-4">
@@ -277,7 +278,7 @@ function CouponPageClientInner() {
           />
 
           {/* Tip */}
-          <div className="mt-16 mb-5 p-3 border border-dashed border-border-color bg-[#fafaf7]">
+          <div className="mt-16 mb-5 p-3 border border-dashed border-border-color bg-[site-cream]">
             <p className="font-mono text-xs text-ink/50">
               <strong className="text-ink/70">Cách dùng:</strong> Nhấn "Lấy mã" để xem mã đầy đủ → Nhấn "Copy" → Dán vào ô voucher khi thanh toán.
               Mã cập nhật tự động — nếu mã hết hiệu lực, hệ thống sẽ tự xóa trong vòng 24 giờ.
@@ -345,8 +346,6 @@ function CouponPageClientInner() {
           )}
         </main>
       </div>
-
-      <Footer />
     </>
   )
 }

@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
 import { getActiveNiches, getNiche } from "@/lib/niches"
 import { getProductNumberMap } from "@/lib/products-numbering"
-import { getPostsByNiche } from "@/lib/blog"
+import { getPostsByNicheDb } from "@/lib/blog-db"
 import { getNicheSeoFromCache } from "@/lib/seo-generator"
 import NichePageClient from "./NichePageClient"
 
@@ -105,7 +105,7 @@ export default async function NichePage(
     numberOfItems: initialProducts.total,
   }
 
-  const blogPosts = getPostsByNiche(niche.id).slice(0, 3)
+  const blogPosts = (await getPostsByNicheDb(niche.id)).slice(0, 3)
 
   return (
     <>

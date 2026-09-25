@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Image from "next/image"
 import type React from "react"
@@ -34,52 +34,66 @@ function FilterCircle({
   onClick: () => void
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-pressed={isActive}
-      title={item.label}
-      className={`flex items-center justify-center w-[60px] h-[60px] rounded-full border-2 transition-all shrink-0 overflow-hidden focus-visible:outline-2 focus-visible:outline-filter-active ${
-        item.emoji ? "text-[28px]" : ""
-      } ${
-        isActive && !item.color
-          ? "bg-filter-active/10 border-filter-active"
-          : !isActive
-          ? "border-border-color hover:border-filter-active/50 bg-white"
-          : ""
-      }`}
-      style={
-        item.color
-          ? isActive
-            ? { borderColor: item.color, background: `${item.color}18` }
+    <div className="flex flex-col items-center gap-1 shrink-0 w-[68px]">
+      <button
+        onClick={onClick}
+        aria-pressed={isActive}
+        title={item.label}
+        className={`flex items-center justify-center w-[52px] h-[52px] rounded-full border-2 transition-all overflow-hidden focus-visible:outline-2 focus-visible:outline-filter-active ${
+          item.emoji ? "text-[24px]" : ""
+        } ${
+          isActive && !item.color
+            ? "bg-filter-active/10 border-filter-active"
+            : !isActive
+            ? "border-border-color hover:border-filter-active/50 bg-white"
+            : ""
+        }`}
+        style={
+          item.color
+            ? isActive
+              ? { borderColor: item.color, background: `${item.color}18` }
+              : undefined
             : undefined
-          : undefined
-      }
-    >
-      {item.icon ? (
-        <Image
-          src={item.icon}
-          alt={item.label}
-          width={40}
-          height={40}
-          className="object-contain w-[40px] h-[40px]"
-          unoptimized
-        />
-      ) : item.emoji ? (
-        <span aria-hidden="true">{item.emoji}</span>
-      ) : (
-        <span
-          className="font-mono font-bold text-[11px] select-none text-[#5c403a]"
-          style={isActive && item.color ? { color: item.color } : undefined}
-        >
-          {item.slug.slice(0, 2).toUpperCase()}
-        </span>
-      )}
-    </button>
+        }
+      >
+        {item.icon ? (
+          <Image
+            src={item.icon}
+            alt={item.label}
+            width={34}
+            height={34}
+            className="object-contain w-[34px] h-[34px]"
+            unoptimized
+          />
+        ) : item.emoji ? (
+          <span aria-hidden="true">{item.emoji}</span>
+        ) : (
+          <span
+            className="font-mono font-bold text-[11px] select-none text-[site-brown]"
+            style={isActive && item.color ? { color: item.color } : undefined}
+          >
+            {item.slug.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+      </button>
+      <span
+        className={`font-mono text-[10px] text-center leading-tight w-full truncate transition-colors ${
+          isActive ? "text-filter-active font-semibold" : "text-ink/45"
+        }`}
+      >
+        {item.label}
+      </span>
+    </div>
   )
 }
 
 function CircleSkeleton() {
-  return <div className="w-[60px] h-[60px] rounded-full skeleton-shimmer shrink-0" />
+  return (
+    <div className="flex flex-col items-center gap-1 shrink-0 w-[68px]">
+      <div className="w-[52px] h-[52px] rounded-full skeleton-shimmer" />
+      <div className="h-[10px] w-10 rounded skeleton-shimmer" />
+    </div>
+  )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -137,12 +151,12 @@ export default function FilterBar({
   const showCategories = isCategoriesLoading || (categories && categories.length > 0)
 
   return (
-    <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 mb-6 border-b border-[#e5e1d8]">
+    <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 mb-6 border-b border-[site-sand]">
 
       {/* Row 0: Sources / Platforms */}
       {showSources && (
         <div
-          className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide"
+          className="flex items-start gap-2 pb-3 overflow-x-auto scrollbar-hide"
           role="tablist"
           aria-label={sourcesAriaLabel}
         >
@@ -162,7 +176,7 @@ export default function FilterBar({
       {/* Row 1: Categories */}
       {showCategories && (
         <div
-          className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide"
+          className="flex items-start gap-2 pb-3 overflow-x-auto scrollbar-hide"
           role="tablist"
           aria-label={categoriesAriaLabel}
         >

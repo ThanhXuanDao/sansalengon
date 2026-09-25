@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { Link2, Check } from "lucide-react"
@@ -19,7 +19,7 @@ export default function CopyLinkButton() {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-1.5 border border-[#1a1c1b]/20 hover:border-[#1a1c1b] hover:bg-[#1a1c1b] hover:text-white transition-colors"
+      className="flex items-center gap-1.5 font-mono text-[11px] px-3 py-1.5 border border-[site-ink]/20 hover:border-[site-ink] hover:bg-[site-ink] hover:text-white transition-colors"
     >
       {copied ? (
         <>
