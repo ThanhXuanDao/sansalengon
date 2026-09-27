@@ -149,6 +149,17 @@ const NICHES = [
     postPrefix: "💰 Ưu đãi tài chính hôm nay",
     hashtags: "#taichinh #vaytinchap #nganhang #thetindung #finance",
   },
+  {
+    id: "travel",
+    name: "Du lịch & Di chuyển",
+    emoji: "🚌",
+    status: "active",
+    description: "Đặt vé xe khách, máy bay, tàu hỏa online — giá tốt nhất, flash sale mỗi ngày.",
+    metaKeywords: "đặt vé xe khách online, vé máy bay giá rẻ, vé tàu hỏa, thuê xe du lịch, vexere giảm giá",
+    sortOrder: 140,
+    postPrefix: "🚌 Deal du lịch hôm nay",
+    hashtags: "#dulich #dichcuyen #vexere #veXe #travel",
+  },
 ]
 
 // NicheIntegration: kích hoạt Tiki direct sync cho tất cả ngách.
@@ -432,6 +443,197 @@ const SYNC_SOURCES = [
       ],
     }),
   },
+  {
+    id: "syncsrc_concung",
+    name: "Con Cưng",
+    slug: "concung",
+    baseUrl: "https://www.concung.com",
+    icon: "https://www.concung.com/themes/images/v50/icon/logo.png",
+    enabled: true,
+    description: "Con Cưng — chuỗi bán lẻ mẹ & bé, đọc JSON-LD ItemList nhúng trong HTML danh mục, wrap AT tracking link (CPS)",
+    config: JSON.stringify({
+      type: "product-scraper",
+      // Con Cưng nhúng dữ liệu sản phẩm vào JSON-LD schema.org ItemList trong HTML tĩnh.
+      // Stable hơn css-selector: không bị vỡ khi site thay đổi giao diện.
+      strategy: "jsonld-itemlist",
+      // atMerchantSlug không đặt → tự match qua domainSlug(campaign.url) === "concung"
+      delayMs: 2000,
+      headers: {
+        "Referer": "https://www.concung.com/",
+      },
+      jsonld: {
+        // <script type="application/ld+json"> với @type = "ItemList"
+        // item.url, item.name, item.image, item.offers.price
+        // productId được extract từ URL: /{category}/{slug}-{id}.html
+        idPattern: "-([0-9]+)\\.html$",   // capture group 1 = externalId
+        // Mỗi card sản phẩm trong HTML có badge discount (-50%) → dùng để tính originalPrice
+        cardSelector: ".product-item",
+        discountSelector: ".style-percent-product",
+      },
+      pagination: {
+        // Sản phẩm trên 1 trang category ≈ 49 (JSON-LD) — không cần phân trang
+        // nếu muốn fetch thêm: type "page-param", pageParam "page", maxPages 3
+        type: "none",
+      },
+      categories: [
+        { id: "cc-do-choi-tre-em",    name: "Đồ chơi trẻ em",    url: "https://www.concung.com/do-choi-tre-em-101489.html",     nicheSlug: "kids" },
+        { id: "cc-sua-bot",           name: "Sữa bột & sữa nước", url: "https://www.concung.com/sua-bot-sua-nuoc-101259.html",   nicheSlug: "kids" },
+        { id: "cc-do-choi-em-be",     name: "Đồ chơi em bé",     url: "https://www.concung.com/do-choi-em-be-1013.html",        nicheSlug: "kids" },
+        { id: "cc-cho-be-an",         name: "Cho bé ăn",          url: "https://www.concung.com/cho-be-an-1014.html",            nicheSlug: "kids" },
+        { id: "cc-xe-day",            name: "Xe đẩy & xe tập đi", url: "https://www.concung.com/xe-day-101426.html",            nicheSlug: "kids" },
+        { id: "cc-be-ngu",            name: "Đồ dùng bé ngủ",    url: "https://www.concung.com/do-dung-be-ngu-101201.html",     nicheSlug: "kids" },
+      ],
+      // Voucher scraping chạy cùng lúc với product sync (1 AT campaign)
+      coupon: {
+        parser: "concung-voucher",
+        promoUrl: "https://concung.com/landingpages-chuong-trinh-uu-dai.html",
+        voucherFetchUrl: "https://concung.com/do-dung-be-ngu/goi-cho-be-organic-size-23x35cm-ku2053-10477.html",
+        atMerchantSlug: "concung",
+        merchant: "Con Cưng",
+        merchantLogo: "https://www.concung.com/themes/images/v50/icon/logo.png",
+        nicheId: "kids",
+        // platform = source.slug ("concung") — tự động inject trong loadCouponScraperSources
+      },
+    }),
+  },
+  {
+    id: "syncsrc_vexere",
+    name: "Vexere",
+    slug: "vexere",
+    baseUrl: "https://vexere.com",
+    icon: "https://content.accesstrade.vn/adv/1705433645_avatar_1705433645.png",
+    enabled: true,
+    description: "Đặt vé xe khách, máy bay, tàu hỏa online nhanh chóng — giá tốt nhất, flash sale mỗi ngày, thanh toán qua ví điện tử tiện lợi.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "vexere",
+      landingUrl: "https://vexere.com/",
+      nicheId: "travel",
+      badge: { label: "Vexere", bg: "bg-sky-100", text: "text-sky-700" },
+      cta: "Đặt vé ngay",
+    }),
+  },
+  {
+    id: "syncsrc_vietnamairlines",
+    name: "Vietnam Airlines",
+    slug: "vietnamairlines",
+    baseUrl: "https://www.vietnamairlines.com",
+    icon: "https://content.accesstrade.vn/adv/1706241920_avatar_1706241920.png",
+    enabled: true,
+    description: "Đặt vé máy bay Vietnam Airlines — hàng không quốc gia, phủ khắp 21 tỉnh thành và nhiều đường bay quốc tế.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "vietnamairlines_web",
+      landingUrl: "https://www.vietnamairlines.com/vn/vi/home",
+      nicheId: "travel",
+      badge: { label: "VNA", bg: "bg-blue-100", text: "text-blue-700" },
+      cta: "Đặt vé ngay",
+    }),
+  },
+  {
+    id: "syncsrc_ngocdung_tmv",
+    name: "Thẩm Mỹ Viện Ngọc Dung",
+    slug: "ngocdung-tmv",
+    baseUrl: "https://thammyvienngocdung.com",
+    icon: "https://content.accesstrade.vn/adv/1775040954_avatar_1775040954.jpeg",
+    enabled: true,
+    description: "Phun xăm thẩm mỹ, điều trị nám, trị mụn, triệt lông — công nghệ nhập khẩu chuẩn FDA, phác đồ cá nhân hóa cho từng khách hàng.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "ngocdung_tmv",
+      landingUrl: "https://thammyvienngocdung.com/",
+      nicheId: "beauty",
+      badge: { label: "Ngọc Dung", bg: "bg-pink-100", text: "text-pink-700" },
+      cta: "Đăng ký tư vấn",
+    }),
+  },
+  {
+    id: "syncsrc_shopeefood_taixe",
+    name: "Shopee Food Tài xế",
+    slug: "shopeefood-taixe",
+    baseUrl: "https://shopeefood.vn",
+    icon: "https://content.accesstrade.vn/adv/1773222773_avatar_1773222773.png",
+    enabled: true,
+    description: "Trở thành tài xế ShopeeFood — thời gian linh hoạt 100%, thu nhập hấp dẫn, thưởng hàng tuần, hỗ trợ đối tác 24/7.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "shopeefood_taixe",
+      landingUrl: "https://hikc.caiapp.online/",
+      nicheId: "food",
+      badge: { label: "ShopeeFood", bg: "bg-orange-100", text: "text-orange-700" },
+      cta: "Đăng ký tài xế",
+    }),
+  },
+  {
+    id: "syncsrc_ila_vietnam",
+    name: "ILA Education",
+    slug: "ila-vietnam",
+    baseUrl: "https://ila.edu.vn",
+    icon: "https://content.accesstrade.vn/adv/1785469727_avatar_1785469727.jpg",
+    enabled: true,
+    description: "Tiếng Anh cho bé 3–16 tuổi theo chuẩn quốc tế — hơn 25 năm kinh nghiệm, phương pháp truyền cảm hứng, bé tự tin giao tiếp toàn cầu.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "ila_vietnam",
+      landingUrl: "https://ila.edu.vn/tieng-anh-cho-be/",
+      nicheId: "kids",
+      badge: { label: "ILA", bg: "bg-yellow-100", text: "text-yellow-700" },
+      cta: "Đăng ký học thử",
+    }),
+  },
+  {
+    id: "syncsrc_at_referral",
+    name: "ACCESSTRADE Referral",
+    slug: "at-referral",
+    baseUrl: "https://accesstradevn.com",
+    icon: "https://content.accesstrade.vn/adv/1719480490_avatar_1719480490.png",
+    enabled: true,
+    description: "Giới thiệu bạn bè đăng ký ACCESSTRADE — nhận hoa hồng không giới hạn từ 3 tầng khi người được giới thiệu phát sinh đơn thành công.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "oneat_referral_firebase",
+      landingUrl: "https://accesstradevn.com/",
+      // Link referral cá nhân — dùng thẳng, không tạo tracking link mới
+      fixedAffiliateUrl: "https://shorten.asia/J4VqwHFM",
+      nicheId: null,
+      badge: { label: "ACCESSTRADE", bg: "bg-green-100", text: "text-green-700" },
+      cta: "Giới thiệu ngay",
+    }),
+  },
+  {
+    id: "syncsrc_dingtea",
+    name: "Ding Tea",
+    slug: "dingtea",
+    baseUrl: "https://dingtea.vn",
+    icon: "https://dingtea.vn/images/logospare.png",
+    enabled: true,
+    description: "Trà sữa Đài Loan chính gốc Ding Tea — topping đặc trưng, nguyên liệu nhập khẩu, hơn 100 chi nhánh toàn quốc.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "dingtea",
+      landingUrl: "https://dingtea.vn/",
+      nicheId: "food",
+      badge: { label: "Ding Tea", bg: "bg-purple-100", text: "text-purple-700" },
+      cta: "Đặt trà sữa ngay",
+    }),
+  },
+  {
+    id: "syncsrc_chickita",
+    name: "Chickita",
+    slug: "chickita",
+    baseUrl: "https://chickita.com.vn",
+    icon: "https://chickita.com.vn/wp-content/uploads/2023/01/Thumbnail.jpeg",
+    enabled: true,
+    description: "Gà nướng lửa hồng Chickita — sốt độc quyền 8 loại, nguyên liệu chọn lọc từ nông trại, phù hợp gia đình với nhiều chi nhánh khắp TP.HCM.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "chickita_voucher",
+      landingUrl: "https://chickita.com.vn/",
+      nicheId: "food",
+      badge: { label: "Chickita", bg: "bg-amber-100", text: "text-amber-700" },
+      cta: "Nhận ưu đãi",
+    }),
+  },
 ]
 
 async function main() {
@@ -499,6 +701,26 @@ async function main() {
       create: src,
     })
     console.log(`  ✓ SyncSource: ${src.name} (${src.slug})`)
+  }
+
+  // ── Merge Con Cưng: gộp coupon sub-config vào product source, xóa source riêng ──
+  const concungSrc = await prisma.syncSource.findUnique({ where: { slug: "concung" } })
+  if (concungSrc) {
+    const cfg = JSON.parse(concungSrc.config)
+    if (!cfg.coupon) {
+      // Force-update để thêm coupon sub-block vào config đã tồn tại
+      const merged = SYNC_SOURCES.find(s => s.slug === "concung")
+      if (merged) {
+        await prisma.syncSource.update({ where: { slug: "concung" }, data: { config: merged.config } })
+        console.log("  ✓ Merged coupon sub-config vào syncsrc_concung")
+      }
+    }
+  }
+  const oldCouponSrc = await prisma.syncSource.findUnique({ where: { slug: "concung-coupon" } })
+  if (oldCouponSrc) {
+    await prisma.coupon.updateMany({ where: { platform: "concung-coupon" }, data: { platform: "concung" } })
+    await prisma.syncSource.delete({ where: { slug: "concung-coupon" } })
+    console.log("  ✓ Migrated concung-coupon → concung, xóa source cũ")
   }
 
   const SYNC_JOBS = [

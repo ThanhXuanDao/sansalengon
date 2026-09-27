@@ -74,7 +74,8 @@ export class AtCampaignService {
     try {
       const link = await this.accesstrade.createTrackingLink({ campaignId, urls: [url], subIds })
       return link.shortLink ?? link.affiliateLink
-    } catch {
+    } catch (e: any) {
+      this.log.warn(`[wrapUrl] campaign=${campaignId} url=${url} — fallback: ${e?.message ?? e}`)
       return url
     }
   }

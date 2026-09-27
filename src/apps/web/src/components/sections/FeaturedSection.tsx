@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
 import type { Product } from "@/types"
+import { useCouponCounts } from "@/hooks/useCouponCounts"
 
 interface FeaturedSectionProps {
   products?: Product[]
@@ -23,6 +24,7 @@ const itemVariants = {
 
 export default function FeaturedSection({ products = [], isLoading, onBuyProduct }: FeaturedSectionProps) {
   const prefersReducedMotion = useReducedMotion()
+  const couponCounts = useCouponCounts()
 
   if (!isLoading && products.length === 0) return null
 
@@ -50,7 +52,7 @@ export default function FeaturedSection({ products = [], isLoading, onBuyProduct
             ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={`s-feat-${i}`} />)
             : products.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} onBuy={onBuyProduct} />
+                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} />
                 </motion.div>
               ))}
         </motion.div>

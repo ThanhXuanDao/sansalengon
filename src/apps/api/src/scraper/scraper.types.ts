@@ -4,9 +4,10 @@ export interface ScraperSourceConfig {
    * Extraction strategy:
    * - "html-selectors"  : CSS selectors on raw HTML (works for simple SSR pages)
    * - "nextjs-data"     : parse __NEXT_DATA__ JSON embedded in Next.js SSR pages
-   *                       (more reliable — no selector maintenance)
+   * - "jsonld-itemlist" : parse JSON-LD <script type="application/ld+json"> with @type=ItemList
+   *                       (reliable for sites embedding product schema.org markup)
    */
-  strategy?: "html-selectors" | "nextjs-data"
+  strategy?: "html-selectors" | "nextjs-data" | "jsonld-itemlist"
   /** Base delay between page requests (ms). Default: 2000 */
   delayMs?: number
   /** Extra request headers (e.g. Referer, Cookie) */
@@ -19,6 +20,29 @@ export interface ScraperSourceConfig {
   selectors?: ScraperSelectors
   /** Pagination config. Omit for single-page scrape. */
   pagination?: ScraperPagination
+
+  // ── jsonld-itemlist strategy ───────────────────────────────────────────────
+  /** Options for the "jsonld-itemlist" strategy */
+  jsonld?: {
+    /**
+     * Regex pattern (with one capture group) to extract externalId from the product URL.
+     * Example: "-([0-9]+)\\.html$" extracts "12345" from "ten-sp-12345.html"
+     * Falls back to the last URL path segment if omitted.
+     */
+    idPattern?: string
+    /**
+     * CSS selector for the product card container used to extract discount %.
+     * Each card must contain both a product link (<a href>) and a discount badge.
+     * Example: ".product-item"
+     */
+    cardSelector?: string
+    /**
+     * CSS selector for the discount badge element within a card.
+     * Text content should contain a percentage like "-50%" or "-50".
+     * Default: ".style-percent-product"
+     */
+    discountSelector?: string
+  }
 
   // ── nextjs-data strategy ───────────────────────────────────────────────────
   /**

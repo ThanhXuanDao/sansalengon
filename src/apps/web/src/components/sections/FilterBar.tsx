@@ -151,7 +151,7 @@ export default function FilterBar({
   const showCategories = isCategoriesLoading || (categories && categories.length > 0)
 
   return (
-    <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 mb-6 border-b border-[site-sand]">
+    <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 border-b border-[site-sand]">
 
       {/* Row 0: Sources / Platforms */}
       {showSources && (
@@ -196,7 +196,7 @@ export default function FilterBar({
       {/* Row 2: Sort pills + extra pills + reset */}
       {(sortOptions || extraPills || hasActiveFilter) && (
         <div
-          className="flex items-center gap-1 overflow-x-auto scrollbar-hide"
+          className="flex items-center gap-1 overflow-x-auto scrollbar-hide pb-1"
           role="toolbar"
           aria-label="Sắp xếp"
         >

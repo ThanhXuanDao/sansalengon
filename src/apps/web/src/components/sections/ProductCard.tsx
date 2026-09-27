@@ -3,7 +3,7 @@
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import Image from "next/image"
-import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, ArrowLeftRight, Share2, Check } from "lucide-react"
+import { ExternalLink, Star, ImageOff, ChevronDown, ChevronUp, LineChart, ArrowLeftRight, Share2, Check, Tag } from "lucide-react"
 import Link from "next/link"
 import type { Product } from "@/types"
 import { useFormatPrice } from "@/lib/currency-context"
@@ -20,6 +20,7 @@ interface ProductCardProps {
   product: Product
   onBuy?: (productId: string) => void
   viewCount?: number // click count in recent window — shows 🔥 badge if > 0
+  couponCount?: number // số voucher active của source này
 }
 
 
@@ -91,6 +92,7 @@ export default function ProductCard({
   product,
   onBuy,
   viewCount,
+  couponCount = 0,
 }: ProductCardProps) {
   const formatPrice = useFormatPrice()
   const niche = useNicheByCategory(product.category?.id ?? "")
@@ -216,6 +218,17 @@ export default function ProductCard({
             {formatPrice(product.price)}
           </p>
         )}
+        {/* Voucher badge — click = AT redirect (lưu cookie) giống tên sản phẩm */}
+        {couponCount > 0 && !isSoldOut && (
+          <button
+            onClick={handleBuy}
+            className="flex items-center gap-1 w-fit mb-2 px-2 py-0.5 border border-dashed border-primary/40 text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+          >
+            <Tag className="size-3 shrink-0" aria-hidden="true" />
+            <span className="font-mono text-[10px]">{couponCount} voucher</span>
+          </button>
+        )}
+
         {/* CTA */}
         <div className="flex flex-wrap gap-1.5">
           <button

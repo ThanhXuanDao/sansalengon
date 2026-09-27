@@ -4,6 +4,7 @@ import { useRef, useCallback, useEffect } from "react"
 import { useTrending } from "@/hooks/useTrending"
 import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
+import { useCouponCounts } from "@/hooks/useCouponCounts"
 
 const PX_PER_SEC = 50   // scroll speed in pixels/second
 const MIN_COPIES = 4    // minimum number of item-set copies
@@ -14,6 +15,7 @@ interface TrendingWidgetProps {
 
 export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
   const { data, isLoading } = useTrending()
+  const couponCounts = useCouponCounts()
   const trackRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startX: number; startTranslate: number; isDragging: boolean } | null>(null)
   const hoverRef = useRef(false)
@@ -162,7 +164,7 @@ export default function TrendingWidget({ onBuyProduct }: TrendingWidgetProps) {
                 key={`${product.id}-${i}`}
                 className="shrink-0 w-[calc(33vw-12px)] md:w-[calc(16.7vw-12px)] max-w-[208px]"
               >
-                <ProductCard product={product} onBuy={handleBuy} />
+                <ProductCard product={product} onBuy={handleBuy} couponCount={couponCounts[product.source] ?? 0} />
               </div>
             ))}
           </div>

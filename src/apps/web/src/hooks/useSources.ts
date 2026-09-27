@@ -7,7 +7,7 @@ export interface SyncSourcePublic {
   icon: string | null
 }
 
-export type SourceType = "coupon" | "product"
+export type SourceType = "coupon" | "product" | "lead"
 
 export function useSources(type?: SourceType) {
   const url = type ? `/api/sources?type=${type}` : "/api/sources"

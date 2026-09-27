@@ -28,6 +28,8 @@ interface RawVoucher {
   maxDiscount: number | null;
   affiliateUrl: string;
   expiresAt: Date | null;
+  /** Stable external ID — overrides description-based ID in buildCouponId */
+  externalId?: string;
 }
 
 const AT_VOUCHER_API = "https://api.accesstrade.vn/v1/vouchers";
@@ -35,13 +37,15 @@ const SRC = "coupon-sync";
 
 interface CouponScraperConfig {
   type: "coupon-scraper";
-  parser: string;           // e.g. "tch-promo"
-  promoUrl: string;         // URL trang promo để scrape
-  atMerchantSlug: string;   // merchant field trong AtCampaign để lookup campaign ID
-  merchant: string;         // Tên hiển thị
-  merchantLogo?: string;    // URL logo
-  nicheId: string;          // Niche phân loại
-  platform: string;         // Badge key (e.g. "tch")
+  parser: string;              // e.g. "tch-promo" | "concung-voucher"
+  promoUrl: string;            // URL dùng cho AT tracking link (user click vào đây)
+  atMerchantSlug: string;      // merchant field trong AtCampaign để lookup campaign ID
+  merchant: string;            // Tên hiển thị
+  merchantLogo?: string;       // URL logo
+  nicheId: string;             // Niche phân loại
+  platform: string;            // Badge key (e.g. "tch", "concung")
+  /** URL fetch HTML để extract vouchers — nếu khác promoUrl (vd: product detail page) */
+  voucherFetchUrl?: string;
 }
 
 @Injectable()
@@ -406,6 +410,23 @@ export class CouponSyncService {
         const cfg = JSON.parse(row.config as string) as Record<string, unknown>;
         if (cfg.type === "coupon-scraper") {
           result.push({ slug: row.slug, cfg: cfg as unknown as CouponScraperConfig });
+        } else if (cfg.coupon) {
+          // Scraper source với embedded coupon sub-config (e.g. concung)
+          const sub = cfg.coupon as Record<string, unknown>;
+          result.push({
+            slug: row.slug,
+            cfg: {
+              type: "coupon-scraper",
+              parser: sub.parser as string,
+              promoUrl: sub.promoUrl as string,
+              atMerchantSlug: (sub.atMerchantSlug ?? row.slug) as string,
+              merchant: sub.merchant as string,
+              merchantLogo: sub.merchantLogo as string | undefined,
+              nicheId: sub.nicheId as string,
+              platform: row.slug,
+              voucherFetchUrl: sub.voucherFetchUrl as string | undefined,
+            },
+          });
         }
       } catch { /* malformed config — skip */ }
     }
@@ -428,9 +449,11 @@ export class CouponSyncService {
   }
 
   private async fetchPromoPageVouchers(slug: string, cfg: CouponScraperConfig): Promise<RawVoucher[]> {
+    // Fetch HTML từ voucherFetchUrl (nếu có) hoặc promoUrl
+    const fetchUrl = cfg.voucherFetchUrl ?? cfg.promoUrl;
     let html: string;
     try {
-      const res = await fetch(cfg.promoUrl, {
+      const res = await fetch(fetchUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
         signal: AbortSignal.timeout(15_000),
       });
@@ -470,8 +493,308 @@ export class CouponSyncService {
 
   private async parseByParser(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): Promise<RawVoucher[]> {
     if (cfg.parser === "tch-promo") return this.parseTchPromoPage(slug, cfg, html, affiliateUrl);
+    if (cfg.parser === "concung-voucher") return this.parseConcungVoucherPage(slug, cfg, html, affiliateUrl);
+    if (cfg.parser === "dingtea-voucher") return this.parseDingTeaVoucherPage(slug, cfg, html, affiliateUrl);
+    if (cfg.parser === "chickita-voucher") return this.parseChickitaVoucherPage(slug, cfg, html, affiliateUrl);
     this.log.warn(`[${slug}] Unknown coupon-scraper parser: "${cfg.parser}"`);
     return [];
+  }
+
+  private parseConcungVoucherPage(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): RawVoucher[] {
+    const vouchers: RawVoucher[] = [];
+
+    // Extract var voucher_gets_{id}={...}; from inline <script> blocks
+    const matches = html.matchAll(/var voucher_gets_(\d+)=(\{[^;]+?\});/gs);
+    const seen = new Set<string>();
+
+    for (const m of matches) {
+      const voucherId = m[1];
+      if (seen.has(voucherId)) continue;
+      seen.add(voucherId);
+
+      let data: Record<string, string>;
+      try { data = JSON.parse(m[2]) as Record<string, string>; } catch { continue; }
+
+      const discountRaw = Number(data.price_voucher);
+      if (!discountRaw) continue;
+
+      // voucher_type_id: "2" = percent, "1" = fixed VND
+      const isPercent = data.voucher_type_id === "2";
+      const discountType: "percent" | "fixed" = isPercent ? "percent" : "fixed";
+
+      const description = isPercent
+        ? `Giảm ${discountRaw}% tại ${cfg.merchant}`
+        : `Giảm ${this.formatVND(discountRaw)} tại ${cfg.merchant}`;
+
+      const manuDesc = String(data.manu_desc ?? "");
+
+      // Parse "đơn từ X.000đ" → minOrderValue
+      const minMatch = manuDesc.match(/đơn từ\s*([\d.]+)đ/)
+      const minOrderValue = minMatch ? this.parseVndStr(minMatch[1]) : null;
+
+      // Parse "tối đa X.000đ" → maxDiscount
+      const maxMatch = manuDesc.match(/tối đa\s*([\d.]+)đ/)
+      const maxDiscount = maxMatch ? this.parseVndStr(maxMatch[1]) : null;
+
+      // terms: điều kiện sản phẩm + điều kiện đơn hàng
+      const giftName = String(data.gift_name ?? data.manufacturer_name ?? "").trim();
+      const terms = [giftName, manuDesc].filter(Boolean).join(" — ") || null;
+
+      // expiresAt from Unix timestamp
+      const dateEnd = Number(data.date_end);
+      const expiresAt = dateEnd ? new Date(dateEnd * 1_000) : null;
+
+      const imageUrl = data.logo_image ? String(data.logo_image) : (cfg.merchantLogo ?? null);
+
+      vouchers.push({
+        externalId: `concung-${voucherId}`,
+        nicheId: cfg.nicheId,
+        platform: cfg.platform,
+        merchant: cfg.merchant,
+        code: null,
+        description,
+        terms,
+        imageUrl,
+        discountValue: discountRaw,
+        discountType,
+        minOrderValue,
+        maxDiscount,
+        affiliateUrl,
+        expiresAt,
+      });
+    }
+
+    this.log.log(`[${slug}] parseConcungVoucherPage: ${vouchers.length} vouchers`);
+    return vouchers;
+  }
+
+  // ── Ding Tea promo parser ─────────────────────────────────────────────────────
+  // Trang http://promo.dingtea.vn/ — Vietnamese F&B promo page thường có một trong:
+  //   - data-code="XYZABC" trên mỗi voucher card
+  //   - JSON nhúng trong <script type="application/json"> hoặc window.__PROMO_DATA__
+  //   - Các pattern discount: "GIẢM Xk", "GIẢM X%", mã in text
+  // Nếu trả về 0 voucher, check log để thấy HTML length và điều chỉnh parser.
+  private parseDingTeaVoucherPage(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): RawVoucher[] {
+    this.log.log(`[${slug}] parseDingTeaVoucherPage: HTML length=${html.length}`);
+    const vouchers: RawVoucher[] = [];
+
+    // Pattern 1: data-code="CODE" với discount info trong cùng container
+    const codeAttrRe = /data-code="([A-Z0-9_-]{3,20})"/gi;
+    const seenCodes = new Set<string>();
+    let m: RegExpExecArray | null;
+
+    while ((m = codeAttrRe.exec(html)) !== null) {
+      const code = m[1].toUpperCase();
+      if (seenCodes.has(code)) continue;
+      seenCodes.add(code);
+
+      // Tìm discount trong 300 ký tự xung quanh
+      const ctx = html.slice(Math.max(0, m.index - 150), m.index + 300);
+      const pctMatch = ctx.match(/gi[aả]m\s*(\d{1,3})\s*%/i);
+      const kMatch   = ctx.match(/gi[aả]m\s*([\d.,]+)\s*[kK]/i);
+      const expMatch = ctx.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+      let discountValue = 0;
+      let discountType: "percent" | "fixed" = "percent";
+      let description: string;
+
+      if (pctMatch) {
+        discountValue = Number(pctMatch[1]);
+        discountType = "percent";
+        description = `Giảm ${discountValue}% tại ${cfg.merchant}`;
+      } else if (kMatch) {
+        const raw = kMatch[1].replace(/[.,]/g, "");
+        discountValue = Number(raw) * 1_000;
+        discountType = "fixed";
+        description = `Giảm ${kMatch[1]}K tại ${cfg.merchant}`;
+      } else {
+        description = `Ưu đãi ${cfg.merchant} — mã ${code}`;
+      }
+
+      let expiresAt: Date | null = null;
+      if (expMatch) {
+        expiresAt = new Date(Number(expMatch[3]), Number(expMatch[2]) - 1, Number(expMatch[1]), 23, 59, 59);
+      }
+
+      vouchers.push({
+        externalId: `dingtea-${code}`,
+        nicheId: cfg.nicheId,
+        platform: cfg.platform,
+        merchant: cfg.merchant,
+        code,
+        description,
+        terms: null,
+        imageUrl: cfg.merchantLogo ?? null,
+        discountValue,
+        discountType,
+        minOrderValue: null,
+        maxDiscount: null,
+        affiliateUrl,
+        expiresAt,
+      });
+    }
+
+    if (vouchers.length > 0) {
+      this.log.log(`[${slug}] parseDingTeaVoucherPage: ${vouchers.length} vouchers (data-code pattern)`);
+      return vouchers;
+    }
+
+    // Pattern 2: JSON embedded — window.__DATA__ hoặc application/json
+    const jsonBlockRe = /<script[^>]*(?:application\/json|__(?:PROMO|DATA|VOUCHER))[^>]*>([\s\S]*?)<\/script>/gi;
+    while ((m = jsonBlockRe.exec(html)) !== null) {
+      try {
+        const data = JSON.parse(m[1]);
+        const items: any[] = Array.isArray(data) ? data : (data.vouchers ?? data.coupons ?? data.data ?? []);
+        for (const item of items) {
+          const code = String(item.code ?? item.voucher_code ?? item.coupon_code ?? "").toUpperCase();
+          if (!code || seenCodes.has(code)) continue;
+          seenCodes.add(code);
+
+          const pct = Number(item.discount_percent ?? item.percent ?? 0);
+          const fixed = Number(item.discount_amount ?? item.amount ?? 0);
+          const discountValue = pct || fixed;
+          const discountType: "percent" | "fixed" = pct ? "percent" : "fixed";
+          const description = pct
+            ? `Giảm ${pct}% tại ${cfg.merchant}`
+            : `Giảm ${this.formatVND(fixed)} tại ${cfg.merchant}`;
+
+          const expRaw = item.end_date ?? item.expire_date ?? item.expiry ?? null;
+          const expiresAt = expRaw ? new Date(expRaw) : null;
+
+          vouchers.push({
+            externalId: `dingtea-${code}`,
+            nicheId: cfg.nicheId, platform: cfg.platform, merchant: cfg.merchant,
+            code, description, terms: null, imageUrl: cfg.merchantLogo ?? null,
+            discountValue, discountType,
+            minOrderValue: null, maxDiscount: null,
+            affiliateUrl, expiresAt,
+          });
+        }
+      } catch { /* malformed JSON — skip */ }
+    }
+
+    this.log.log(`[${slug}] parseDingTeaVoucherPage: ${vouchers.length} vouchers (JSON pattern)`);
+    return vouchers;
+  }
+
+  // ── Chickita voucher parser ───────────────────────────────────────────────────
+  // Chickita dùng WordPress (chickita.com.vn).
+  // voucher.chickita.com.vn redirect về trang chủ khi không có AT cookie.
+  // Parser đọc WP API /wp-json/wp/v2/posts?_fields=... để lấy các post khuyến mãi,
+  // sau đó extract voucher code và discount từ content.
+  private async parseChickitaVoucherPage(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): Promise<RawVoucher[]> {
+    this.log.log(`[${slug}] parseChickitaVoucherPage: HTML length=${html.length}`);
+
+    // Fetch promotion posts từ WP API
+    let promos: any[] = [];
+    try {
+      const res = await fetch(
+        "https://chickita.com.vn/wp-json/wp/v2/posts?per_page=20&status=publish&_fields=slug,title,content,excerpt,date,modified",
+        { signal: AbortSignal.timeout(10_000) },
+      );
+      if (res.ok) promos = await res.json() as any[];
+    } catch (e: any) {
+      this.log.warn(`[${slug}] WP API fetch failed: ${e.message}`);
+    }
+
+    const vouchers: RawVoucher[] = [];
+    const seen = new Set<string>();
+
+    for (const post of promos) {
+      const content: string = (post.content?.rendered ?? "") + " " + (post.excerpt?.rendered ?? "");
+      const title: string = post.title?.rendered ?? "";
+      const combined = `${title} ${content}`;
+
+      // Tìm voucher code: CHỮ HOA + số, 5-12 ký tự
+      const codeMatches = combined.matchAll(/\b([A-Z]{2,}[0-9A-Z]{2,})\b/g);
+      const postCodes: string[] = [];
+      for (const cm of codeMatches) {
+        const c = cm[1];
+        if (c.length >= 5 && c.length <= 12 && !seen.has(c)) {
+          // Lọc bỏ các từ viết hoa thông thường không phải code
+          if (!/^(CHICKITA|OISHII|FLAME|JOURNEY|GRILLED|TRANG|THUC|MENU)$/.test(c)) {
+            postCodes.push(c);
+          }
+        }
+      }
+
+      // Tìm discount
+      const pctMatch = combined.match(/gi[aả]m\s*(\d{1,3})\s*%/i);
+      const kMatch   = combined.match(/ch[ỉi]\s*([\d.,]+)\s*[kK]/i)
+                    ?? combined.match(/gi[aả]m\s*([\d.,]+)[kK]/i);
+      const priceMatch = combined.match(/(\d+)\s*\.?\s*000\s*[đd]/i);
+
+      let discountValue = 0;
+      let discountType: "percent" | "fixed" = "percent";
+      let description = `Ưu đãi ${cfg.merchant}`;
+
+      if (pctMatch) {
+        discountValue = Number(pctMatch[1]);
+        discountType = "percent";
+        description = `Giảm ${discountValue}% tại ${cfg.merchant}`;
+      } else if (kMatch) {
+        const raw = kMatch[1].replace(/[.,]/g, "");
+        discountValue = Number(raw) * 1_000;
+        discountType = "fixed";
+        description = `Giảm ${kMatch[1]}K tại ${cfg.merchant}`;
+      } else if (priceMatch) {
+        discountValue = Number(priceMatch[1]) * 1_000;
+        discountType = "fixed";
+        description = `Đồng giá ${priceMatch[1]}.000đ tại ${cfg.merchant}`;
+      }
+
+      if (discountValue === 0 && postCodes.length === 0) continue;
+
+      const expMatch = combined.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      const expiresAt = expMatch
+        ? new Date(Number(expMatch[3]), Number(expMatch[2]) - 1, Number(expMatch[1]), 23, 59, 59)
+        : null;
+
+      if (postCodes.length > 0) {
+        // Mỗi code → 1 voucher
+        for (const code of postCodes.slice(0, 3)) {
+          seen.add(code);
+          vouchers.push({
+            externalId: `chickita-${code}`,
+            nicheId: cfg.nicheId, platform: cfg.platform, merchant: cfg.merchant,
+            code, description: discountValue ? description : `Ưu đãi ${cfg.merchant} — mã ${code}`,
+            terms: title || null,
+            imageUrl: cfg.merchantLogo ?? null,
+            discountValue, discountType,
+            minOrderValue: null, maxDiscount: null,
+            affiliateUrl, expiresAt,
+          });
+        }
+      } else if (discountValue > 0) {
+        // Không có code — voucher không cần mã
+        const extId = `chickita-post-${post.slug ?? String(Date.now())}`;
+        if (!seen.has(extId)) {
+          seen.add(extId);
+          vouchers.push({
+            externalId: extId,
+            nicheId: cfg.nicheId, platform: cfg.platform, merchant: cfg.merchant,
+            code: null, description, terms: title || null,
+            imageUrl: cfg.merchantLogo ?? null,
+            discountValue, discountType,
+            minOrderValue: null, maxDiscount: null,
+            affiliateUrl, expiresAt,
+          });
+        }
+      }
+    }
+
+    this.log.log(`[${slug}] parseChickitaVoucherPage: ${vouchers.length} vouchers from ${promos.length} WP posts`);
+    return vouchers;
+  }
+
+  private formatVND(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+    return `${n}đ`
+  }
+
+  private parseVndStr(s: string): number {
+    return parseInt(s.replace(/\./g, ""), 10) || 0
   }
 
   private async parseTchPromoPage(slug: string, cfg: CouponScraperConfig, html: string, affiliateUrl: string): Promise<RawVoucher[]> {
@@ -636,6 +959,7 @@ export class CouponSyncService {
         expiresAt: v.expiresAt,
         isActive: true,
         ...(merchantLogo && { merchantLogo }),
+        ...(v.externalId && { externalId: v.externalId }),
       },
       create: {
         id: couponId,
@@ -655,11 +979,13 @@ export class CouponSyncService {
         expiresAt: v.expiresAt,
         isActive: true,
         ...(merchantLogo && { merchantLogo }),
+        ...(v.externalId && { externalId: v.externalId }),
       },
     });
   }
 
   private buildCouponId(nicheId: string, v: RawVoucher): string {
+    if (v.externalId) return v.externalId.slice(0, 64);
     return [nicheId, v.merchant, v.code ?? v.description.slice(0, 20)]
       .join("-").toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 64);
   }

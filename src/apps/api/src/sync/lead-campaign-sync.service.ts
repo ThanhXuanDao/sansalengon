@@ -91,9 +91,12 @@ export class LeadCampaignSyncService {
 
       this.log.log(`[${slug}] Matched campaign: "${campaign.name}" (${campaign.id})`)
 
-      const affiliateUrl = await this.atCampaignSvc.wrapUrl(
-        campaign.id, landingUrl, { sub1: slug, sub2: "lead" },
-      )
+      // fixedAffiliateUrl: link AT đã được tạo sẵn (e.g. referral link cá nhân) — dùng thẳng, không wrap lại
+      const fixedAffiliateUrl: string | undefined = config.fixedAffiliateUrl
+      // Dùng campaign.url (AT đã whitelist) để wrap; landingUrl chỉ là fallback hiển thị
+      const urlToWrap = campaign.url ?? landingUrl
+      const affiliateUrl = fixedAffiliateUrl
+        ?? await this.atCampaignSvc.wrapUrl(campaign.id, urlToWrap, { sub1: slug, sub2: "lead" })
 
       // Upsert vào Coupon (discountType = "lead") để public site query được
       const couponId = `lead_${campaign.id}`

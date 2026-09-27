@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react"
 import dynamic from "next/dynamic"
-import { useSearchParams, usePathname } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Tag, RefreshCw, ChevronDown, Flame, ArrowUpDown, Clock, TrendingUp } from "lucide-react"
 import Breadcrumb from "@/components/ui/Breadcrumb"
 import FilterBar from "@/components/sections/FilterBar"
-import type { FilterItem, SortOption } from "@/components/sections/FilterBar"
+import type { SortOption } from "@/components/sections/FilterBar"
 import type { Coupon } from "@/components/coupons/CouponCard"
 import { useFormatDate } from "@/lib/currency-context"
 import { useCategories } from "@/hooks/useCategories"
 import { useSources } from "@/hooks/useSources"
+import { toSourceItems, toCategoryItems, toggleItem } from "@/lib/filter-utils"
+import { useFilterUrlSync } from "@/hooks/useFilterUrlSync"
 
 const CouponCard = dynamic(() => import("@/components/coupons/CouponCard"))
 
@@ -65,10 +67,6 @@ function initFromParams(searchParams: URLSearchParams): CouponFilterState {
   }
 }
 
-function toggleItem(arr: string[], item: string): string[] {
-  return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
-}
-
 function CouponSkeleton() {
   return (
     <div className="receipt-card flex overflow-hidden animate-pulse">
@@ -94,9 +92,10 @@ function EmptyCoupons() {
 
 function CouponPageClientInner() {
   const searchParams = useSearchParams()
-  const pathname = usePathname()
 
   const [filters, setFilters] = useState<CouponFilterState>(() => initFromParams(searchParams))
+
+  useFilterUrlSync(filters, buildCouponUrl)
 
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategories()
   const { data: sources = [], isLoading: isSourcesLoading } = useSources("coupon")
@@ -118,11 +117,6 @@ function CouponPageClientInner() {
     const mi = String(now.getMinutes()).padStart(2, "0")
     setUpdatedAt(`${datePart}, ${hh}:${mi}`)
   }, [formatDate])
-
-  // Sync filter state → URL (no navigation, just replaceState)
-  useEffect(() => {
-    window.history.replaceState(null, "", buildCouponUrl(pathname, filters))
-  }, [filters, pathname])
 
   const buildApiParams = useCallback(
     (f: CouponFilterState, currentSkip: number, flash = false) => {
@@ -186,19 +180,8 @@ function CouponPageClientInner() {
 
   const hasMore = coupons.length < total
 
-  // Adapt sources → FilterItem[]
-  const sourceItems: FilterItem[] = sources.map((s) => ({
-    slug: s.slug,
-    label: s.name,
-    icon: s.icon,
-  }))
-
-  // Adapt categories → FilterItem[]
-  const categoryItems: FilterItem[] = categories.map((c) => ({
-    slug: c.id,
-    label: c.name,
-    emoji: c.emoji,
-  }))
+  const sourceItems   = toSourceItems(sources)
+  const categoryItems = toCategoryItems(categories)
 
   // Type filter pills as extraPills in the sort row — multi-select, no "Tất cả loại"
   const typePills = (
@@ -278,7 +261,7 @@ function CouponPageClientInner() {
           />
 
           {/* Tip */}
-          <div className="mt-16 mb-5 p-3 border border-dashed border-border-color bg-[site-cream]">
+          <div className="mt-4 mb-5 p-3 border border-dashed border-border-color bg-[site-cream]">
             <p className="font-mono text-xs text-ink/50">
               <strong className="text-ink/70">Cách dùng:</strong> Nhấn "Lấy mã" để xem mã đầy đủ → Nhấn "Copy" → Dán vào ô voucher khi thanh toán.
               Mã cập nhật tự động — nếu mã hết hiệu lực, hệ thống sẽ tự xóa trong vòng 24 giờ.

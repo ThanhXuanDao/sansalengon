@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react"
 import dynamic from "next/dynamic"
-import { useSearchParams, usePathname } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { Banknote, RefreshCw, ChevronDown, TrendingUp, Clock } from "lucide-react"
 import Breadcrumb from "@/components/ui/Breadcrumb"
 import FilterBar from "@/components/sections/FilterBar"
-import type { FilterItem, SortOption } from "@/components/sections/FilterBar"
+import type { SortOption } from "@/components/sections/FilterBar"
 import type { Coupon } from "@/components/coupons/CouponCard"
 import { useCategories } from "@/hooks/useCategories"
+import { useSources } from "@/hooks/useSources"
+import { toSourceItems, toCategoryItems, toggleItem } from "@/lib/filter-utils"
+import { useFilterUrlSync } from "@/hooks/useFilterUrlSync"
 
 const CouponCard = dynamic(() => import("@/components/coupons/CouponCard"))
 
@@ -21,33 +24,34 @@ const PAGE_SIZE = 50
 const DEFAULT_SORT = "newest"
 
 interface LeadFilterState {
-  niches: string[]
-  sort: string
+  niches:     string[]
+  platforms:  string[]
+  sort:       string
 }
 
 const DEFAULT_FILTER: LeadFilterState = {
-  niches: [],
-  sort: DEFAULT_SORT,
+  niches:    [],
+  platforms: [],
+  sort:      DEFAULT_SORT,
 }
 
 function buildLeadUrl(pathname: string, s: LeadFilterState): string {
   const p = new URLSearchParams()
-  if (s.niches.length > 0) p.set("niche", s.niches.join(","))
+  if (s.niches.length    > 0) p.set("niche",    s.niches.join(","))
+  if (s.platforms.length > 0) p.set("platform", s.platforms.join(","))
   if (s.sort !== DEFAULT_SORT) p.set("sort", s.sort)
   const qs = p.toString()
   return pathname + (qs ? `?${qs}` : "")
 }
 
 function initFromParams(searchParams: URLSearchParams): LeadFilterState {
-  const nicheParam = searchParams.get("niche")
+  const nicheParam    = searchParams.get("niche")
+  const platformParam = searchParams.get("platform")
   return {
-    niches: nicheParam ? nicheParam.split(",").filter(Boolean) : [],
-    sort:   searchParams.get("sort") ?? DEFAULT_SORT,
+    niches:    nicheParam    ? nicheParam.split(",").filter(Boolean)    : [],
+    platforms: platformParam ? platformParam.split(",").filter(Boolean) : [],
+    sort:      searchParams.get("sort") ?? DEFAULT_SORT,
   }
-}
-
-function toggleItem(arr: string[], item: string): string[] {
-  return arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]
 }
 
 function LeadSkeleton() {
@@ -75,21 +79,19 @@ function EmptyLeads() {
 
 function LeadPageClientInner() {
   const searchParams = useSearchParams()
-  const pathname = usePathname()
 
   const [filters, setFilters] = useState<LeadFilterState>(() => initFromParams(searchParams))
 
+  useFilterUrlSync(filters, buildLeadUrl)
+
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategories()
+  const { data: sources = [],    isLoading: isSourcesLoading }   = useSources("lead")
 
   const [leads, setLeads]             = useState<Coupon[]>([])
   const [total, setTotal]             = useState(0)
   const [loading, setLoading]         = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [skip, setSkip]               = useState(0)
-
-  useEffect(() => {
-    window.history.replaceState(null, "", buildLeadUrl(pathname, filters))
-  }, [filters, pathname])
 
   const buildApiParams = useCallback(
     (f: LeadFilterState, currentSkip: number) => {
@@ -98,7 +100,8 @@ function LeadPageClientInner() {
         skip: String(currentSkip),
         sort: f.sort,
       })
-      if (f.niches.length > 0) p.set("niche", f.niches.join(","))
+      if (f.niches.length    > 0) p.set("niche",    f.niches.join(","))
+      if (f.platforms.length > 0) p.set("platform", f.platforms.join(","))
       return p
     },
     [],
@@ -139,11 +142,8 @@ function LeadPageClientInner() {
 
   const hasMore = leads.length < total
 
-  const categoryItems: FilterItem[] = categories.map((c) => ({
-    slug: c.id,
-    label: c.name,
-    emoji: c.emoji,
-  }))
+  const sourceItems   = toSourceItems(sources)
+  const categoryItems = toCategoryItems(categories)
 
   return (
     <>
@@ -161,13 +161,21 @@ function LeadPageClientInner() {
               <h1 className="font-bold text-2xl text-ink">Ưu đãi dịch vụ</h1>
             </div>
             <p className="font-mono text-sm text-ink/50">
-              Vay tín chấp, thẻ tín dụng, bảo hiểm, spa —{" "}
-              <span className="text-green-600 font-semibold">đăng ký online, nhận hoa hồng</span>
+              Ẩm thực, giáo dục, du lịch, spa và nhiều dịch vụ —{" "}
+              <span className="text-green-600 font-semibold">đăng ký qua link, nhận ưu đãi độc quyền</span>
             </p>
           </div>
 
           {/* Sticky filter bar — categories only, no source/platform filter */}
           <FilterBar
+            sources={sourceItems}
+            activeSources={filters.platforms}
+            onSourceToggle={(slug) =>
+              setFilters((f) => ({ ...f, platforms: toggleItem(f.platforms, slug) }))
+            }
+            isSourcesLoading={isSourcesLoading}
+            sourcesAriaLabel="Nhà cung cấp"
+
             categories={categoryItems}
             activeCategories={filters.niches}
             onCategoryToggle={(id) =>
@@ -182,7 +190,7 @@ function LeadPageClientInner() {
           />
 
           {/* Tip */}
-          <div className="mt-16 mb-5 p-3 border border-dashed border-border-color bg-[site-cream]">
+          <div className="mt-4 mb-5 p-3 border border-dashed border-border-color bg-[site-cream]">
             <p className="font-mono text-xs text-ink/50">
               <strong className="text-ink/70">Cách dùng:</strong> Nhấn "Nhận ưu đãi" → điền thông tin trên trang đối tác → hoàn thành hồ sơ để nhận ưu đãi.
               Hoa hồng và điều kiện áp dụng hiển thị trên từng thẻ dịch vụ.

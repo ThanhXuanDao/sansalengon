@@ -6,9 +6,11 @@ import ProductCard from "./ProductCard"
 import ProductCardSkeleton from "@/components/ui/ProductCardSkeleton"
 import EmptyState from "@/components/ui/EmptyState"
 import FilterBar from "./FilterBar"
-import type { FilterItem, SortOption } from "./FilterBar"
+import type { SortOption } from "./FilterBar"
 import type { Product, Category } from "@/types"
 import type { SyncSourcePublic } from "@/hooks/useSources"
+import { toSourceItems, toCategoryItems } from "@/lib/filter-utils"
+import { useCouponCounts } from "@/hooks/useCouponCounts"
 
 interface ProductGridProps {
   allProducts?: Product[]
@@ -74,6 +76,7 @@ export default function ProductGrid({
   isSourcesLoading,
 }: ProductGridProps) {
   const prefersReducedMotion = useReducedMotion()
+  const couponCounts = useCouponCounts()
 
   if (error) {
     return (
@@ -98,12 +101,12 @@ export default function ProductGrid({
 
       {/* ── Filter + Sort toolbar ───────────────────────────────── */}
       <FilterBar
-        sources={sources?.map((s): FilterItem => ({ slug: s.slug, label: s.name, icon: s.icon }))}
+        sources={sources ? toSourceItems(sources) : undefined}
         activeSources={activeSources}
         onSourceToggle={onSourceChange}
         isSourcesLoading={isSourcesLoading}
 
-        categories={categories?.map((c): FilterItem => ({ slug: c.id, label: c.name, emoji: c.emoji }))}
+        categories={categories ? toCategoryItems(categories) : undefined}
         activeCategories={activeSlugs}
         onCategoryToggle={onCategoryChange}
         isCategoriesLoading={isCategoriesLoading}
@@ -115,7 +118,7 @@ export default function ProductGrid({
 
       {/* ── Product grid ────────────────────────────────────────── */}
       <motion.div
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 mt-4"
         variants={prefersReducedMotion ? undefined : containerVariants}
         initial={prefersReducedMotion ? undefined : "hidden"}
         animate={prefersReducedMotion ? undefined : "visible"}
@@ -128,7 +131,7 @@ export default function ProductGrid({
             ? <EmptyState onReset={onResetCategory} />
             : allProducts.map((product) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} onBuy={onBuyProduct} />
+                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} />
                 </motion.div>
               ))}
       </motion.div>

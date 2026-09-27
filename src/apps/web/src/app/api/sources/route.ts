@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { syncSourceHasCoupons, syncSourceHasProducts } from "@/lib/sync-source-utils"
+import { syncSourceHasCoupons, syncSourceHasLeads, syncSourceHasProducts } from "@/lib/sync-source-utils"
 
 export async function GET(request: NextRequest) {
-  const type = new URL(request.url).searchParams.get("type") // "coupon" | "product" | null
+  const type = new URL(request.url).searchParams.get("type") // "coupon" | "product" | "lead" | null
 
   const all = await prisma.syncSource.findMany({
     select: { id: true, name: true, slug: true, icon: true, config: true },
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     ? all.filter((s) => syncSourceHasCoupons(s.config))
     : type === "product"
     ? all.filter((s) => syncSourceHasProducts(s.config))
+    : type === "lead"
+    ? all.filter((s) => syncSourceHasLeads(s.config))
     : all
 
   const data = filtered.map(({ config: _, ...rest }) => rest)

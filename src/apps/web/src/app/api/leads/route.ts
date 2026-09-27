@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const nicheParam = searchParams.get("niche")
-  const niches = nicheParam ? nicheParam.split(",").filter(Boolean) : []
+  const nicheParam    = searchParams.get("niche")
+  const platformParam = searchParams.get("platform")
+  const niches    = nicheParam    ? nicheParam.split(",").filter(Boolean)    : []
+  const platforms = platformParam ? platformParam.split(",").filter(Boolean) : []
   const sort = searchParams.get("sort") ?? "newest"  // "newest" | "popular"
   const take = Math.min(50, Number(searchParams.get("take") ?? "50"))
   const skip = Number(searchParams.get("skip") ?? "0")
@@ -12,7 +14,8 @@ export async function GET(request: NextRequest) {
   const where = {
     isActive: true,
     discountType: "lead",
-    ...(niches.length > 0 ? { nicheId: { in: niches } } : {}),
+    ...(niches.length    > 0 ? { nicheId:  { in: niches    } } : {}),
+    ...(platforms.length > 0 ? { platform: { in: platforms } } : {}),
   }
 
   const orderBy =

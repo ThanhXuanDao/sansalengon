@@ -108,6 +108,13 @@ export class SyncController {
       void this.dealSync.triggerSync(body.niche, source, "manual").catch((e: Error) => {
         this.log.error(`[sync/deals] Background sync error: ${e.message}`)
       })
+      // If source has embedded coupon config, fire coupon sync in parallel
+      const parsedCfg = dbSource?.config ? JSON.parse(dbSource.config as string) : {}
+      if (parsedCfg?.coupon) {
+        void this.couponSync.triggerSync(source, "manual").catch((e: Error) => {
+          this.log.error(`[sync/deals] Embedded coupon sync error for ${source}: ${e.message}`)
+        })
+      }
     }
     return { ok: true, started: true, startedAt: new Date().toISOString() }
   }

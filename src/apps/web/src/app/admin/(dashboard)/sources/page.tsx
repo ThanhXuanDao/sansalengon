@@ -68,7 +68,7 @@ const EMPTY_FORM: FormData = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function sourceType(config: string): "PRODUCT" | "PLATFORM" | "COUPON" {
+function sourceType(config: string): "PRODUCT" | "PLATFORM" | "COUPON" | "LEAD" {
   return getSyncSourceLabel(config)
 }
 

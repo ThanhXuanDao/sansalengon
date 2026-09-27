@@ -60,17 +60,18 @@ function DealsWidget({ deals }: { deals: TopDealData[] }) {
             rel="nofollow noopener noreferrer"
             className="flex gap-2.5 py-2.5 group"
           >
-            <div className="relative size-14 shrink-0 rounded-lg overflow-hidden border border-[site-sand] bg-[site-bg]">
+            <div className="relative size-[84px] shrink-0 rounded-lg overflow-hidden border border-[site-sand] bg-[site-bg]">
               <Image
                 src={deal.imageUrl}
                 alt={deal.name}
-                width={56}
-                height={56}
+                width={84}
+                height={84}
                 className="object-cover w-full h-full"
                 loading="lazy"
+                unoptimized
               />
               {deal.discountPct && deal.discountPct > 0 && (
-                <span className="absolute bottom-0 left-0 right-0 text-center text-[9px] font-bold bg-secondary text-white leading-4">
+                <span className="absolute bottom-0 left-0 right-0 text-center text-[13px] font-bold bg-secondary text-white leading-5">
                   -{deal.discountPct}%
                 </span>
               )}
