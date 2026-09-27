@@ -51,6 +51,13 @@ export async function fetchTopDiscountProducts(limit = 10): Promise<Product[]> {
   return json.data
 }
 
+export async function fetchFeaturedProducts(): Promise<Product[]> {
+  const res = await fetch(`/api/products?featured=true`)
+  if (!res.ok) throw new Error("Failed to fetch featured products")
+  const json = await res.json()
+  return json.data
+}
+
 export async function fetchProductById(id: string): Promise<Product> {
   const res = await fetch(`/api/products/${id}`)
   if (!res.ok) throw new Error("Failed to fetch product")

@@ -5,12 +5,11 @@ import dynamic from "next/dynamic"
 import Navbar from "@/components/layout/Navbar"
 import Hero from "@/components/sections/Hero"
 import { useProducts } from "@/hooks/useProducts"
-import { useMostClickedProducts } from "@/hooks/useMostClickedProducts"
+import { useFeaturedProducts } from "@/hooks/useFeaturedProducts"
 import { useCategories } from "@/hooks/useCategories"
 import { useSources } from "@/hooks/useSources"
 import { useSettings } from "@/hooks/useSettings"
 import { useFilterParams } from "@/hooks/useFilterParams"
-import NotificationBanner from "@/components/sections/NotificationBanner"
 import FeaturedSection from "@/components/sections/FeaturedSection"
 
 const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
@@ -33,7 +32,7 @@ function HomeContent() {
 
   const { data: categoryList, isLoading: isCategoriesLoading } = useCategories()
   const { data: sourceList, isLoading: isSourcesLoading } = useSources("product")
-  const { data: topRatedProducts, isLoading: isTopRatedLoading } = useMostClickedProducts()
+  const { data: topRatedProducts, isLoading: isTopRatedLoading } = useFeaturedProducts()
   const { data: settings } = useSettings()
 
   const total = data?.total ?? 0
@@ -47,8 +46,7 @@ function HomeContent() {
 
   return (
     <>
-      <NotificationBanner />
-      <Navbar onSearch={setQ} searchQuery={q} />
+<Navbar onSearch={setQ} searchQuery={q} />
       <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
       <TrendingWidget onBuyProduct={handleBuyProduct} />
       <FeaturedSection products={topRatedProducts} isLoading={isTopRatedLoading} onBuyProduct={handleBuyProduct} />

@@ -151,7 +151,7 @@ export default function FilterBar({
   const showCategories = isCategoriesLoading || (categories && categories.length > 0)
 
   return (
-    <div className="sticky top-[114px] sm:top-[142px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 border-b border-[site-sand]">
+    <div className="sticky top-[104px] sm:top-[132px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 border-b border-dashed border-[site-sand]">
 
       {/* Row 0: Sources / Platforms */}
       {showSources && (

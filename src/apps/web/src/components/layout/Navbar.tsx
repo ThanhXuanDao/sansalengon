@@ -86,12 +86,12 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
 
       {/* ─── Row 1: Logo + Search + Hotline + User ─── */}
       <div className="border-b border-[#DFE0E4] bg-[#F7FDFC]">
-      <div className="max-w-[1320px] mx-auto px-3 py-2.5 flex items-center gap-4">
+      <div className="max-w-[1320px] mx-auto relative">
 
-        {/* Logo */}
-        <Link href="/" className="flex items-center shrink-0 min-w-[120px]" aria-label="Trang chủ">
+        {/* Logo — ngoài flex row, absolute trong max-w container */}
+        <Link href="/" className="absolute left-3 inset-y-0 w-[140px] flex items-center z-10" aria-label="Trang chủ">
           {logoError ? (
-            <div className="flex items-center gap-1.5 h-14">
+            <div className="flex items-center gap-1.5">
               <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shrink-0">
                 <Tag className="size-5 text-white" aria-hidden="true" />
               </div>
@@ -105,13 +105,16 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               src="/logo.png"
               alt={storeName}
               width={180}
-              height={68}
-              className="h-12 w-auto max-w-[220px] object-contain"
+              height={76}
+              className="h-[76px] w-auto max-w-full object-contain"
               priority
               onError={() => setLogoError(true)}
             />
           )}
         </Link>
+
+        {/* Content row — pl-[156px] reserves space for logo (left-3=12px + 140px + 4px gap) */}
+        <div className="pl-[156px] pr-3 py-2.5 flex items-center gap-4">
 
         {/* Search bar */}
         <div className="flex flex-1 border border-[#DFE0E4] rounded-lg focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(0,194,146,0.12)] transition-all">
@@ -171,8 +174,9 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
             </Link>
           ))}
         </div>
-      </div>
-      </div>
+        </div>{/* end content row */}
+      </div>{/* end max-w wrapper */}
+      </div>{/* end border-b row */}
 
       {/* ─── Row 2: Navigation links ─── */}
       <div className="bg-white border-b border-[#DFE0E4]">

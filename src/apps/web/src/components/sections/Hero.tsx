@@ -121,7 +121,7 @@ export default function Hero({
       <div className="pt-28 pb-8 md:pt-40 md:pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
         <div className="hero-scan-line" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-          <div className="space-y-6 z-10">
+          <div className="space-y-6 z-10 min-h-[323px] flex flex-col justify-center">
             <h1 className="font-sans text-display-lg text-ink leading-none uppercase text-pretty">
               {storeName || "Săn Sale Ngon"},
               <br />
