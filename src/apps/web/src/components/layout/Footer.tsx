@@ -7,6 +7,12 @@ import { Mail, MapPin, Phone, Share2, Play, Send } from "lucide-react"
 import { useSettings } from "@/hooks/useSettings"
 
 interface NicheItem { id: string; name: string; emoji: string }
+interface NavLink { id: string; slug: string; title: string }
+type NavData = Record<string, NavLink[]>
+
+function pageHref(slug: string) {
+  return `/p/${slug}`
+}
 
 const FOOTER_STATS = [
   { target: 500, suffix: "+", label: "Sản phẩm" },
@@ -14,18 +20,10 @@ const FOOTER_STATS = [
   { target: 50,  suffix: "K+", label: "Lượt xem" },
 ]
 
-const QUICK_LINKS = [
+const QUICK_LINKS_DEFAULT = [
   { href: "/", label: "Trang chủ" },
-  { href: "/about", label: "Giới thiệu" },
   { href: "/ma-giam-gia", label: "Mã giảm giá" },
-  { href: "/affiliate", label: "Chương trình Affiliate" },
   { href: "/contact", label: "Liên hệ" },
-]
-
-const POLICY_LINKS = [
-  { href: "/privacy", label: "Chính sách bảo mật" },
-  { href: "/terms", label: "Điều khoản sử dụng" },
-  { href: "/affiliate", label: "Affiliate" },
 ]
 
 const SOCIAL = [
@@ -36,6 +34,7 @@ const SOCIAL = [
 
 export default function Footer() {
   const [niches, setNiches] = useState<NicheItem[]>([])
+  const [nav, setNav] = useState<NavData>({})
   const { data: settings } = useSettings()
   const [counts, setCounts] = useState(FOOTER_STATS.map(() => 0))
   const statsRef = useRef<HTMLDivElement>(null)
@@ -45,6 +44,13 @@ export default function Footer() {
     fetch("/api/niches")
       .then((r) => r.json())
       .then((json) => { if (Array.isArray(json?.data)) setNiches(json.data) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch("/api/nav")
+      .then((r) => r.json())
+      .then((data: NavData) => { if (data && typeof data === "object") setNav(data) })
       .catch(() => {})
   }, [])
 
@@ -71,6 +77,16 @@ export default function Footer() {
 
   const limit = settings?.footerCategoryLimit ?? 0
   const visibleNiches = limit > 0 ? niches.slice(0, limit) : niches
+
+  const quickLinks = nav.footer_col2?.length
+    ? nav.footer_col2.map((p) => ({ href: pageHref(p.slug), label: p.title }))
+    : QUICK_LINKS_DEFAULT
+
+  const policyLinks = (nav.footer_bottom ?? []).map((p) => ({ href: pageHref(p.slug), label: p.title }))
+
+  const col1Links = nav.footer_col1 ?? []
+  const col3Links = nav.footer_col3 ?? []
+  const col4Links = nav.footer_col4 ?? []
 
   return (
     <footer className="w-full">
@@ -122,6 +138,20 @@ export default function Footer() {
                 </a>
               ))}
             </div>
+
+            {/* Dynamic col1 pages */}
+            {col1Links.length > 0 && (
+              <ul className="mt-5 space-y-2">
+                {col1Links.map((p) => (
+                  <li key={p.id}>
+                    <Link href={pageHref(p.slug)} className="text-sm text-white/60 hover:text-primary transition-colors flex items-center gap-2 group">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/50 group-hover:bg-primary transition-colors shrink-0" aria-hidden="true" />
+                      {p.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Col 2 — Quick links */}
@@ -130,7 +160,7 @@ export default function Footer() {
               Liên kết nhanh
             </h3>
             <ul className="space-y-2.5">
-              {QUICK_LINKS.map((l) => (
+              {quickLinks.map((l) => (
                 <li key={l.href}>
                   <Link
                     href={l.href}
@@ -165,7 +195,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Col 3 — Categories */}
+          {/* Col 3 — Categories + dynamic col3 pages */}
           <div>
             <h3 className="font-display font-semibold text-sm uppercase tracking-wider mb-5 text-white/80">
               Danh mục nổi bật
@@ -183,9 +213,21 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+            {col3Links.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {col3Links.map((p) => (
+                  <li key={p.id}>
+                    <Link href={pageHref(p.slug)} className="text-sm text-white/60 hover:text-primary transition-colors flex items-center gap-2 group">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/50 group-hover:bg-primary transition-colors shrink-0" aria-hidden="true" />
+                      {p.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          {/* Col 4 — Newsletter */}
+          {/* Col 4 — Newsletter + dynamic col4 pages */}
           <div>
             <h3 className="font-display font-semibold text-sm uppercase tracking-wider mb-3 text-white/80">
               Nhận thông báo
@@ -229,6 +271,18 @@ export default function Footer() {
                 </span>
               ))}
             </div>
+            {col4Links.length > 0 && (
+              <ul className="mt-4 space-y-2">
+                {col4Links.map((p) => (
+                  <li key={p.id}>
+                    <Link href={pageHref(p.slug)} className="text-sm text-white/60 hover:text-primary transition-colors flex items-center gap-2 group">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/50 group-hover:bg-primary transition-colors shrink-0" aria-hidden="true" />
+                      {p.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -241,7 +295,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} SanSaleNgon. All rights reserved. · Website tổng hợp deal Shopee affiliate.
           </p>
           <div className="flex items-center gap-4">
-            {POLICY_LINKS.map((l) => (
+            {policyLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}

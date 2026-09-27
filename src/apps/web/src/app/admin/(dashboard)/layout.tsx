@@ -30,6 +30,7 @@ import {
   Antenna,
   Settings2,
   Globe,
+  FileText,
 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { getCsrfToken } from "@/lib/utils"
@@ -46,6 +47,7 @@ const navItems = [
   { href: "/admin/feedback", label: "Phản hồi", icon: MessageSquare },
   { href: "/admin/ai-config", label: "Cấu hình AI", icon: Bot },
   { href: "/admin/blog", label: "Blog tự động", icon: Sparkles },
+  { href: "/admin/static-pages", label: "Trang tĩnh", icon: FileText },
   { href: "/admin/seo", label: "SEO tự động", icon: Search },
   { href: "/admin/price-prediction", label: "Dự đoán giá", icon: TrendingDown },
   { href: "/admin/auto-classify", label: "Phân loại tự động", icon: Wand2 },

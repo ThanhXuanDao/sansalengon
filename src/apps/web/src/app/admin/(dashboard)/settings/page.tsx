@@ -38,6 +38,7 @@ const defaultSettings = {
   debugMode: false,
   showErrors: false,
   twoFA: false,
+  cacheEnabled: true,
   footerCategoryLimit: 0,
   trendingCount: 20,
 }
@@ -462,6 +463,12 @@ export default function AdminSettings() {
                   hint="Hiện stack trace thay vì trang lỗi generic. Chỉ bật khi dev."
                   checked={settings.showErrors}
                   onChange={() => update("showErrors", !settings.showErrors)}
+                />
+                <ToggleRow
+                  label="Bật cache hệ thống"
+                  hint="Tắt khi develop để xem thay đổi ngay lập tức. Bật khi production để tăng hiệu năng."
+                  checked={settings.cacheEnabled}
+                  onChange={() => update("cacheEnabled", !settings.cacheEnabled)}
                 />
               </div>
             </div>

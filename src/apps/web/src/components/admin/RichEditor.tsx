@@ -14,7 +14,7 @@ import {
   Heading2, Heading3, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight,
   Link2, ImageIcon, Minus, RotateCcw, RotateCw,
-  Code, Quote, Loader2,
+  Code, Code2, Quote, Loader2,
 } from "lucide-react"
 
 interface Props {
@@ -28,6 +28,8 @@ interface Props {
 export default function RichEditor({ content = "", onChange, onImageUpload, placeholder = "Bắt đầu viết...", minHeight = 400 }: Props) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [imgUploading, setImgUploading] = React.useState(false)
+  const [htmlMode, setHtmlMode] = React.useState(false)
+  const [htmlValue, setHtmlValue] = React.useState("")
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3, 4] } }),
@@ -55,6 +57,19 @@ export default function RichEditor({ content = "", onChange, onImageUpload, plac
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content])
+
+  const toggleHtmlMode = useCallback(() => {
+    if (!editor) return
+    if (!htmlMode) {
+      // Entering HTML mode — snapshot current HTML into textarea
+      setHtmlValue(editor.getHTML())
+    } else {
+      // Leaving HTML mode — push textarea content back into editor
+      editor.commands.setContent(htmlValue)
+      onChange?.(htmlValue)
+    }
+    setHtmlMode((v) => !v)
+  }, [editor, htmlMode, htmlValue, onChange])
 
   const addLink = useCallback(() => {
     if (!editor) return
@@ -179,15 +194,34 @@ export default function RichEditor({ content = "", onChange, onImageUpload, plac
           <RotateCw className="w-3.5 h-3.5" />
         </ToolBtn>
 
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolBtn active={htmlMode} onClick={toggleHtmlMode} title="Xem / chỉnh sửa HTML nguồn">
+          <Code2 className="w-3.5 h-3.5" />
+        </ToolBtn>
+
         <div className="ml-auto text-xs text-muted-foreground px-1 tabular-nums">
           {editor.storage.characterCount?.characters?.() ?? ""}
         </div>
       </div>
 
       {/* Editor area */}
-      <div style={{ minHeight }} className="overflow-y-auto">
-        <EditorContent editor={editor} />
-      </div>
+      {htmlMode ? (
+        <textarea
+          value={htmlValue}
+          onChange={(e) => {
+            setHtmlValue(e.target.value)
+            onChange?.(e.target.value)
+          }}
+          spellCheck={false}
+          className="w-full font-mono text-xs p-4 bg-muted/20 text-foreground resize-none focus:outline-none"
+          style={{ minHeight }}
+        />
+      ) : (
+        <div style={{ minHeight }} className="overflow-y-auto">
+          <EditorContent editor={editor} />
+        </div>
+      )}
 
       {/* Hidden file input for image upload */}
       <input

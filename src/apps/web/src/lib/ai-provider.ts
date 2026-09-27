@@ -104,8 +104,8 @@ class OpenAICompatProvider implements AITextProvider {
 
 // ── OpenRouter ────────────────────────────────────────────────────────────────
 
-// nvidia/nemotron-3-super-120b-a12b:free — 120B, tested working, free tier
-const OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+// openrouter/free — Free Models Router, auto-selects from currently available free models
+const OPENROUTER_MODEL = "openrouter/free"
 
 class OpenRouterProvider implements AITextProvider {
   id = "openrouter"
@@ -146,8 +146,12 @@ class OpenRouterProvider implements AITextProvider {
       throw e
     }
     if (!res.ok) throw new Error(`OpenRouter API ${res.status}: ${await res.text()}`)
-    const json = await res.json() as { choices: { message: { content: string | null } }[] }
-    const content = json.choices[0]?.message?.content
+    const json = await res.json() as {
+      choices: { message: { content: string | null; reasoning_content?: string | null } }[]
+    }
+    const msg = json.choices[0]?.message
+    // Some reasoning models (DeepSeek R1 etc.) put output in reasoning_content when content is empty
+    const content = msg?.content || msg?.reasoning_content
     if (!content) throw new Error(`OpenRouter returned empty content`)
     return content
   }
@@ -157,8 +161,8 @@ class OpenRouterProvider implements AITextProvider {
 
 // Groq uses custom LPU hardware — 500+ tokens/sec, sub-5s for typical blog requests.
 // Free tier: 14,400 req/day, 30 req/min. Sign up: console.groq.com
-const GROQ_MODEL_FAST    = "llama-3.1-8b-instant"
-const GROQ_MODEL_QUALITY = "llama-3.3-70b-versatile"
+const GROQ_MODEL_FAST    = "openai/gpt-oss-20b"
+const GROQ_MODEL_QUALITY = "openai/gpt-oss-120b"
 
 class GroqProvider implements AITextProvider {
   id = "groq"

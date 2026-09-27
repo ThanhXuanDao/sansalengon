@@ -12,13 +12,28 @@ interface NavbarProps {
   searchQuery?: string
 }
 
+interface NavLink { id: string; slug: string; title: string }
+type NavData = Record<string, NavLink[]>
+
+function pageHref(slug: string) {
+  return `/p/${slug}`
+}
+
 export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
   const pathname = usePathname()
   const [inputValue, setInputValue] = useState(searchQuery)
   const [logoError, setLogoError] = useState(false)
+  const [nav, setNav] = useState<NavData>({})
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { data: settings } = useSettings()
+
+  useEffect(() => {
+    fetch("/api/nav")
+      .then((r) => r.json())
+      .then((data: NavData) => { if (data && typeof data === "object") setNav(data) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => { setInputValue(searchQuery) }, [searchQuery])
 
@@ -137,7 +152,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
           </button>
         </div>
 
-        {/* Right: hotline + user */}
+        {/* Right: hotline + header pages */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="hidden lg:flex items-center gap-2">
             <Phone className="size-4 text-primary shrink-0" aria-hidden="true" />
@@ -146,6 +161,15 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               <div className="text-[11px] text-primary font-medium">Miễn phí</div>
             </div>
           </div>
+          {nav.header?.map((p) => (
+            <Link
+              key={p.id}
+              href={pageHref(p.slug)}
+              className="hidden xl:block text-[12px] font-medium text-[#4F586D] hover:text-primary transition-colors whitespace-nowrap"
+            >
+              {p.title}
+            </Link>
+          ))}
         </div>
       </div>
       </div>
@@ -201,16 +225,15 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
             <span>Ưu đãi dịch vụ</span>
           </Link>
 
-          <Link href="/affiliate" className={`${navLinkClass("/affiliate")} hidden md:flex ml-2`}>
-            Affiliate
-          </Link>
         </div>
 
         {/* Right nav */}
         <div className="hidden md:flex items-center gap-5">
-          <Link href="/about" className={navLinkClass("/about")}>
-            Giới thiệu
-          </Link>
+          {nav.right_menu?.map((p) => (
+            <Link key={p.id} href={pageHref(p.slug)} className={navLinkClass(pageHref(p.slug))}>
+              {p.title}
+            </Link>
+          ))}
           <Link href="/contact" className={navLinkClass("/contact")}>
             Liên hệ
           </Link>

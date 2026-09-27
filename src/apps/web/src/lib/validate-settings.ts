@@ -27,6 +27,7 @@ export interface ValidatedSettings {
   debugMode?: boolean
   showErrors?: boolean
   twoFA?: boolean
+  cacheEnabled?: boolean
   footerCategoryLimit?: number
   trendingCount?: number
 }
@@ -40,7 +41,7 @@ const STRING_FIELDS = new Set([
 ])
 
 const BOOL_FIELDS = new Set([
-  "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors", "twoFA",
+  "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors", "twoFA", "cacheEnabled",
 ])
 
 const NUMBER_FIELDS = new Set(["footerCategoryLimit", "trendingCount"])

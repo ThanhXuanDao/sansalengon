@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Sparkles, Loader2, ChevronDown } from "lucide-react"
 
 export interface ProviderOption {
@@ -37,6 +37,33 @@ export default function AIGenerateButton({
   const [providers, setProviders] = useState<ProviderOption[]>([])
   const [selected, setSelected] = useState<string>(defaultProvider ?? "")
   const [open, setOpen] = useState(false)
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close on click-outside; reposition on scroll so dropdown follows the button
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(e.target as Node) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+      ) setOpen(false)
+    }
+    const reposition = () => {
+      if (!wrapperRef.current) return
+      const rect = wrapperRef.current.getBoundingClientRect()
+      const dropdownWidth = 288
+      const left = Math.max(0, rect.right - dropdownWidth)
+      setDropdownStyle({ position: "fixed", top: rect.bottom + 4, left, width: dropdownWidth, zIndex: 9999 })
+    }
+    document.addEventListener("mousedown", close)
+    document.addEventListener("scroll", reposition, true)
+    return () => {
+      document.removeEventListener("mousedown", close)
+      document.removeEventListener("scroll", reposition, true)
+    }
+  }, [open])
 
   useEffect(() => {
     fetch("/api/admin/ai-providers")
@@ -69,6 +96,22 @@ export default function AIGenerateButton({
     onGenerate(selected)
   }
 
+  const handleOpenDropdown = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect()
+      const dropdownWidth = 288 // w-72
+      const left = Math.max(0, rect.right - dropdownWidth)
+      setDropdownStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left,
+        width: dropdownWidth,
+        zIndex: 9999,
+      })
+    }
+    setOpen((v) => !v)
+  }
+
   const btnBase = size === "sm"
     ? "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
     : "flex items-center gap-2 px-4 py-2 text-sm font-medium"
@@ -76,7 +119,7 @@ export default function AIGenerateButton({
   const isReady = !!current?.available
 
   return (
-    <div className="relative flex items-stretch">
+    <div ref={wrapperRef} className="relative inline-flex items-stretch">
       {/* Generate button */}
       <button
         onClick={handleGenerate}
@@ -91,7 +134,7 @@ export default function AIGenerateButton({
 
       {/* Provider picker trigger */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleOpenDropdown}
         disabled={disabled || loading}
         className={`${size === "sm" ? "px-2" : "px-2.5"} rounded-r-md bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-50 border-l border-purple-500 transition-colors`}
         title="Chọn AI model"
@@ -101,11 +144,7 @@ export default function AIGenerateButton({
 
       {/* Dropdown */}
       {open && (
-        <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-
-          <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-lg border bg-background shadow-lg overflow-hidden">
+          <div ref={dropdownRef} style={dropdownStyle} className="rounded-lg border bg-background shadow-lg overflow-hidden">
             <div className="px-3 py-2 border-b">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Chọn AI model</p>
             </div>
@@ -151,8 +190,8 @@ export default function AIGenerateButton({
               ))}
             </div>
           </div>
-        </>
       )}
     </div>
   )
 }
+

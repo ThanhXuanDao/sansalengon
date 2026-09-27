@@ -422,3 +422,19 @@ model NicheIntegration {
   @@unique([nicheId, platform])
   @@index([nicheId])
 }
+
+// ── Quản lý trang tĩnh (CMS) ────────────────────────────────
+model StaticPage {
+  id          String   @id @default(cuid())
+  slug        String   @unique  // URL identifier, e.g. "about", "chinh-sach-bao-mat"
+  title       String
+  description String   @default("")   // meta description
+  content     String   @db.Text
+  placements  String[] // ["footer_col1","footer_col2","header","right_menu","footer_col3","footer_col4"]
+  published   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([published])
+}

@@ -35,6 +35,7 @@ const defaultSettings = {
   debugMode: false,
   showErrors: false,
   twoFA: false,
+  cacheEnabled: true,
   footerCategoryLimit: 0,
   trendingCount: 20,
 }
@@ -54,6 +55,7 @@ const PUBLIC_FIELDS = [
   "footerDesc", "hotline", "facebookUrl", "zaloUrl", "youtubeUrl",
   "currencySymbol", "currencyPosition", "decimalSeparator", "thousandSeparator",
   "footerCategoryLimit",
+  "cacheEnabled",
 ] as const
 
 export async function GET(request: NextRequest) {
