@@ -80,7 +80,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
       <div className="bg-[#1C1C4D] text-white text-xs py-1.5 text-center hidden sm:block">
         <span className="inline-flex items-center gap-2">
           <Tag className="size-3 text-primary" aria-hidden="true" />
-          Cập nhật deal Shopee mới nhất — <strong className="text-primary">miễn phí 100%</strong>
+          Deal hot từ Shopee · Tiki · Lazada — cập nhật tự động · <strong className="text-primary">miễn phí 100%</strong>
         </span>
       </div>
 
@@ -183,7 +183,7 @@ export default function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
       <div className="max-w-[1320px] mx-auto px-3 flex items-center justify-between">
 
         {/* Left nav — 3 featured items + secondary links */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
 
           {/* Khuyến mãi HOT → trang chủ */}
           <Link

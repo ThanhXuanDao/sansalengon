@@ -136,10 +136,10 @@ export default function Hero({
       <div className="pt-28 pb-8 md:pt-40 md:pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
         <div className="hero-scan-line" />
         <div className="grid grid-cols-1 md:grid-cols-[45fr_55fr] gap-8 md:gap-12 items-center">
-          <div className="space-y-6 z-10 min-h-[323px] flex flex-col justify-center">
-            <h1 className="font-sans text-display-lg text-primary uppercase text-pretty px-4 py-3 space-y-2">
+          <div className="space-y-6 z-10 md:min-h-[323px] flex flex-col justify-center">
+            <h1 className="font-sans text-[22px] md:text-display-lg text-primary uppercase text-pretty px-4 py-3 space-y-2">
               <span className="block leading-none">{storeName || "Săn Sale Ngon"},</span>
-              <span className="block leading-none">Tiết Kiệm Thật</span>
+              <span className="block leading-none">Mua Đúng Chỗ</span>
             </h1>
             <p className="text-ink/60 max-w-md">
               {tagline || "Deal tổng hợp từ nhiều nguồn · tuyển chọn kỹ · cập nhật tự động mỗi 4 giờ"}
@@ -150,9 +150,57 @@ export default function Hero({
             >
               Xem Tất Cả Deal
             </a>
+
+            {/* Mobile-only product strip */}
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pr-3 md:hidden">
+              {isFeaturedLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="shrink-0 w-[130px] h-[160px] rounded-xl bg-[#e8e8e5] animate-pulse" />
+                  ))
+                : gridProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => handleCardClick(product.id)}
+                      className="group relative shrink-0 w-[130px] h-[160px] overflow-hidden rounded-xl cursor-pointer text-left"
+                      aria-label={`Xem ${product.name}`}
+                    >
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.imageAlt}
+                        fill
+                        loading="lazy"
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                        sizes="130px"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      <div
+                        className="absolute top-0 left-0 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full pointer-events-none"
+                        style={{ background: SOURCE_BRAND_COLOR[product.source] ?? "#1D8CE8" }}
+                      >
+                        <span className="font-bold text-white text-xs leading-none tracking-wide">
+                          {SOURCE_LABEL[product.source] ?? product.source}
+                        </span>
+                      </div>
+                      {product.discountPct && product.discountPct > 0 && (
+                        <div className="absolute top-0 right-0 z-10 w-10 h-10 pointer-events-none blob-badge-animate flex flex-col items-center justify-center" aria-hidden="true">
+                          <span className="font-sans font-extrabold text-white text-[7px] leading-none">Giảm</span>
+                          <span className="font-sans font-extrabold text-white text-[11px] leading-tight">{product.discountPct}%</span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                        <p className="font-sans text-xs font-bold text-white leading-tight line-clamp-2">
+                          {product.name}
+                        </p>
+                        <span className="font-mono font-bold text-sale-blob tabular-nums text-xs mt-0.5 block">
+                          {formatPrice(product.price)}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+            </div>
           </div>
 
-          <div>
+          <div className="hidden md:block">
             {isFeaturedLoading ? (
               <GalleryGrid className="animate-pulse">
                 {Array.from({ length: 4 }).map((_, i) => (

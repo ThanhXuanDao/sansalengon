@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import type React from "react"
+import { useCallback } from "react"
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
@@ -96,6 +97,22 @@ function CircleSkeleton() {
   )
 }
 
+// Chuyển mouse wheel dọc → scroll ngang (cho laptop không có touch)
+// Dùng callback ref để listener attach chính xác khi element mount
+function useHorizontalWheel(): (el: HTMLDivElement | null) => void {
+  return useCallback((el: HTMLDivElement | null) => {
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return // trackpad scroll ngang — để nguyên
+      if (e.deltaY === 0) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    // cleanup khi element unmount không cần vì el bị destroy
+  }, [])
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface FilterBarProps {
@@ -150,53 +167,64 @@ export default function FilterBar({
   const showSources = isSourcesLoading || (sources && sources.length > 0)
   const showCategories = isCategoriesLoading || (categories && categories.length > 0)
 
+  const sourceWheelRef = useHorizontalWheel()
+  const categoryWheelRef = useHorizontalWheel()
+
   return (
     <div className="sticky top-[104px] sm:top-[132px] z-40 -mx-3 px-3 bg-white pt-3 pb-4 border-b border-dashed border-[site-sand]">
 
       {/* Row 0: Sources / Platforms */}
       {showSources && (
-        <div
-          className="flex items-start gap-2 pb-3 overflow-x-auto scrollbar-hide"
-          role="tablist"
-          aria-label={sourcesAriaLabel}
-        >
-          {isSourcesLoading
-            ? Array.from({ length: 4 }).map((_, i) => <CircleSkeleton key={i} />)
-            : sources!.map((src) => (
-                <FilterCircle
-                  key={src.slug}
-                  item={src}
-                  isActive={activeSources.includes(src.slug)}
-                  onClick={() => onSourceToggle?.(src.slug)}
-                />
-              ))}
+        <div className="relative pb-3">
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10" />
+          <div
+            ref={sourceWheelRef}
+            className="flex items-start gap-2 overflow-x-auto scrollbar-hide pr-3"
+            role="tablist"
+            aria-label={sourcesAriaLabel}
+          >
+            {isSourcesLoading
+              ? Array.from({ length: 4 }).map((_, i) => <CircleSkeleton key={i} />)
+              : sources!.map((src) => (
+                  <FilterCircle
+                    key={src.slug}
+                    item={src}
+                    isActive={activeSources.includes(src.slug)}
+                    onClick={() => onSourceToggle?.(src.slug)}
+                  />
+                ))}
+          </div>
         </div>
       )}
 
       {/* Row 1: Categories */}
       {showCategories && (
-        <div
-          className="flex items-start gap-2 pb-3 overflow-x-auto scrollbar-hide"
-          role="tablist"
-          aria-label={categoriesAriaLabel}
-        >
-          {isCategoriesLoading
-            ? Array.from({ length: 8 }).map((_, i) => <CircleSkeleton key={i} />)
-            : categories!.map((cat) => (
-                <FilterCircle
-                  key={cat.slug}
-                  item={cat}
-                  isActive={activeCategories.includes(cat.slug)}
-                  onClick={() => onCategoryToggle?.(cat.slug)}
-                />
-              ))}
+        <div className="relative pb-3">
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10" />
+          <div
+            ref={categoryWheelRef}
+            className="flex items-start gap-2 overflow-x-auto scrollbar-hide pr-3"
+            role="tablist"
+            aria-label={categoriesAriaLabel}
+          >
+            {isCategoriesLoading
+              ? Array.from({ length: 8 }).map((_, i) => <CircleSkeleton key={i} />)
+              : categories!.map((cat) => (
+                  <FilterCircle
+                    key={cat.slug}
+                    item={cat}
+                    isActive={activeCategories.includes(cat.slug)}
+                    onClick={() => onCategoryToggle?.(cat.slug)}
+                  />
+                ))}
+          </div>
         </div>
       )}
 
       {/* Row 2: Sort pills + extra pills + reset */}
       {(sortOptions || extraPills || hasActiveFilter) && (
         <div
-          className="flex items-center gap-1 overflow-x-auto scrollbar-hide pb-1"
+          className="flex flex-wrap items-center gap-1 pb-1"
           role="toolbar"
           aria-label="Sắp xếp"
         >

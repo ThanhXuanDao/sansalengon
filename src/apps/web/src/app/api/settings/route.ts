@@ -9,7 +9,7 @@ const SETTINGS_KEY = "store_settings"
 const defaultSettings = {
   siteName: "Săn Sale Ngon",
   siteUrl: "https://sansalengon.vn",
-  tagline: "Tuyển chọn sản phẩm Shopee affiliate — giá tốt, minh bạch, cập nhật tự động.",
+  tagline: "Mỗi 4 giờ, hàng trăm deal từ Shopee, Tiki & Lazada được tuyển chọn tự động — để bạn luôn mua đúng giá, đúng lúc.",
   timezone: "Asia/Ho_Chi_Minh",
   dateFormat: "DD/MM/YYYY",
   decimalSeparator: ",",
