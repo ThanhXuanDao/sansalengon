@@ -30,6 +30,7 @@ export interface ValidatedSettings {
   cacheEnabled?: boolean
   footerCategoryLimit?: number
   trendingCount?: number
+  featuredCount?: number
 }
 
 const STRING_FIELDS = new Set([
@@ -44,7 +45,7 @@ const BOOL_FIELDS = new Set([
   "sitemapEnabled", "maintenanceMode", "debugMode", "showErrors", "twoFA", "cacheEnabled",
 ])
 
-const NUMBER_FIELDS = new Set(["footerCategoryLimit", "trendingCount"])
+const NUMBER_FIELDS = new Set(["footerCategoryLimit", "trendingCount", "featuredCount"])
 
 const LARGE_STRING_FIELDS = new Set(["logo", "favicon"])
 

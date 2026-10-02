@@ -1,15 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Affiliate Admin Helper",
-  "version": "1.0",
-  "description": "Tự động lấy giá/rating Shopee cho Affiliate Admin — cài 1 lần, tự động mãi mãi.",
+  "version": "2.0",
+  "description": "Bulk capture sản phẩm Shopee + sync info vào admin form. Hai tính năng, một extension.",
+  "permissions": ["scripting", "tabs", "webNavigation"],
+  "host_permissions": [
+    "*://*.shopee.vn/*",
+    "http://localhost:4000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://shopee.vn/*"],
-      "js": ["content.js"],
-      "run_at": "document_start",
-      "world": "MAIN",
-      "all_frames": false
+      "matches": ["*://*.shopee.vn/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
     }
   ]
 }

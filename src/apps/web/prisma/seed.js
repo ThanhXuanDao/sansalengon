@@ -196,34 +196,36 @@ const SYNC_SOURCES = [
     slug: "shopee",
     baseUrl: "https://shopee.vn",
     icon: "https://deo.shopeemobile.com/shopee/shopee-pcmall-live-sg/assets/icon_favicon_1_96.1ce0e05fc18a86e5.png",
-    enabled: false,
-    description: "Shopee — Googlebot scrape + an_redir affiliate link (syncMode=scrape)",
+    enabled: true,
+    description: "Shopee — Flash Sale API + AT Smartlink tự động",
     config: JSON.stringify({
       type: "platform-sync",
       badge: { label: "Shopee", bg: "bg-orange-100", text: "text-orange-700" },
-      // syncMode: "scrape" — Googlebot scrape shopee.vn + tạo link qua an_redir (chỉ cần affiliateId)
-      // syncMode: "api"    — Shopee Affiliate Open API (cần SHOPEE_AFFILIATE_APP_ID + APP_SECRET)
-      // Để đổi sang API chính thức khi có app_id/secret: chỉ cần sửa syncMode thành "api"
-      syncMode: "scrape",
-      // affiliateId: lấy từ affiliate.shopee.vn → Tài khoản của tôi → ID
-      // Nếu không set ở đây, fallback lấy từ env var SHOPEE_AFFILIATE_ID
-      affiliateId: "17372510071",
-      scrapeMaxPages: 2,
-      scrapeDelayMs: 2000,
-      // keywords: niche slug → mảng keyword search Shopee
-      keywords: {
-        fashion:     ["áo thun nam", "váy nữ", "giày sneaker", "túi xách nữ", "quần jean nam", "áo khoác", "đầm dự tiệc"],
-        electronics: ["tai nghe bluetooth", "ốp lưng điện thoại", "sạc dự phòng", "cáp sạc", "bàn phím cơ", "chuột gaming", "loa bluetooth"],
-        beauty:      ["kem dưỡng ẩm", "serum vitamin c", "son môi", "kem chống nắng", "sữa rửa mặt", "toner", "mặt nạ dưỡng da"],
-        home:        ["nồi chiên không dầu", "máy lọc không khí", "đèn ngủ", "chăn ga gối", "thùng rác thông minh", "giá để đồ", "máy xay sinh tố"],
-        sports:      ["giày chạy bộ", "tạ tập gym", "thảm yoga", "dây kháng lực", "bình nước gym", "quần legging", "áo tập gym"],
-        kids:        ["đồ chơi trẻ em", "quần áo trẻ em", "tã bỉm", "sữa tắm trẻ em", "xe đẩy em bé", "ghế ngồi ăn", "bình sữa"],
-        food:        ["cà phê", "trà sữa", "snack ăn vặt", "mỳ ăn liền", "nước tương", "yến mạch", "protein shake"],
-        pets:        ["thức ăn chó", "thức ăn mèo", "cát vệ sinh mèo", "vòng cổ thú cưng", "đồ chơi chó mèo", "bát ăn thú cưng"],
-        tools:       ["máy khoan", "đa năng cầm tay", "ổ cắm điện", "đèn pin", "kìm điện", "băng dính điện", "máy mài"],
-        gaming:      ["tai nghe gaming", "chuột gaming", "bàn phím cơ", "ghế gaming", "màn hình gaming", "webcam", "lót chuột gaming"],
-        books:       ["sách kỹ năng sống", "sách kinh doanh", "bút bi", "vở học sinh", "máy tính casio", "balo học sinh", "đồ dùng học tập"],
-        health:      ["vitamin C", "dầu cá omega 3", "máy đo huyết áp", "khẩu trang y tế", "nhiệt kế", "thuốc bổ gan", "collagen"],
+      // Số session flash sale cần lấy (default: 3)
+      shopeeMaxSessions: 3,
+      // Số sản phẩm mỗi session (default: 20, tối đa ~100)
+      shopeeItemsPerSession: 20,
+      // Niche fallback khi sản phẩm không khớp keyword nào
+      // shopeeDefaultNicheId: "fashion",
+      // Flash sale sync: "at" = wrap AT Smartlink (auto-match), "direct" = an_redir với shopeeAffiliateId
+      shopeeLinkMode: "at",
+      // atCampaignId: pin campaign cụ thể — bỏ trống = auto-match Shopee Smartlink campaign
+      // atCampaignId: "4751584435713464237",
+      // Extension bulk capture — config độc lập với flash sale
+      extensionLinkMode: "direct",
+      shopeeAffiliateId: "17372510071",
+      // Keyword inference: niche slug → mảng từ khoá substring-match trên tên sản phẩm
+      // Override để thêm/bớt keyword hoặc thêm niche mới. Nếu bỏ trống dùng default built-in.
+      shopeeNicheKeywords: {
+        electronics: ["tai nghe", "earphone", "headphone", "điện thoại", "smartphone", "laptop", "máy tính", "iphone", "samsung", "xiaomi", "oppo", "sạc dự phòng", "pin dự phòng", "cáp usb", "chuột gaming", "bàn phím"],
+        fashion:     ["váy", "quần áo", "áo thun", "áo khoác", "giày", "dép", "túi xách", "ví da", "balo", "nón", "mũ lưỡi trai"],
+        beauty:      ["son môi", "kem dưỡng", "serum", "toner", "mặt nạ", "nước hoa", "sữa rửa mặt", "kem chống nắng", "mascara", "phấn nền", "mỹ phẩm"],
+        food:        ["bánh", "kẹo", "snack", "sữa tươi", "nước uống", "trà", "cà phê", "thực phẩm", "gạo", "dầu ăn", "mì gói", "bún", "phở"],
+        kids:        ["sữa bột", "bỉm tã", "đồ chơi", "xe đẩy em bé", "quần áo trẻ em", "mẹ bầu"],
+        sports:      ["tạ dumbbell", "thảm yoga", "xe đạp thể thao", "vợt cầu lông", "bóng đá", "gym", "dây kháng lực", "giày chạy bộ"],
+        home:        ["nồi chiên", "chảo", "bếp điện", "tủ lạnh", "máy giặt", "quạt điện", "điều hòa", "đèn led", "nội thất", "giường", "sofa"],
+        health:      ["vitamin", "thực phẩm chức năng", "khẩu trang", "nhiệt kế", "sức khỏe", "omega"],
+        pets:        ["thức ăn chó", "thức ăn mèo", "thú cưng", "phụ kiện chó", "phụ kiện mèo"],
       },
     }),
   },
@@ -634,6 +636,201 @@ const SYNC_SOURCES = [
       cta: "Nhận ưu đãi",
     }),
   },
+
+  // ── Lead campaigns (thêm sau) ────────────────────────────────────────────────
+
+  {
+    id: "syncsrc_fpt_software_campus",
+    name: "FPT Software Campus",
+    slug: "fpt-software-campus",
+    baseUrl: "https://career.fpt-software.com",
+    icon: "https://content.accesstrade.vn/adv/1709874577_avatar_1709874577.jpg",
+    enabled: true,
+    description: "Tuyển dụng thực tập sinh & fresher FPT Software — hoa hồng cố định 1.4M/hồ sơ",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "fptsoftware_campus",
+      landingUrl: "https://career.fpt-software.com/hola-campus-recruitment/",
+      nicheId: null,
+      badge: { label: "FPT Campus", bg: "bg-blue-100", text: "text-blue-700" },
+      cta: "Đăng ký ngay",
+    }),
+  },
+
+  {
+    id: "syncsrc_highlands_zalo",
+    name: "Highlands Coffee Zalo",
+    slug: "highlands-zalo",
+    baseUrl: "https://zalo.me",
+    icon: "https://www.highlandscoffee.com.vn/vnt_upload/weblink/red_BG_logo800.png",
+    enabled: true,
+    description: "Đổi điểm thưởng Highlands Coffee qua Zalo — hoa hồng 9.000đ/lượt",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "highland_antsomi_zalo",
+      landingUrl: "https://zalo.me/s/327411629127312067/games/affiliate",
+      nicheId: "food",
+      badge: { label: "Highlands", bg: "bg-green-100", text: "text-green-700" },
+      cta: "Đổi điểm ngay",
+    }),
+  },
+
+  // ── Product scrapers ─────────────────────────────────────────────────────────
+
+  {
+    id: "syncsrc_ben_computer",
+    name: "BỀN COMPUTER",
+    slug: "ben-computer",
+    baseUrl: "https://ben.com.vn",
+    icon: "https://cdn.ben.com.vn/Content/Images/logo.png",
+    enabled: true,
+    description: "Chuỗi cửa hàng máy tính, laptop, gaming — hoa hồng CPS theo đơn",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "html-selectors",
+      atMerchantSlug: "ben",
+      delayMs: 2500,
+      selectors: {
+        productCard: ".product.product-single",
+        name: "a.name",
+        price: ".price-new",
+        originalPrice: ".price-old",
+        image: "img.product-image",
+        linkUrl: "a.product-image-box.thumbnail",
+      },
+      pagination: { type: "page-param", pageParam: "page", maxPages: 5 },
+      categories: [
+        { id: "ben-laptop",  name: "Laptop",           url: "https://ben.com.vn/laptop",          nicheSlug: "electronics" },
+        { id: "ben-maytinh", name: "Máy tính để bàn",  url: "https://ben.com.vn/may-tinh-de-ban", nicheSlug: "electronics" },
+        { id: "ben-gaming",  name: "Gaming Gear",       url: "https://ben.com.vn/gaming-gear",     nicheSlug: "gaming" },
+      ],
+    }),
+  },
+
+  {
+    id: "syncsrc_hoanghamobile",
+    name: "Hoàng Hà Mobile",
+    slug: "hoanghamobile",
+    baseUrl: "https://hoanghamobile.com",
+    icon: "https://hoanghamobile.com/Content/web/img/logo.svg",
+    enabled: true,
+    description: "Chuỗi cửa hàng điện thoại, laptop — hoa hồng CPS theo đơn",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "html-selectors",
+      atMerchantSlug: "hoanghamobile",
+      delayMs: 2500,
+      selectors: {
+        productCard: ".pj16-item",
+        name: "h3 a",
+        price: ".price-tags",
+        originalPrice: ".price.price-last",
+        image: "img",
+        linkUrl: ".img a",
+      },
+      pagination: { type: "page-param", pageParam: "page", maxPages: 5 },
+      categories: [
+        { id: "hhm-dienthoai", name: "Điện thoại",      url: "https://hoanghamobile.com/dien-thoai-di-dong", nicheSlug: "electronics" },
+        { id: "hhm-laptop",    name: "Laptop",           url: "https://hoanghamobile.com/laptop",             nicheSlug: "electronics" },
+        { id: "hhm-tablet",    name: "Máy tính bảng",   url: "https://hoanghamobile.com/tablet",             nicheSlug: "electronics" },
+        { id: "hhm-loatainghe",name: "Loa & Tai nghe",  url: "https://hoanghamobile.com/loa-tai-nghe",       nicheSlug: "electronics" },
+      ],
+    }),
+  },
+
+  {
+    id: "syncsrc_vera",
+    name: "VERA",
+    slug: "vera",
+    baseUrl: "https://vera.com.vn",
+    icon: "https://cdn.hstatic.net/files/1000110693/file/vera.svg",
+    enabled: true,
+    description: "Thương hiệu nội y, áo ngực thời trang — hoa hồng CPS theo đơn",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "haravan-json",
+      atMerchantSlug: "vera",
+      delayMs: 2000,
+      categories: [
+        { id: "vera-all",  name: "Tất cả sản phẩm", url: "https://vera.com.vn/collections/all/products.json",   nicheSlug: "fashion" },
+        { id: "vera-noiyo",name: "Nội y",            url: "https://vera.com.vn/collections/noi-y/products.json", nicheSlug: "fashion" },
+      ],
+    }),
+  },
+
+  {
+    id: "syncsrc_bitis",
+    name: "Biti's",
+    slug: "bitis",
+    baseUrl: "https://bitis.com.vn",
+    icon: "https://cdn.hstatic.net/themes/1000230642/1001487870/14/favicon.png",
+    enabled: true,
+    description: "Thương hiệu giày dép Việt Nam — hoa hồng CPS theo đơn",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "haravan-json",
+      atMerchantSlug: "bitis.myharavan.com",
+      delayMs: 2000,
+      categories: [
+        { id: "bitis-all", name: "Tất cả sản phẩm", url: "https://bitis.com.vn/collections/all/products.json", nicheSlug: "fashion" },
+        { id: "bitis-nu",  name: "Giày nữ",          url: "https://bitis.com.vn/collections/nu/products.json",  nicheSlug: "fashion" },
+      ],
+    }),
+  },
+
+  {
+    id: "syncsrc_wilsonsports",
+    name: "Wilson Sports VN",
+    slug: "wilsonsports",
+    baseUrl: "https://wilsonsports.com.vn",
+    enabled: true,
+    description: "Vợt tennis, cầu lông, thiết bị thể thao Wilson — hoa hồng CPS theo đơn",
+    config: JSON.stringify({
+      type: "product-scraper",
+      strategy: "haravan-json",
+      atMerchantSlug: "wilson",
+      delayMs: 2000,
+      categories: [
+        { id: "wilson-tennis",  name: "Tennis",    url: "https://wilsonsports.com.vn/collections/tennis/products.json",   nicheSlug: "sports" },
+        { id: "wilson-caulongh",name: "Cầu lông",  url: "https://wilsonsports.com.vn/collections/cau-long/products.json", nicheSlug: "sports" },
+        { id: "wilson-bongda",  name: "Bóng đá",   url: "https://wilsonsports.com.vn/collections/bong-da/products.json",  nicheSlug: "sports" },
+      ],
+    }),
+  },
+  {
+    id: "syncsrc_aeon_eshop",
+    name: "AEON ESHOP",
+    slug: "aeon-eshop",
+    baseUrl: "https://aeoneshop.com",
+    icon: "https://content.accesstrade.vn/adv/1750390758_avatar_1750390758.png",
+    enabled: true,
+    description: "Siêu thị online chính thức AEON Việt Nam — thực phẩm tươi sống, bách hóa, đồ gia dụng, mẹ & bé. Hoa hồng 4.45% CPS, cookie 30 ngày.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "aeonmall_eshop",
+      landingUrl: "https://aeoneshop.com/",
+      nicheId: "food",
+      badge: { label: "AEON", bg: "bg-red-100", text: "text-red-700" },
+      cta: "Mua sắm ngay",
+    }),
+  },
+  {
+    id: "syncsrc_adidas",
+    name: "Adidas Việt Nam",
+    slug: "adidas",
+    baseUrl: "https://www.adidas.com.vn",
+    icon: "https://content.accesstrade.vn/adv/1721614703_avatar_1721614703.png",
+    enabled: true,
+    description: "Giày thể thao, quần áo & phụ kiện Adidas chính hãng tại Việt Nam. Hoa hồng 4.2% CPS, cookie 30 ngày.",
+    config: JSON.stringify({
+      type: "lead-campaign",
+      atMerchantSlug: "adidas_vietnam",
+      landingUrl: "https://www.adidas.com.vn/vi/",
+      nicheId: "sports",
+      badge: { label: "Adidas", bg: "bg-black", text: "text-white" },
+      cta: "Mua ngay",
+    }),
+  },
 ]
 
 async function main() {
@@ -703,6 +900,20 @@ async function main() {
     console.log(`  ✓ SyncSource: ${src.name} (${src.slug})`)
   }
 
+  // ── Merge Shopee: thêm affiliate link mode config nếu chưa có ──
+  const shopeeSrc = await prisma.syncSource.findUnique({ where: { slug: "shopee" } })
+  if (shopeeSrc) {
+    const shopeeCfg = JSON.parse(shopeeSrc.config)
+    if (!shopeeCfg.shopeeLinkMode) {
+      const shopeeTemplate = SYNC_SOURCES.find(s => s.slug === "shopee")
+      if (shopeeTemplate) {
+        const mergedCfg = { ...shopeeCfg, ...JSON.parse(shopeeTemplate.config) }
+        await prisma.syncSource.update({ where: { slug: "shopee" }, data: { config: JSON.stringify(mergedCfg) } })
+        console.log("  ✓ Merged affiliate link mode config vào syncsrc_shopee")
+      }
+    }
+  }
+
   // ── Merge Con Cưng: gộp coupon sub-config vào product source, xóa source riêng ──
   const concungSrc = await prisma.syncSource.findUnique({ where: { slug: "concung" } })
   if (concungSrc) {
@@ -745,8 +956,7 @@ async function main() {
   }
 
   const APP_SETTINGS = [
-    { key: "trendingCount", value: "20" },
-    { key: "store_settings", value: JSON.stringify({ footerCategoryLimit: 0 }) },
+    { key: "store_settings", value: JSON.stringify({ footerCategoryLimit: 0, trendingCount: 10, featuredCount: 10 }) },
   ]
   console.log(`Seeding ${APP_SETTINGS.length} app settings...`)
   for (const setting of APP_SETTINGS) {

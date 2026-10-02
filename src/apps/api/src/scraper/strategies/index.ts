@@ -1,3 +1,6 @@
 export { HtmlSelectorsStrategy } from "./html-selectors.strategy"
 export { NextjsDataStrategy } from "./nextjs-data.strategy"
 export { JsonLdItemListStrategy } from "./jsonld-itemlist.strategy"
+export { HaravanJsonStrategy } from "./haravan-json.strategy"
+export { UrlListStrategy } from "./url-list.strategy"
+export { PlaywrightDomStrategy } from "./playwright-dom.strategy"

@@ -11,7 +11,6 @@ import { formatPrice } from "@/lib/utils"
 import AdminPageShell from "@/components/admin/AdminPageShell"
 import {
   Button,
-  Badge,
   ConfirmModal,
   useToast,
   AdminFilterBar,
@@ -24,8 +23,6 @@ import {
 } from "@/components/admin/ui"
 import type { TableColumn, SortState } from "@/components/admin/ui"
 import type { Product } from "@/types"
-
-type ProductWithClicks = Product & { _count?: { clicks: number } }
 
 const FEATURED_OPTIONS = [
   { value: "all",      label: "Tất cả" },
@@ -66,8 +63,8 @@ const COLUMNS: TableColumn[] = [
   { key: "category", label: "Danh mục" },
   { key: "price",    label: "Giá",      align: "right",  sortable: true },
   { key: "rating",   label: "Rating",   align: "center", sortable: true },
-  { key: "clicks",   label: "Clicks",   align: "right" },
-  { key: "featured", label: "Nổi bật",  align: "center" },
+  { key: "discount", label: "Khuyến mãi", align: "center", width: "100px" },
+  { key: "featured", label: "Nổi bật",   align: "center" },
   { key: "soldout",  label: "Tồn kho",  align: "center" },
   { key: "actions",  label: "Thao tác", align: "right",  width: "100px" },
 ]
@@ -88,7 +85,8 @@ export default function AdminProducts() {
     { value: "manual", label: "Thủ công" },
   ], [syncSources])
 
-  const [search, setSearch]     = useState("")
+  const [search, setSearch]           = useState("")
+  const [appliedSearch, setAppliedSearch] = useState("")
   const [category, setCategory] = useState("semua")
   const [featured, setFeatured] = useState("all")
   const [soldout, setSoldout]   = useState("all")
@@ -131,7 +129,10 @@ export default function AdminProducts() {
         pageSize,
         undefined,
         undefined,
-        search || undefined,
+        appliedSearch || undefined,
+        sourceFilter !== "all" ? [sourceFilter] : undefined,
+        featured === "featured" ? true : featured === "normal" ? false : undefined,
+        soldout === "soldout" ? true : soldout === "instock" ? false : undefined,
       )
       setProducts(result.data)
       setTotal(result.total)
@@ -141,22 +142,11 @@ export default function AdminProducts() {
     } finally {
       setLoading(false)
     }
-  }, [category, effectiveSort, page, pageSize, search])
+  }, [category, effectiveSort, page, pageSize, appliedSearch, sourceFilter, featured, soldout])
 
   useEffect(() => { load() }, [load])
 
-  // Client-side featured / soldout filters (API doesn't expose these params)
-  const filtered = useMemo(() => {
-    let result = products
-    if (featured === "featured")    result = result.filter((p) => p.isFeatured)
-    if (featured === "normal")      result = result.filter((p) => !p.isFeatured)
-    if (soldout === "soldout")      result = result.filter((p) => p.isSoldOut)
-    if (soldout === "instock")      result = result.filter((p) => !p.isSoldOut)
-    if (sourceFilter !== "all")     result = result.filter((p) => p.source === sourceFilter)
-    return result
-  }, [products, featured, soldout, sourceFilter])
-
-  const handleSearch = () => { setPage(1); load() }
+  const handleSearch = () => { setAppliedSearch(search); setPage(1) }
 
   const handleSort = (key: string) => {
     if (!SORT_MAP[key]) return
@@ -206,6 +196,24 @@ export default function AdminProducts() {
     }
   }
 
+  const handleToggleFeatured = async (product: Product) => {
+    try {
+      const updated = await updateProduct(product.id, {
+        name: product.name,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        imageAlt: product.imageAlt,
+        productUrl: product.productUrl,
+        categoryId: product.categoryId,
+        isFeatured: !product.isFeatured,
+        isSoldOut: product.isSoldOut,
+      })
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isFeatured: updated.isFeatured } : p)))
+    } catch {
+      toastError("Không thể cập nhật trạng thái")
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-hidden">
       <AdminPageShell
@@ -221,7 +229,8 @@ export default function AdminProducts() {
       <AdminFilterBar
         search={{
           value: search,
-          onChange: (v) => { setSearch(v); setPage(1) },
+          onChange: (v) => setSearch(v),
+          onSearch: handleSearch,
           placeholder: "Tên sản phẩm, ID...",
           id: "products-search",
         }}
@@ -267,14 +276,14 @@ export default function AdminProducts() {
       <DataTable
         columns={COLUMNS}
         loading={loading}
-        empty={!loading && filtered.length === 0}
+        empty={!loading && products.length === 0}
         emptyIcon={Search}
         emptyTitle="Không tìm thấy sản phẩm"
         emptyDescription="Thử điều chỉnh bộ lọc hoặc từ khoá tìm kiếm."
         sort={tableSort}
         onSort={handleSort}
       >
-        {filtered.map((product) => (
+        {products.map((product) => (
           <DataTableRow key={product.id}>
             {/* # */}
             <DataTableCell>
@@ -339,18 +348,31 @@ export default function AdminProducts() {
               )}
             </DataTableCell>
 
-            {/* Clicks */}
-            <DataTableCell align="right">
-              <span className="font-mono text-[13px] tabular-nums text-[#1a1c1b]">
-                {(product as ProductWithClicks)._count?.clicks ?? 0}
-              </span>
+            {/* Khuyến mãi */}
+            <DataTableCell align="center">
+              {product.discountPct != null && product.discountPct > 0 ? (
+                <span className="font-mono text-[12px] font-bold text-[#b51c00] bg-[#ffdad6]/40 px-2 py-0.5 tabular-nums">
+                  -{product.discountPct}%
+                </span>
+              ) : (
+                <span className="font-mono text-[11px] text-[#906f69]">—</span>
+              )}
             </DataTableCell>
 
             {/* Nổi bật */}
             <DataTableCell align="center">
-              <Badge tone={product.isFeatured ? "green" : "gray"}>
-                {product.isFeatured ? "Nổi bật" : "Bình thường"}
-              </Badge>
+              <label className="flex items-center gap-1.5 cursor-pointer justify-center">
+                <input
+                  type="checkbox"
+                  checked={product.isFeatured}
+                  onChange={() => handleToggleFeatured(product)}
+                  className="sr-only peer"
+                />
+                <div className="relative w-8 h-4 bg-[#e2e3e0] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[0.5px] after:left-[0.5px] after:bg-white after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#2d6a4f]" />
+                <span className="font-mono text-[10px] uppercase text-[#5c403a]">
+                  {product.isFeatured ? "Nổi bật" : "Bình thường"}
+                </span>
+              </label>
             </DataTableCell>
 
             {/* Tồn kho */}

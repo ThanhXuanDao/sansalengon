@@ -22,11 +22,6 @@ import type { TableColumn } from "@/components/admin/ui"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface NicheMatch {
-  nicheId: string
-  matchedAt: string
-}
-
 interface Campaign {
   id: string
   name: string
@@ -47,7 +42,6 @@ interface Campaign {
   commission: string | null
   lastSeenAt: string
   createdAt: string
-  nicheMatches: NicheMatch[]
   banners: Banner[]
 }
 
@@ -118,19 +112,12 @@ const TYPE_OPTIONS = [
   { value: "website",  label: "Website" },
 ]
 
-const MATCH_OPTIONS = [
-  { value: "all",       label: "Tất cả match" },
-  { value: "matched",   label: "Đã match ngách" },
-  { value: "unmatched", label: "Chưa match" },
-]
-
 const COLUMNS: TableColumn[] = [
   { key: "campaign", label: "Campaign" },
   { key: "id",       label: "ID",        width: "100px" },
   { key: "type",     label: "Loại",      width: "130px" },
   { key: "approval", label: "Trạng thái", width: "120px" },
   { key: "cookie",   label: "Cookie",    width: "80px" },
-  { key: "niches",   label: "Match ngách" },
   { key: "seen",     label: "Last seen", align: "right", width: "110px" },
 ]
 
@@ -378,24 +365,6 @@ function CampaignDetailModal({
           </div>
         )}
 
-        {/* ── Niche matches ── */}
-        {campaign.nicheMatches.length > 0 && (
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.05em] text-[#906f69] mb-2">
-              Match ngách ({campaign.nicheMatches.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {campaign.nicheMatches.map((m) => (
-                <span key={m.nicheId}
-                  title={`Matched: ${formatDate(m.matchedAt)}`}
-                  className="px-2 py-0.5 bg-[#e8f5e9] border border-[#1a6b3c]/20 font-mono text-[10px] text-[#1a6b3c]">
-                  {m.nicheId}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
       </div>
     </Modal>
   )
@@ -411,7 +380,6 @@ export default function CampaignsPage() {
   const [search, setSearch]       = useState("")
   const [approvalFilter, setApproval] = useState("all")
   const [typeFilter, setType]     = useState("all")
-  const [matchFilter, setMatch]   = useState("all")
   const [page, setPage]           = useState(1)
   const [pageSize, setPageSize]   = useState(20)
 
@@ -489,11 +457,9 @@ export default function CampaignsPage() {
         } else if (c.approval !== approvalFilter) return false
       }
       if (typeFilter !== "all" && c.campaignType !== typeFilter) return false
-      if (matchFilter === "matched" && c.nicheMatches.length === 0) return false
-      if (matchFilter === "unmatched" && c.nicheMatches.length > 0) return false
       return true
     })
-  }, [campaigns, search, approvalFilter, typeFilter, matchFilter])
+  }, [campaigns, search, approvalFilter, typeFilter])
 
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -529,7 +495,6 @@ export default function CampaignsPage() {
           <>
             <FilterSelect label="Loại" value={typeFilter} onChange={(v) => { setType(v); resetPage() }} options={TYPE_OPTIONS} id="filter-type" />
             <FilterSelect label="Trạng thái" value={approvalFilter} onChange={(v) => { setApproval(v); resetPage() }} options={APPROVAL_OPTIONS} id="filter-approval" />
-            <FilterSelect label="Match" value={matchFilter} onChange={(v) => { setMatch(v); resetPage() }} options={MATCH_OPTIONS} id="filter-match" />
           </>
         }
       />
@@ -540,9 +505,9 @@ export default function CampaignsPage() {
         loading={loading}
         empty={!loading && filtered.length === 0}
         emptyIcon={Tag}
-        emptyTitle={search || approvalFilter !== "all" || typeFilter !== "all" || matchFilter !== "all" ? "Không tìm thấy campaign" : "Chưa có campaign nào"}
+        emptyTitle={search || approvalFilter !== "all" || typeFilter !== "all" ? "Không tìm thấy campaign" : "Chưa có campaign nào"}
         emptyDescription={
-          search || approvalFilter !== "all" || typeFilter !== "all" || matchFilter !== "all"
+          search || approvalFilter !== "all" || typeFilter !== "all"
             ? "Thử điều chỉnh bộ lọc."
             : "Trigger một lần sync để load campaign từ AccessTrade."
         }
@@ -602,26 +567,8 @@ export default function CampaignsPage() {
               {/* Cookie */}
               <DataTableCell>
                 <span className="font-mono text-[12px] text-[#1a1c1b]">
-                  {c.cookieDuration != null ? `${c.cookieDuration}d` : "—"}
+                  {c.cookieDuration != null ? `${Math.round(c.cookieDuration / 86400)} ngày` : "—"}
                 </span>
-              </DataTableCell>
-
-              {/* Niche matches */}
-              <DataTableCell>
-                {c.campaignType === "tracking" ? (
-                  <span className="px-2 py-0.5 bg-[#e3f2fd] border border-[#0d5cb6]/20 font-mono text-[10px] text-[#0d5cb6]">Tất cả</span>
-                ) : c.nicheMatches.length === 0 ? (
-                  <span className="font-mono text-[11px] text-[#906f69]">Chưa match</span>
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {c.nicheMatches.map((m) => (
-                      <span key={m.nicheId} title={`Matched: ${formatDate(m.matchedAt)}`}
-                        className="px-2 py-0.5 bg-[#e8f5e9] border border-[#1a6b3c]/20 font-mono text-[10px] text-[#1a6b3c]">
-                        {m.nicheId}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </DataTableCell>
 
               {/* Last seen */}

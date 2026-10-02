@@ -270,6 +270,7 @@ export default function LogsPage() {
   const [app, setApp]                 = useState<AppOrigin | "all">("all")
   const [range, setRange]             = useState("today")
   const [q, setQ]                     = useState("")
+  const [appliedQ, setAppliedQ]       = useState("")
   const [page, setPage]               = useState(1)
   const [pageSize, setPageSize]       = useState(50)
   const [autoRefresh, setAutoRefresh] = useState(false)
@@ -285,7 +286,7 @@ export default function LogsPage() {
         range,
         ...(level !== "all" ? { level }      : {}),
         ...(app   !== "all" ? { app }         : {}),
-        ...(q.trim()         ? { q: q.trim() } : {}),
+        ...(appliedQ.trim()  ? { q: appliedQ.trim() } : {}),
       })
       const res = await fetch(`/api/admin/logs?${params}`)
       if (!res.ok) throw new Error()
@@ -295,7 +296,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, range, level, app, q, toastError])
+  }, [page, pageSize, range, level, app, appliedQ, toastError])
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
@@ -330,7 +331,8 @@ export default function LogsPage() {
   const handleLevelFilter = (lv: Level | "all") => { setLevel(lv); setPage(1) }
   const handleAppChange   = (v: string)          => { setApp(v as AppOrigin | "all"); setPage(1) }
   const handleRangeChange = (v: string)          => { setRange(v); setPage(1) }
-  const handleSearch      = (v: string)          => { setQ(v);     setPage(1) }
+  const handleSearch      = (v: string)          => setQ(v)
+  const submitSearch      = ()                   => { setAppliedQ(q); setPage(1) }
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -388,7 +390,7 @@ export default function LogsPage() {
 
       {/* Filter bar */}
       <AdminFilterBar
-        search={{ value: q, onChange: handleSearch, placeholder: "Tìm trong message..." }}
+        search={{ value: q, onChange: handleSearch, onSearch: submitSearch, placeholder: "Tìm trong message..." }}
         filters={
           <>
             <FilterSelect

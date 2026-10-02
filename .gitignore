@@ -7,3 +7,6 @@
 
 # Docker local env — chứa secrets, không commit
 .env.local
+
+# Extension config — generated từ .env.local bởi scripts/gen-extension-config.mjs
+src/apps/extension/config.js

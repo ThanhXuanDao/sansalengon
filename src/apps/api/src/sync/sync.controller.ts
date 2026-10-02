@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Param, Body, Headers, UnauthorizedException, BadRequestException, HttpCode, Logger, InternalServerErrorException } from "@nestjs/common"
+import type { ExtensionProduct } from "./sync.constants"
 import { fetchShopeeProductInfo, fetchLazadaProductInfo } from "./product-url-fetcher"
 import { ConfigService } from "@nestjs/config"
 import { PrismaClient } from "@prisma/client"
@@ -223,6 +224,28 @@ export class SyncController {
       this.log.error(`[create-at-link] FAILED url=${body.productUrl} error=${e?.message}`)
       if (e instanceof BadRequestException) throw e
       throw new InternalServerErrorException(e?.message ?? "Không tạo được AT link")
+    }
+  }
+
+  // POST /sync/extension-bulk-capture — nhận sản phẩm từ Chrome extension, wrap AT link, upsert vào DB
+  @Post("extension-bulk-capture")
+  @HttpCode(200)
+  async extensionBulkCapture(
+    @Headers("authorization") auth: string | undefined,
+    @Body() body: { products?: ExtensionProduct[]; capturedAt?: string },
+  ) {
+    this.checkAuth(auth)
+    const products = body.products ?? []
+    if (products.length === 0) {
+      return { ok: true, saved: 0, total: 0, errors: [], campaignId: null }
+    }
+    this.log.log(`[ext-bulk] Nhận ${products.length} sản phẩm từ extension (capturedAt=${body.capturedAt ?? "unknown"})`)
+    try {
+      const result = await this.dealSync.extensionBulkCapture(products)
+      return { ok: true, ...result }
+    } catch (e: any) {
+      this.log.error(`[ext-bulk] FAILED: ${e?.message}`)
+      throw new InternalServerErrorException(e?.message ?? "Lỗi bulk capture")
     }
   }
 

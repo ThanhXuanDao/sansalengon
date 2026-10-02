@@ -23,7 +23,7 @@ export async function leadSyncHandler(config: JobConfig): Promise<JobResult> {
     })
     const body = await res.json() as { ok: boolean; inProgress?: boolean; message?: string }
     if (body.inProgress) {
-      return { itemsTotal: 0, itemsSuccess: 0, itemsFailed: 0, summary: body.message ?? "Sync đang chạy, vui lòng đợi" }
+      return { itemsTotal: 0, itemsSuccess: 0, itemsFailed: 1, summary: body.message ?? "Sync đang chạy, vui lòng đợi" }
     }
     if (!res.ok && !body.ok) {
       return { itemsTotal: 0, itemsSuccess: 0, itemsFailed: 1, summary: `API lỗi ${res.status}: ${body.message ?? ""}` }

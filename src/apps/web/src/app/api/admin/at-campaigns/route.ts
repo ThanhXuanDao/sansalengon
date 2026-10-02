@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   const campaigns = await prisma.atCampaign.findMany({
-    include: { nicheMatches: true, banners: { orderBy: [{ width: "desc" }, { height: "desc" }] } },
+    include: { banners: { orderBy: [{ width: "desc" }, { height: "desc" }] } },
     orderBy: { lastSeenAt: "desc" },
   })
 

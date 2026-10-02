@@ -1,9 +1,23 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowRight } from "lucide-react"
 import type { Product } from "@/types"
 import { GalleryGrid, GalleryGridCell } from "@/components/blocks/CtaSectionWithGallery"
+import { useFormatPrice } from "@/lib/currency-context"
+
+const SOURCE_LABEL: Record<string, string> = {
+  shopee:      "Shopee",
+  tiki:        "Tiki",
+  lazada:      "Lazada",
+  accesstrade: "AccessTrade",
+}
+
+const SOURCE_BRAND_COLOR: Record<string, string> = {
+  shopee:      "#EE4D2D",
+  tiki:        "#1B9CE5",
+  lazada:      "#0F146D",
+  accesstrade: "#00B67A",
+}
 
 interface HeroProps {
   featuredProducts?: Product[]
@@ -108,6 +122,7 @@ export default function Hero({
   storeName,
   tagline,
 }: HeroProps) {
+  const formatPrice = useFormatPrice()
   const displayProducts = featuredProducts?.length ? featuredProducts : defaultFeatured
   const gridProducts = displayProducts.slice(0, 4)
 
@@ -120,19 +135,18 @@ export default function Hero({
     <header>
       <div className="pt-28 pb-8 md:pt-40 md:pb-20 px-3 max-w-[1320px] mx-auto w-full relative overflow-hidden">
         <div className="hero-scan-line" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
+        <div className="grid grid-cols-1 md:grid-cols-[45fr_55fr] gap-8 md:gap-12 items-center">
           <div className="space-y-6 z-10 min-h-[323px] flex flex-col justify-center">
-            <h1 className="font-sans text-display-lg text-ink leading-none uppercase text-pretty">
-              {storeName || "Săn Sale Ngon"},
-              <br />
-              Tiết Kiệm Thật
+            <h1 className="font-sans text-display-lg text-primary uppercase text-pretty px-4 py-3 space-y-2">
+              <span className="block leading-none">{storeName || "Săn Sale Ngon"},</span>
+              <span className="block leading-none">Tiết Kiệm Thật</span>
             </h1>
             <p className="text-ink/60 max-w-md">
               {tagline || "Deal tổng hợp từ nhiều nguồn · tuyển chọn kỹ · cập nhật tự động mỗi 4 giờ"}
             </p>
             <a
               href="#products"
-              className="inline-block bg-primary text-ink px-8 py-4 font-bold rounded-full brutalist-shadow text-lg uppercase tracking-wider mt-4 focus-visible:ring-2 focus-visible:ring-primary"
+              className="inline-block bg-primary text-ink px-8 py-3.5 font-bold rounded-full text-base uppercase tracking-wider mt-4 hover:bg-primary/90 transition-colors focus-visible:ring-2 focus-visible:ring-primary w-fit animate-pulse-glow"
             >
               Xem Tất Cả Deal
             </a>
@@ -154,7 +168,7 @@ export default function Hero({
                 ))}
               </GalleryGrid>
             ) : (
-              <GalleryGrid>
+              <GalleryGrid className="hero-gallery-grid">
                 {gridProducts.map((product, index) => (
                   <GalleryGridCell key={product.id} index={index}>
                     <button
@@ -171,6 +185,25 @@ export default function Hero({
                         sizes="(max-width: 768px) 100vw, 300px"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+                      {/* Source label — top left */}
+                      <div
+                        className="absolute top-0 left-0 z-10 flex items-center px-2 py-1 rounded-full pointer-events-none"
+                        style={{ background: SOURCE_BRAND_COLOR[product.source] ?? "#1D8CE8" }}
+                      >
+                        <span className="font-bold text-white text-[10px] leading-none tracking-wide">
+                          {SOURCE_LABEL[product.source] ?? product.source}
+                        </span>
+                      </div>
+
+                      {/* Discount blob badge — same as ProductCard */}
+                      {product.discountPct && product.discountPct > 0 && (
+                        <div className="absolute top-0 right-0 z-10 w-[50px] h-[50px] pointer-events-none blob-badge-animate flex flex-col items-center justify-center" aria-hidden="true">
+                          <span className="font-sans font-extrabold text-white text-[8px] leading-none">Giảm</span>
+                          <span className="font-sans font-extrabold text-white text-sm leading-tight">{product.discountPct}%</span>
+                        </div>
+                      )}
+
                       <div className="absolute bottom-0 left-0 right-0 p-3">
                         <span className="font-mono text-[10px] uppercase text-white/70 tracking-wider">
                           {product.category.name}
@@ -178,11 +211,21 @@ export default function Hero({
                         <p className="font-sans text-sm font-bold text-white leading-tight mt-0.5 line-clamp-1">
                           {product.name}
                         </p>
-                        <span className="font-mono text-xs text-white/90 mt-1 block">
-                          {(product.price / 1000).toFixed(0)}k₫
-                        </span>
+                        {product.discountPct && product.discountPct > 0 && product.originalPrice ? (
+                          <div className="flex items-baseline gap-2 mt-1">
+                            <span className="font-mono font-bold text-sale-blob tabular-nums text-sm">
+                              {formatPrice(product.price)}
+                            </span>
+                            <span className="font-mono text-[11px] text-white/50 line-through tabular-nums">
+                              {formatPrice(product.originalPrice)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-mono font-bold text-sale-blob tabular-nums text-sm mt-1 block">
+                            {formatPrice(product.price)}
+                          </span>
+                        )}
                       </div>
-                      <ArrowRight className="absolute top-3 right-3 size-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
                     </button>
                   </GalleryGridCell>
                 ))}

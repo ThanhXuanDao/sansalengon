@@ -349,6 +349,12 @@
   ── */
   .navbar-shadow { box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
 
+  .hero-bg-layer {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
@@ -451,6 +457,11 @@
     50% { box-shadow: 0 0 0 6px rgba(0, 194, 146, 0); }
   }
 
+  .animate-pulse-glow {
+    animation: pulse-glow 1.8s ease-in-out infinite;
+  }
+
+
   @keyframes blob-attention {
     0%, 100% { transform: scale(1) rotate(-2deg); }
     30%       { transform: scale(1.12) rotate(3deg); }
@@ -459,6 +470,21 @@
   .blob-badge-animate {
     animation: blob-attention 2.8s ease-in-out infinite;
     transform-origin: top right;
+    background: var(--color-sale-blob);
+    border-radius: 50% 50% 42% 42% / 56% 56% 38% 38%;
+    position: relative;
+  }
+  .blob-badge-animate::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 6px solid var(--color-sale-blob);
   }
 
   /* Blog article typography */
@@ -544,4 +570,11 @@
   .prose em     { font-style: italic; }
   .prose hr  { border: none; border-top: 1px solid #e5e7eb; margin: 1.25rem 0; }
   .prose img { max-width: 100%; border-radius: 6px; margin: 0.75rem 0; }
+}
+
+@layer utilities {
+  /* Hero gallery grid — +10% so với default GalleryGrid (25px→28px, 100px→110px) */
+  .hero-gallery-grid {
+    grid-template-rows: 28px 110px 28px 110px 28px;
+  }
 }

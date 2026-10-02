@@ -95,8 +95,17 @@ export class LeadCampaignSyncService {
       const fixedAffiliateUrl: string | undefined = config.fixedAffiliateUrl
       // Dùng campaign.url (AT đã whitelist) để wrap; landingUrl chỉ là fallback hiển thị
       const urlToWrap = campaign.url ?? landingUrl
-      const affiliateUrl = fixedAffiliateUrl
+      let affiliateUrl = fixedAffiliateUrl
         ?? await this.atCampaignSvc.wrapUrl(campaign.id, urlToWrap, { sub1: slug, sub2: "lead" })
+
+      // Nếu wrapUrl trả về URL gốc (createTrackingLink thất bại) → thử lấy từ banner AT
+      if (affiliateUrl === urlToWrap && !fixedAffiliateUrl) {
+        const bannerLink = await this.atCampaignSvc.getBannerAffiliateLink(campaign.id)
+        if (bannerLink) {
+          this.log.log(`[${slug}] wrapUrl fallback → dùng banner affiliateLink: ${bannerLink}`)
+          affiliateUrl = bannerLink
+        }
+      }
 
       // Upsert vào Coupon (discountType = "lead") để public site query được
       const couponId = `lead_${campaign.id}`

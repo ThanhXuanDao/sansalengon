@@ -177,6 +177,7 @@ export class AccessTradePublisherClient {
   async createBatchTrackingLinks(input: {
     campaignId: string;
     urls: string[];
+    subIds?: { sub1?: string; sub2?: string; sub3?: string; sub4?: string };
   }): Promise<Map<string, string>> {
     if (input.urls.length === 0) return new Map()
 
@@ -190,7 +191,7 @@ export class AccessTradePublisherClient {
 
     for (let i = 0; i < uniqueUrls.length; i += AT_BATCH_LIMIT) {
       const chunk = uniqueUrls.slice(i, i + AT_BATCH_LIMIT)
-      if (i > 0) await new Promise<void>((r) => setTimeout(r, 300)) // small delay between chunks
+      if (i > 0) await new Promise<void>((r) => setTimeout(r, 500)) // delay between chunks
 
       await this.rateLimit.acquire()
       try {
@@ -201,6 +202,10 @@ export class AccessTradePublisherClient {
             campaign_id: input.campaignId,
             urls: chunk,
             url_enc: false,
+            sub1: input.subIds?.sub1,
+            sub2: input.subIds?.sub2,
+            sub3: input.subIds?.sub3,
+            sub4: input.subIds?.sub4,
           }),
           signal: AbortSignal.timeout(this.timeoutMs()),
         })

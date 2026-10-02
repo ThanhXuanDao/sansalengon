@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 import { ConfigService } from "@nestjs/config";
-import { ShopeeAffiliateClient } from "../affiliate/shopee/client";
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client";
 import type { AccessTradeCampaign } from "../affiliate/accesstrade/types";
 import { LazadaAdapter } from "../platforms/lazada/lazada.adapter";
@@ -15,13 +14,12 @@ import { GraphQLSyncService } from "./graphql-sync.service"
 import type { GraphQLProduct } from "./graphql-sync.service";
 import { ATFeedSyncService } from "./at-feed-sync.service"
 import { sleep } from "./sync.constants"
-import type { AffiliateStrategy, FetchedProduct, SyncSourceConfig } from "./sync.constants"
+import type { AffiliateStrategy, ExtensionProduct, FetchedProduct, SyncSourceConfig } from "./sync.constants"
 
 interface NicheConfig {
   id: string;
   name: string;
   status: string;
-  shopee?: { keyword_seeds: string[] };
 }
 
 interface NicheIntegration {
@@ -51,32 +49,50 @@ const LAZADA_DEFAULT_PAGE_SIZE = 40;
 const LAZADA_DEFAULT_MAX_KEYWORDS = 5;
 const LAZADA_INTER_KEYWORD_DELAY_MS = 1500;
 
-// ── Shopee scrape constants ──────────────────────────────────────────────────
-// Internal JSON API — Shopee website frontend tự gọi
-const SHOPEE_SEARCH_API = "https://shopee.vn/api/v4/search/search_items";
-// Cookie warm-up — seed SPC_F + csrftoken mà không cần login (pattern từ akherlan/onlineshop)
-const SHOPEE_WARMUP_URL = "https://shopee.vn/api/v4/pages/is_short_url/";
-const SHOPEE_AN_REDIR_BASE = "https://s.shopee.vn/an_redir";
+// ── Shopee flash sale constants ──────────────────────────────────────────────
+const SHOPEE_FLASH_SESSIONS_API = "https://shopee.vn/api/v4/flash_sale/get_all_sessions";
+const SHOPEE_FLASH_ITEMS_API = "https://shopee.vn/api/v4/flash_sale/flash_sale_get_items";
 const SHOPEE_CDN_BASE = "https://cf.shopee.vn/file";
 const SHOPEE_PRODUCT_BASE = "https://shopee.vn";
-// Cookie session TTL — 25 phút (SPC_F cookie expires ~30 phút)
-const SHOPEE_SESSION_TTL_MS = 25 * 60 * 1000;
-// Rotate UA để tránh fingerprinting
-const SHOPEE_UAS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-];
+const SHOPEE_PRICE_DIVISOR = 100_000;
+const SHOPEE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const SHOPEE_DEFAULT_MAX_SESSIONS = 3;
+const SHOPEE_DEFAULT_ITEMS_PER_SESSION = 20;
+const SHOPEE_SESSIONS_FETCH_TIMEOUT_MS = 15_000;
+const SHOPEE_ITEMS_FETCH_TIMEOUT_MS = 20_000;
+const SHOPEE_AT_SUB1 = "shopee-flash";
+const SHOPEE_AT_SUB2 = "web";
 
-interface ShopeeScrapedItem {
-  itemId: string;
-  shopId: string;
+// Keyword defaults — dùng khi source config không override shopeeNicheKeywords
+// Key = category.id trong DB, value = mảng từ khoá substring-match trên tên sản phẩm
+const SHOPEE_DEFAULT_NICHE_KEYWORDS: Record<string, string[]> = {
+  electronics: ["tai nghe", "earphone", "headphone", "điện thoại", "smartphone", "laptop", "máy tính", "iphone", "samsung", "xiaomi", "oppo", "sạc dự phòng", "pin dự phòng", "cáp usb", "chuột gaming", "bàn phím"],
+  fashion:     ["váy", "quần áo", "áo thun", "áo khoác", "giày", "dép", "túi xách", "ví da", "balo", "nón", "mũ lưỡi trai"],
+  beauty:      ["son môi", "kem dưỡng", "serum", "toner", "mặt nạ", "nước hoa", "sữa rửa mặt", "kem chống nắng", "mascara", "phấn nền", "mỹ phẩm"],
+  food:        ["bánh", "kẹo", "snack", "sữa tươi", "nước uống", "trà", "cà phê", "thực phẩm", "gạo", "dầu ăn", "mì gói", "bún", "phở"],
+  kids:        ["sữa bột", "bỉm tã", "đồ chơi", "xe đẩy em bé", "quần áo trẻ em", "mẹ bầu"],
+  sports:      ["tạ dumbbell", "thảm yoga", "xe đạp thể thao", "vợt cầu lông", "bóng đá", "gym", "dây kháng lực", "giày chạy bộ"],
+  home:        ["nồi chiên", "chảo", "bếp điện", "tủ lạnh", "máy giặt", "quạt điện", "điều hòa", "đèn led", "nội thất", "giường", "sofa"],
+  health:      ["vitamin", "thực phẩm chức năng", "khẩu trang", "nhiệt kế", "sức khỏe", "omega"],
+  pets:        ["thức ăn chó", "thức ăn mèo", "thú cưng", "phụ kiện chó", "phụ kiện mèo"],
+};
+
+interface ShopeeFlashSaleSession {
+  promotionid: string;
   name: string;
-  imageUrl: string;
-  productUrl: string;
+  start_time: number;
+  end_time: number;
+}
+
+interface ShopeeFlashSaleItem {
+  itemid: number;
+  shopid: number;
+  name: string;
+  image: string;
   price: number;
-  originalPrice: number | null;
-  rating: number | null;
+  price_before_discount: number;
+  raw_discount: number;
+  item_rating: { rating_star: number } | null;
 }
 
 // "product-scraper" → ScraperSyncService (KingFoodMart, Vascara — scrape HTML/Next.js)
@@ -148,6 +164,28 @@ function buildTikiHeaders(uaIndex: number): Record<string, string> {
   };
 }
 
+// ── Shopee flash sale helpers ────────────────────────────────────────────────
+
+function buildShopeeProductUrl(name: string, shopid: number, itemid: number): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${SHOPEE_PRODUCT_BASE}/${slug}-i.${shopid}.${itemid}`;
+}
+
+function inferNicheFromProductName(name: string, keywords: Record<string, string[]>): string | null {
+  const n = name.toLowerCase();
+  for (const [nicheId, kws] of Object.entries(keywords)) {
+    if (kws.some((kw) => n.includes(kw.toLowerCase()))) return nicheId;
+  }
+  return null;
+}
+
 export interface SyncStatusPayload {
   running: boolean;
   completedAt: Date | null;
@@ -170,14 +208,8 @@ export class PlatformSyncService {
   private syncRunning = false;
   readonly syncStatus: SyncStatusPayload = { running: false, completedAt: null, result: null };
 
-  // Shopee session — cookie warm-up cache (SPC_F + csrftoken)
-  private shopeeSession: { cookies: string; csrfToken: string; expiresAt: number } | null = null;
-  // Fast-fail: khi phát hiện IP block, bỏ qua toàn bộ Shopee sync trong 1 giờ
-  private shopeeBlockedUntil = 0;
-
   constructor(
     private readonly cfg: ConfigService,
-    private readonly shopee: ShopeeAffiliateClient,
     private readonly accesstrade: AccessTradePublisherClient,
     private readonly lazada: LazadaAdapter,
     private readonly appLog: AppLogService,
@@ -256,6 +288,15 @@ export class PlatformSyncService {
         `[${source}] Chiến lược affiliate: ${strategyLabel[strategy] ?? strategy}`,
         SRC, { strategy, campaign: atCampaign?.name ?? null }, trigger,
       );
+    }
+
+    // Shopee flash sale: không iterate theo niche — chạy một lần, tự infer niche per product
+    if (source === "shopee") {
+      const report = await this.syncShopeeFlashSale(sourceConfig, trigger);
+      const result = { niches: 1, fetched: report.fetched, priceChanges: report.priceChanges, newDeals: report.newDeals, skipped: report.skipped, durationMs: report.durationMs, bySource: report.bySource };
+      this.syncStatus.result = result;
+      this.syncStatus.completedAt = new Date();
+      return result;
     }
 
     const allNiches = await this.loadActiveNiches();
@@ -409,20 +450,18 @@ export class PlatformSyncService {
       runSource("cellphones")  ? this.loadNicheIntegration(niche.id, "cellphones")  : Promise.resolve(null),
     ]);
 
-    const [shopeeProducts, tikiProducts, lazadaProducts, cellphonesProducts] = await Promise.all([
-      runSource("shopee")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Shopee...`),      this.fetchShopeeProducts(niche))         : Promise.resolve([]),
+    const [tikiProducts, lazadaProducts, cellphonesProducts] = await Promise.all([
       runSource("tiki")        ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Tiki...`),        this.fetchTikiProducts(niche, tikiIntegration))  : Promise.resolve([]),
       runSource("lazada")      ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy Lazada...`),      this.fetchLazadaProducts(niche, lazadaIntegration)) : Promise.resolve([]),
       runSource("cellphones") && cellphonesIntegration?.enabled ? (this.log.log(`[${source}] Ngách: ${niche.name} — lấy CellphoneS...`), this.graphQLSync.fetchForNiche(niche, atCampaign ?? null).then((ps) => ps.map(graphQLProductToFetched))) : Promise.resolve([]),
     ]);
 
     const bySourceRaw: Record<string, FetchedProduct[]> = {
-      shopee:     shopeeProducts,
       tiki:       tikiProducts,
       lazada:     lazadaProducts,
       cellphones: cellphonesProducts,
     };
-    const fetched = [...shopeeProducts, ...tikiProducts, ...lazadaProducts, ...cellphonesProducts];
+    const fetched = [...tikiProducts, ...lazadaProducts, ...cellphonesProducts];
     const lastPriceMap = await this.fetchLastRecordedPrices(niche.id);
 
     const priceHistoryBatch: { productId: string; price: number }[] = [];
@@ -614,345 +653,265 @@ export class PlatformSyncService {
     }
   }
 
-  // ── Shopee config reader ─────────────────────────────────────────────────
+  // ── Shopee affiliate URL helpers ────────────────────────────────────────────
 
-  private async readShopeeConfig(): Promise<{
-    syncMode: "api" | "scrape";
-    affiliateId: string;
-    scrapeMaxPages: number;
-    scrapeDelayMs: number;
-    keywords: Record<string, string[]>;
-  }> {
-    const defaults = {
-      syncMode: "api" as const,
-      affiliateId: this.cfg.get<string>("SHOPEE_AFFILIATE_ID") ?? "",
-      scrapeMaxPages: 2,
-      scrapeDelayMs: 2000,
-      keywords: {} as Record<string, string[]>,
-    };
+  /** Build Shopee an_redir affiliate link từ shopee.vn product URL + affiliate ID */
+  private buildShopeeDirectUrl(productUrl: string, affiliateId: string, sub1: string): string {
+    const params = new URLSearchParams({ origin_link: productUrl, pid: affiliateId, sub_id: sub1 })
+    return `https://s.shopee.vn/an_redir?${params}`
+  }
+
+  /**
+   * Resolve affiliate URL map cho danh sách sản phẩm Shopee.
+   *
+   * Hai chế độ (đọc từ sourceConfig.shopeeLinkMode, mặc định "at"):
+   *   "at"     → wrapUrls qua AccessTrade campaign
+   *   "direct" → build s.shopee.vn/an_redir với SHOPEE_AFFILIATE_ID
+   *
+   * Trả về:
+   *   urlMap     — Map<shopUrl, affiliateUrl>
+   *   campaignId — AT campaign ID (null nếu direct mode)
+   *   fatal      — true nếu AT mode không tìm được campaign (caller nên abort)
+   */
+  private async resolveShopeeAffiliateUrls(
+    shopUrls: string[],
+    sourceConfig: SyncSourceConfig,
+    trigger: Trigger,
+    sub1: string,
+    sub2: string,
+  ): Promise<{ urlMap: Map<string, string>; campaign: AccessTradeCampaign | null; fatal: boolean }> {
+    const linkMode = sourceConfig.shopeeLinkMode ?? "at"
+    const rawMap = () => new Map(shopUrls.map((u) => [u, u]))
+
+    if (linkMode === "direct") {
+      const affiliateId =
+        sourceConfig.shopeeAffiliateId ?? this.cfg.get<string>("SHOPEE_AFFILIATE_ID") ?? ""
+      if (!affiliateId) {
+        this.log.warn("[Shopee] shopeeLinkMode=direct nhưng SHOPEE_AFFILIATE_ID chưa set — dùng raw URL")
+        return { urlMap: rawMap(), campaign: null, fatal: false }
+      }
+      const urlMap = new Map(shopUrls.map((u) => [u, this.buildShopeeDirectUrl(u, affiliateId, sub1)]))
+      this.log.log(`[Shopee] direct mode — affiliate ID: ${affiliateId.slice(0, 6)}*** (${urlMap.size} links)`)
+      return { urlMap, campaign: null, fatal: false }
+    }
+
+    // AT mode
+    const { campaign, campaignType } = await this.findCampaignForSource("shopee", sourceConfig.atCampaignId, true)
+    if (!campaign) {
+      this.log.warn("[Shopee] AT mode: không tìm thấy AT campaign")
+      await this.slog.warn("[Shopee] Không tìm thấy AT campaign", SRC, {}, trigger)
+      return { urlMap: rawMap(), campaign: null, fatal: true }
+    }
+    if (campaignType !== "tracking") {
+      this.log.warn(`[Shopee] Campaign "${campaign.name}" (${campaign.id}) không phải tracking type — wrapUrls có thể thất bại`)
+    }
+    this.log.log(`[Shopee] AT campaign: "${campaign.name}" (${campaign.id})`)
     try {
-      const row = await this.prisma.syncSource.findUnique({ where: { slug: "shopee" } });
-      if (!row) return defaults;
-      const cfg = JSON.parse(row.config as string);
-      return {
-        syncMode: cfg.syncMode === "scrape" ? "scrape" : "api",
-        affiliateId: cfg.affiliateId ?? this.cfg.get<string>("SHOPEE_AFFILIATE_ID") ?? "",
-        scrapeMaxPages: cfg.scrapeMaxPages ?? 2,
-        scrapeDelayMs: cfg.scrapeDelayMs ?? 2000,
-        keywords: cfg.keywords ?? {},
-      };
-    } catch {
-      return defaults;
-    }
-  }
-
-  // ── Shopee dispatcher ─────────────────────────────────────────────────────
-
-  private async fetchShopeeProducts(niche: NicheConfig): Promise<FetchedProduct[]> {
-    const config = await this.readShopeeConfig();
-    if (config.syncMode === "scrape") {
-      if (!config.affiliateId) {
-        this.log.warn(`[Shopee] syncMode=scrape nhưng affiliateId chưa được set — bỏ qua sync`);
-        await this.slog.warn(`[Shopee] Thiếu affiliateId cho scrape mode`, SRC, { niche: niche.id });
-        return [];
-      }
-      // Fast-fail: nếu đã biết IP bị block trong session này, bỏ qua ngay
-      if (Date.now() < this.shopeeBlockedUntil) {
-        this.log.warn(`[Shopee] IP đang bị block — bỏ qua ngách "${niche.name}" (cần SHOPEE_PROXY_URL)`);
-        return [];
-      }
-      this.log.log(`[Shopee] Ngách: ${niche.name} — mode=scrape (JSON API + an_redir)`);
-      return this.fetchShopeeViaScrape(niche, config);
-    }
-    this.log.log(`[Shopee] Ngách: ${niche.name} — mode=api (Affiliate Open API)`);
-    return this.fetchShopeeViaApi(niche);
-  }
-
-  // ── Shopee mode=api (cũ — cần SHOPEE_AFFILIATE_APP_ID + APP_SECRET) ────────
-
-  private async fetchShopeeViaApi(niche: NicheConfig): Promise<FetchedProduct[]> {
-    const results: FetchedProduct[] = [];
-    const keywords = niche.shopee?.keyword_seeds ?? [];
-
-    for (const keyword of keywords) {
-      try {
-        const { nodes } = await this.shopee.productSearch({ keyword, pageSize: 20, sort: "SALES_DESC" });
-
-        for (const node of nodes) {
-          let affiliateUrl = node.productLink;
-          try {
-            const { shortLink } = await this.shopee.generateShortLink({ originUrl: node.productLink, subIds: [niche.id, "web"] });
-            affiliateUrl = shortLink;
-          } catch { /* fallback to original link */ }
-
-          const currentPrice = Math.round(node.priceMin);
-          const originalPrice = node.priceMax > node.priceMin
-            ? Math.round(node.priceMax)
-            : null;
-          results.push({
-            externalId: String(node.itemId),
-            source: "shopee",
-            name: node.productName,
-            imageUrl: node.imageUrl ?? "",
-            shopUrl: node.productLink,
-            affiliateUrl,
-            currentPrice,
-            originalPrice,
-            commissionRate: Number(node.commissionRate),
-            rating: null,
-          });
-        }
-      } catch (e: any) {
-        this.log.warn(`[Shopee API] keyword "${keyword}" thất bại: ${e.message}`);
-        await this.slog.warn(`Shopee API search thất bại`, SRC, {
-          niche: niche.id, keyword, error: e.message, code: (e as any).code,
-        });
-      }
-    }
-
-    return results;
-  }
-
-  // ── Shopee mode=scrape (Googlebot + an_redir) ─────────────────────────────
-
-  private async fetchShopeeViaScrape(
-    niche: NicheConfig,
-    config: { affiliateId: string; scrapeMaxPages: number; scrapeDelayMs: number; keywords: Record<string, string[]> },
-  ): Promise<FetchedProduct[]> {
-    const results: FetchedProduct[] = [];
-    const keywords = config.keywords[niche.id] ?? niche.shopee?.keyword_seeds ?? [niche.name];
-    let ipBlocked = false;
-
-    for (let ki = 0; ki < keywords.length; ki++) {
-      if (ipBlocked) break;
-      const keyword = keywords[ki];
-      if (ki > 0) await sleep(config.scrapeDelayMs);
-
-      for (let page = 0; page < config.scrapeMaxPages; page++) {
-        if (page > 0) await sleep(config.scrapeDelayMs);
-        try {
-          const items = await this.scrapeShopeeSearchPage(keyword, page);
-          if (items.length === 0) break;
-
-          for (const item of items) {
-            results.push({
-              externalId: `${item.shopId}_${item.itemId}`,
-              source: "shopee",
-              name: item.name.slice(0, 255),
-              imageUrl: item.imageUrl,
-              shopUrl: item.productUrl,
-              affiliateUrl: this.buildShopeeAffiliateUrl(item.productUrl, config.affiliateId),
-              currentPrice: item.price,
-              originalPrice: item.originalPrice,
-              commissionRate: 0,
-              rating: item.rating,
-            });
-          }
-
-          this.log.log(`[Shopee scrape] kw="${keyword}" page=${page}: ${items.length} sản phẩm`);
-          if (items.length < 20) break;
-        } catch (e: any) {
-          const msg: string = e.message ?? "";
-          // Khi bị block IP: set flag, dừng ngay — không thử thêm keywords hay pages
-          if (msg.includes("403") && !this.cfg.get("SHOPEE_PROXY_URL")) {
-            this.shopeeBlockedUntil = Date.now() + 60 * 60 * 1000; // block 1 tiếng
-            this.log.warn(`[Shopee] IP bị block — dừng sync Shopee. Cần SHOPEE_PROXY_URL để tiếp tục`);
-            await this.slog.warn(`[Shopee] IP bị block — dừng toàn bộ sync Shopee`, SRC, {
-              niche: niche.id, hint: "Set SHOPEE_PROXY_URL (residential proxy) trong .env",
-            });
-            ipBlocked = true;
-          } else {
-            this.log.warn(`[Shopee scrape] kw="${keyword}" page=${page} lỗi: ${msg}`);
-            await this.slog.warn(`Shopee scrape thất bại`, SRC, { niche: niche.id, keyword, page, error: msg });
-          }
-          break;
-        }
-      }
-    }
-
-    return results;
-  }
-
-  private buildShopeeAffiliateUrl(productUrl: string, affiliateId: string): string {
-    return `${SHOPEE_AN_REDIR_BASE}?origin_link=${encodeURIComponent(productUrl)}&affiliate_id=${affiliateId}`;
-  }
-
-  // Cookie warm-up: seed SPC_F + csrftoken từ Shopee mà không cần login
-  // Pattern từ github.com/akherlan/onlineshop — cookies này đủ cho public search endpoints
-  private async getShopeeCookies(): Promise<{ cookies: string; csrfToken: string }> {
-    if (this.shopeeSession && Date.now() < this.shopeeSession.expiresAt) {
-      return this.shopeeSession;
-    }
-
-    const proxyUrl = this.cfg.get<string>("SHOPEE_PROXY_URL");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const dispatcher = proxyUrl ? new (require("undici").ProxyAgent)(proxyUrl) : undefined;
-
-    try {
-      const res = await fetch(SHOPEE_WARMUP_URL, {
-        method: "GET",
-        // @ts-expect-error undici dispatcher
-        dispatcher,
-        headers: {
-          "User-Agent": SHOPEE_UAS[0],
-          "Accept": "application/json",
-          "Referer": "https://shopee.vn/",
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-
-      // Collect all Set-Cookie headers
-      const setCookies: string[] = [];
-      res.headers.forEach((value, name) => {
-        if (name.toLowerCase() === "set-cookie") setCookies.push(value);
-      });
-      // Node 18+ fetch exposes raw headers differently — try getSetCookie too
-      const rawSetCookie = (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.() ?? setCookies;
-
-      const cookieStr = rawSetCookie.map((c) => c.split(";")[0]).join("; ");
-      const csrfToken = rawSetCookie
-        .map((c) => c.split(";")[0])
-        .find((c) => c.startsWith("csrftoken="))
-        ?.replace("csrftoken=", "") ?? "";
-
-      this.shopeeSession = { cookies: cookieStr, csrfToken, expiresAt: Date.now() + SHOPEE_SESSION_TTL_MS };
-      this.log.log(`[Shopee] Session seed OK — SPC_F=${cookieStr.includes("SPC_F") ? "✓" : "✗"} csrftoken=${csrfToken ? "✓" : "✗"}`);
-      return this.shopeeSession;
+      const urlMap = await this.atCampaignSvc.wrapUrls(campaign.id, shopUrls, { sub1, sub2 })
+      return { urlMap, campaign, fatal: false }
     } catch (e: any) {
-      this.log.warn(`[Shopee] Cookie warm-up thất bại: ${e.message} — tiếp tục không có cookie`);
-      return { cookies: "", csrfToken: "" };
+      this.log.error(`[Shopee] wrapUrls thất bại: ${e.message}`)
+      await this.slog.error("[Shopee] wrapUrls thất bại", SRC, { error: e.message }, trigger)
+      return { urlMap: rawMap(), campaign, fatal: true }
     }
   }
 
-  // Gọi Shopee internal JSON API (endpoint website frontend dùng)
-  // Shopee lưu giá dưới dạng micro-VND (price × 100000)
-  // Yêu cầu SHOPEE_PROXY_URL khi deploy trên server (Shopee block datacenter IP)
-  private async scrapeShopeeSearchPage(keyword: string, page: number): Promise<ShopeeScrapedItem[]> {
-    const newest = page * 20;
-    const ua = SHOPEE_UAS[page % SHOPEE_UAS.length];
-    const referer = `https://shopee.vn/search?keyword=${encodeURIComponent(keyword)}&order=desc&page=${page}&rating_filter=0&scenario=PAGE_GLOBAL_SEARCH&sortBy=relevancy`;
+  // ── Shopee flash sale sync ───────────────────────────────────────────────
 
-    const { cookies, csrfToken } = await this.getShopeeCookies();
+  private async syncShopeeFlashSale(
+    sourceConfig: SyncSourceConfig,
+    trigger: Trigger = "manual",
+  ): Promise<SyncReport> {
+    const start = Date.now();
+    const maxSessions = sourceConfig.shopeeMaxSessions ?? SHOPEE_DEFAULT_MAX_SESSIONS;
+    const itemsPerSession = sourceConfig.shopeeItemsPerSession ?? SHOPEE_DEFAULT_ITEMS_PER_SESSION;
+    const nicheKeywords = sourceConfig.shopeeNicheKeywords ?? SHOPEE_DEFAULT_NICHE_KEYWORDS;
 
-    const url = new URL(SHOPEE_SEARCH_API);
-    url.searchParams.set("by", "relevancy");
-    url.searchParams.set("keyword", keyword);
-    url.searchParams.set("limit", "20");
-    url.searchParams.set("newest", String(newest));
-    url.searchParams.set("order", "desc");
-    url.searchParams.set("page_type", "search");
-    url.searchParams.set("scenario", "PAGE_GLOBAL_SEARCH");
-    url.searchParams.set("version", "2");
+    this.log.log(`[Shopee] Flash sale sync — maxSessions=${maxSessions}, items/session=${itemsPerSession}`);
 
-    // Route qua proxy nếu có — cần trên server vì Shopee block datacenter IP
-    const proxyUrl = this.cfg.get<string>("SHOPEE_PROXY_URL");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const dispatcher = proxyUrl ? new (require("undici").ProxyAgent)(proxyUrl) : undefined;
+    this.log.log(`[Shopee] linkMode=${sourceConfig.shopeeLinkMode ?? "at"}`);
 
-    const headers: Record<string, string> = {
-      "User-Agent": ua,
-      "Accept": "application/json",
-      "Accept-Language": "vi-VN,vi;q=0.9",
-      "Referer": referer,
-      "x-api-source": "pc",
-      "x-shopee-language": "vi",
-      "x-requested-with": "XMLHttpRequest",
+    // Fetch flash sale sessions
+    let sessions: ShopeeFlashSaleSession[];
+    try {
+      sessions = await this.getShopeeFlashSaleSessions();
+    } catch (e: any) {
+      this.log.error(`[Shopee] Lấy flash sale sessions thất bại: ${e.message}`);
+      await this.slog.error("[Shopee] Lấy flash sale sessions thất bại", SRC, { error: e.message }, trigger);
+      return { niche: "shopee", fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: Date.now() - start, bySource: {} };
+    }
+    if (sessions.length === 0) {
+      this.log.warn("[Shopee] Không có flash sale session nào đang chạy");
+      return { niche: "shopee", fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: Date.now() - start, bySource: {} };
+    }
+
+    // Collect unique items across target sessions (deduplicate by itemid)
+    const targetSessions = sessions.slice(0, maxSessions);
+    const itemMap = new Map<number, ShopeeFlashSaleItem>();
+    for (const session of targetSessions) {
+      try {
+        const items = await this.getShopeeFlashSaleItems(session.promotionid, itemsPerSession);
+        for (const item of items) {
+          if (!itemMap.has(item.itemid)) itemMap.set(item.itemid, item);
+        }
+        this.log.log(`[Shopee] Session "${session.name}": ${items.length} items`);
+      } catch (e: any) {
+        this.log.warn(`[Shopee] Session ${session.promotionid} ("${session.name}") thất bại: ${e.message}`);
+      }
+    }
+
+    const uniqueItems = [...itemMap.values()];
+    if (uniqueItems.length === 0) {
+      this.log.warn("[Shopee] Không lấy được sản phẩm flash sale nào");
+      return { niche: "shopee", fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: Date.now() - start, bySource: {} };
+    }
+    this.log.log(`[Shopee] ${uniqueItems.length} sản phẩm unique từ ${targetSessions.length} session(s)`);
+
+    // Resolve affiliate URLs (AT wrap hoặc Shopee direct — tuỳ sourceConfig.shopeeLinkMode)
+    const shopUrls = uniqueItems.map((i) => buildShopeeProductUrl(i.name, i.shopid, i.itemid));
+    const { urlMap, campaign, fatal } = await this.resolveShopeeAffiliateUrls(shopUrls, sourceConfig, trigger, SHOPEE_AT_SUB1, SHOPEE_AT_SUB2);
+    if (fatal) {
+      return { niche: "shopee", fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: Date.now() - start, bySource: {} };
+    }
+
+    // Resolve active niches for category inference
+    const allNiches = await this.loadActiveNiches();
+    const nicheIds = new Set(allNiches.map((n) => n.id));
+    const defaultNicheId = sourceConfig.shopeeDefaultNicheId ?? allNiches[0]?.id ?? allNiches[0]?.id;
+    if (!defaultNicheId) {
+      this.log.error("[Shopee] Không có niche nào active — bỏ qua sync");
+      return { niche: "shopee", fetched: 0, priceChanges: 0, newDeals: 0, skipped: 0, durationMs: Date.now() - start, bySource: {} };
+    }
+
+    // Build FetchedProduct list — each product infers its own niche
+    const products: FetchedProduct[] = uniqueItems.map((item, idx) => {
+      const shopUrl = shopUrls[idx];
+      const affiliateUrl = urlMap.get(shopUrl) ?? shopUrl;
+      const currentPrice = Math.round(item.price / SHOPEE_PRICE_DIVISOR);
+      const rawOriginal = item.price_before_discount ?? 0;
+      const originalPrice = rawOriginal > item.price ? Math.round(rawOriginal / SHOPEE_PRICE_DIVISOR) : null;
+      const discountPct = item.raw_discount > 0 ? item.raw_discount : undefined;
+      const inferredNiche = inferNicheFromProductName(item.name, nicheKeywords);
+      const categoryId = (inferredNiche && nicheIds.has(inferredNiche)) ? inferredNiche : defaultNicheId;
+
+      return {
+        externalId: `${item.shopid}_${item.itemid}`,
+        source: "shopee" as const,
+        name: item.name.slice(0, 255),
+        imageUrl: item.image ? `${SHOPEE_CDN_BASE}/${item.image}` : "",
+        shopUrl,
+        affiliateUrl,
+        currentPrice,
+        originalPrice,
+        discountPct,
+        commissionRate: 0,
+        rating: item.item_rating?.rating_star ?? null,
+        atCampaignId: campaign?.id,
+        categoryId,
+      };
+    });
+
+    // Upsert all products + track price changes / new deals
+    const lastPriceMap = await this.fetchLastRecordedPricesBySource("shopee");
+    const priceHistoryBatch: { productId: string; price: number }[] = [];
+    let newDeals = 0;
+    let skipped = 0;
+
+    for (const p of products) {
+      try {
+        const product = await this.upsertProduct(p, defaultNicheId, campaign?.logoUrl ?? null, campaign?.brandId ?? null, campaign?.id ?? null);
+        const lastPrice = lastPriceMap.get(product.id);
+        if (lastPrice !== p.currentPrice) {
+          priceHistoryBatch.push({ productId: product.id, price: p.currentPrice });
+        }
+        const discountPct = (p.discountPct != null && p.discountPct > 0)
+          ? p.discountPct
+          : (p.originalPrice && p.originalPrice > p.currentPrice
+              ? Math.round(((p.originalPrice - p.currentPrice) / p.originalPrice) * 100)
+              : 0);
+        await this.prisma.product.update({ where: { id: product.id }, data: { discountPct } });
+        if (lastPrice === undefined) newDeals++;
+      } catch (e: any) {
+        this.log.warn(`[Shopee] Upsert thất bại ${p.externalId}: ${e.message}`);
+        skipped++;
+      }
+    }
+
+    if (priceHistoryBatch.length > 0) {
+      await this.prisma.priceHistory.createMany({
+        data: priceHistoryBatch.map((r) => ({ ...r, recordedAt: new Date() })),
+        skipDuplicates: true,
+      });
+    }
+
+    await this.pruneOldPriceHistory();
+
+    const durationMs = Date.now() - start;
+    const fetched = products.length - skipped;
+    this.log.log(`[Shopee] Hoàn tất — ${fetched} sản phẩm, ${newDeals} mới, ${priceHistoryBatch.length} thay đổi giá, ${skipped} bỏ qua (${durationMs}ms)`);
+    await this.slog.info("[Shopee] Flash sale sync hoàn tất", SRC, { fetched, newDeals, priceChanges: priceHistoryBatch.length, skipped, durationMs }, trigger);
+
+    return {
+      niche: "shopee",
+      fetched,
+      priceChanges: priceHistoryBatch.length,
+      newDeals,
+      skipped,
+      durationMs,
+      bySource: { shopee: { fetched, skipped } },
     };
-    if (cookies) headers["Cookie"] = cookies;
-    if (csrfToken) headers["X-CSRFToken"] = csrfToken;
+  }
+
+  private async getShopeeFlashSaleSessions(): Promise<ShopeeFlashSaleSession[]> {
+    const res = await fetch(SHOPEE_FLASH_SESSIONS_API, {
+      headers: {
+        "User-Agent": SHOPEE_UA,
+        "Accept": "application/json",
+        "Accept-Language": "vi-VN,vi;q=0.9",
+        "Referer": "https://shopee.vn/flash_sale",
+        "x-api-source": "pc",
+        "x-shopee-language": "vi",
+      },
+      signal: AbortSignal.timeout(SHOPEE_SESSIONS_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as { data?: { sessions?: ShopeeFlashSaleSession[] } };
+    return json.data?.sessions ?? [];
+  }
+
+  private async getShopeeFlashSaleItems(promotionId: string, limit: number): Promise<ShopeeFlashSaleItem[]> {
+    const url = new URL(SHOPEE_FLASH_ITEMS_API);
+    url.searchParams.set("promotionid", promotionId);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", "0");
+    url.searchParams.set("need_personalize", "false");
+    url.searchParams.set("with_dp_items", "true");
 
     const res = await fetch(url.toString(), {
-      // @ts-expect-error undici dispatcher — Node 18+ built-in fetch hỗ trợ
-      dispatcher,
-      headers,
-      signal: AbortSignal.timeout(20_000),
+      headers: {
+        "User-Agent": SHOPEE_UA,
+        "Accept": "application/json",
+        "Accept-Language": "vi-VN,vi;q=0.9",
+        "Referer": `https://shopee.vn/flash_sale`,
+        "x-api-source": "pc",
+        "x-shopee-language": "vi",
+      },
+      signal: AbortSignal.timeout(SHOPEE_ITEMS_FETCH_TIMEOUT_MS),
     });
-
-    if (!res.ok) {
-      if (res.status === 403 && !proxyUrl) {
-        throw new Error(`HTTP 403 — Shopee block datacenter IP. Set SHOPEE_PROXY_URL để dùng residential proxy`);
-      }
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const json = await res.json() as Record<string, unknown>;
-
-    // Response: { items: [{ item_basic: {...} }], ... }
-    const rawItems = (json.items as unknown[]) ?? [];
-    if (rawItems.length === 0) return [];
-
-    return rawItems.flatMap((raw) => {
-      const item = ((raw as Record<string, unknown>).item_basic ?? raw) as Record<string, unknown>;
-      const parsed = this.normalizeShopeeApiItem(item);
-      return parsed ? [parsed] : [];
-    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as { data?: { items?: ShopeeFlashSaleItem[] } };
+    return (json.data?.items ?? []).filter((i) => i.itemid && i.name && i.price > 0);
   }
 
-  private normalizeShopeeApiItem(i: Record<string, unknown>): ShopeeScrapedItem | null {
-    try {
-      const itemId = String(i.itemid ?? i.item_id ?? "");
-      const shopId = String(i.shopid ?? i.shop_id ?? "");
-      if (!itemId || !shopId) return null;
-
-      const name = String(i.name ?? "").trim();
-      if (!name) return null;
-
-      // Shopee API returns price in micro-VND (price * 100000)
-      const rawPrice = Number(i.price ?? i.price_min ?? 0);
-      if (rawPrice <= 0) return null;
-      const price = Math.round(rawPrice / 100000);
-
-      const rawOriginal = Number(i.price_before_discount ?? 0);
-      const originalPrice = rawOriginal > rawPrice
-        ? Math.round(rawOriginal / 100000)
-        : null;
-
-      const imgPath = String(i.image ?? "");
-      const imageUrl = imgPath ? `${SHOPEE_CDN_BASE}/${imgPath}` : "";
-
-      const nameSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60);
-      const productUrl = `${SHOPEE_PRODUCT_BASE}/${nameSlug}-i.${shopId}.${itemId}`;
-
-      const ratingData = i.item_rating as Record<string, unknown> | undefined;
-      const rating = ratingData ? (Number(ratingData.rating_star) || null) : null;
-
-      return { itemId, shopId, name, imageUrl, productUrl, price, originalPrice, rating };
-    } catch {
-      return null;
-    }
-  }
-
-  private async fetchShopeeWithAtTracking(niche: NicheConfig, campaign: AccessTradeCampaign): Promise<FetchedProduct[]> {
-    const results: FetchedProduct[] = [];
-    const keywords = niche.shopee?.keyword_seeds ?? [];
-
-    for (const keyword of keywords) {
-      try {
-        const { nodes } = await this.shopee.productSearch({ keyword, pageSize: 20, sort: "SALES_DESC" });
-
-        for (const node of nodes) {
-          const affiliateUrl = await this.atCampaignSvc.wrapUrl(
-            campaign.id, node.productLink, { sub1: niche.id, sub2: "shopee-at" },
-          );
-
-          results.push({
-            externalId: String(node.itemId),
-            source: "shopee",
-            name: node.productName,
-            imageUrl: node.imageUrl ?? "",
-            shopUrl: node.productLink,
-            affiliateUrl,
-            currentPrice: Math.round(node.priceMin),
-            originalPrice: node.priceMax > node.priceMin ? Math.round(node.priceMax) : null,
-            commissionRate: Number(node.commissionRate),
-            rating: null,
-          });
-        }
-      } catch (e: any) {
-        this.log.warn(`[${niche.name}] Shopee+AT search failed for "${keyword}": ${e.message}`);
-      }
-    }
-    return results;
+  private async fetchLastRecordedPricesBySource(source: string): Promise<Map<string, number>> {
+    const rows = await this.prisma.$queryRaw<{ productId: string; price: number }[]>`
+      SELECT DISTINCT ON (ph."productId") ph."productId", ph.price
+      FROM "PriceHistory" ph
+      INNER JOIN "Product" p ON p.id = ph."productId"
+      WHERE p.source = ${source}
+      ORDER BY ph."productId", ph."recordedAt" DESC
+    `;
+    return new Map(rows.map((r) => [r.productId, r.price]));
   }
 
 
@@ -963,10 +922,16 @@ export class PlatformSyncService {
     brandId: string | null = null,
     atCampaignId: string | null = null,
   ) {
+    // Per-product overrides take precedence over outer sync context
+    const resolvedCategoryId = p.categoryId ?? categoryId;
+    const resolvedAtCampaignId = p.atCampaignId ?? atCampaignId;
+
     return this.prisma.product.upsert({
       where: { source_externalId: { source: p.source, externalId: p.externalId } },
       update: {
-        categoryId,
+        name: p.name,
+        productUrl: p.shopUrl,
+        categoryId: resolvedCategoryId,
         price: p.currentPrice,
         originalPrice: p.originalPrice ?? null,
         affiliateUrl: p.affiliateUrl,
@@ -974,7 +939,7 @@ export class PlatformSyncService {
         isSoldOut: false,
         ...(sourceLogoUrl && { sourceLogoUrl }),
         ...(brandId && { brandId }),
-        ...(atCampaignId && { atCampaignId }),
+        ...(resolvedAtCampaignId && { atCampaignId: resolvedAtCampaignId }),
       },
       create: {
         source: p.source,
@@ -988,12 +953,96 @@ export class PlatformSyncService {
         originalPrice: p.originalPrice ?? null,
         commission: Math.round(p.commissionRate),
         rating: p.rating ?? 0,
-        categoryId,
+        categoryId: resolvedCategoryId,
         sourceLogoUrl,
         ...(brandId && { brandId }),
-        ...(atCampaignId && { atCampaignId }),
+        ...(resolvedAtCampaignId && { atCampaignId: resolvedAtCampaignId }),
       },
     });
+  }
+
+  // Bulk capture từ Chrome extension — nhận danh sách sản phẩm Shopee đã parse sẵn,
+  // wrap URL qua AT rồi upsert vào DB. Không cần scraper, không cần browser session.
+  async extensionBulkCapture(products: ExtensionProduct[]): Promise<{
+    saved: number;
+    total: number;
+    errors: string[];
+    campaignId: string | null;
+  }> {
+    if (products.length === 0) return { saved: 0, total: 0, errors: [], campaignId: null };
+
+    this.log.log(`[ext-bulk] Nhận ${products.length} sản phẩm từ extension`);
+
+    // Resolve categories từ DB (dùng chung logic với flash sale sync)
+    const dbCategories = await this.prisma.category.findMany({ select: { id: true, name: true } });
+    const nicheIds = new Set(dbCategories.map((c) => c.id));
+    const defaultNicheId = dbCategories[0]?.id ?? "shopee";
+
+    // Load shopee source config để đọc shopeeLinkMode
+    const shopeeSource = await this.prisma.syncSource.findFirst({
+      where: { slug: "shopee" },
+      select: { config: true },
+    });
+    let shopeeSourceConfig: SyncSourceConfig = {};
+    try {
+      shopeeSourceConfig = shopeeSource?.config ? JSON.parse(shopeeSource.config as string) : {};
+    } catch { /* malformed config — dùng defaults */ }
+
+    // Extension có thể config độc lập với flash sale (extensionLinkMode / extensionAtCampaignId)
+    // Nếu không set → kế thừa shopeeLinkMode / atCampaignId của source
+    const extConfig: SyncSourceConfig = {
+      ...shopeeSourceConfig,
+      ...(shopeeSourceConfig.extensionLinkMode !== undefined && { shopeeLinkMode: shopeeSourceConfig.extensionLinkMode }),
+      ...(shopeeSourceConfig.extensionAtCampaignId !== undefined && { atCampaignId: shopeeSourceConfig.extensionAtCampaignId }),
+    };
+
+    this.log.log(`[ext-bulk] linkMode=${extConfig.shopeeLinkMode ?? "at"} campaign=${extConfig.atCampaignId ?? "auto"}`);
+
+    // Resolve affiliate URLs (AT wrap hoặc Shopee direct — tuỳ source config)
+    const shopUrls = products.map((p) => p.url);
+    const { urlMap, campaign } = await this.resolveShopeeAffiliateUrls(shopUrls, extConfig, "manual", "ext-bulk", "ext");
+
+    let saved = 0;
+    const errors: string[] = [];
+
+    for (const p of products) {
+      try {
+        const externalId = `${p.shopId}_${p.itemId}`;
+        const affiliateUrl = urlMap.get(p.url) ?? p.url;
+        const inferredNiche = inferNicheFromProductName(p.name, SHOPEE_DEFAULT_NICHE_KEYWORDS);
+        const categoryId = inferredNiche && nicheIds.has(inferredNiche) ? inferredNiche : defaultNicheId;
+
+        await this.upsertProduct(
+          {
+            externalId,
+            source: "shopee",
+            name: p.name.slice(0, 255),
+            imageUrl: p.image,
+            shopUrl: p.url,
+            affiliateUrl,
+            currentPrice: p.price,
+            originalPrice: p.originalPrice ?? null,
+            discountPct: p.discountPct ?? undefined,
+            commissionRate: 0,
+            rating: p.rating ?? null,
+            categoryId,
+            atCampaignId: campaign?.id,
+          },
+          categoryId,
+          null,
+          null,
+          campaign?.id ?? null,
+        );
+        saved++;
+      } catch (e: any) {
+        const label = `${p.name.slice(0, 30)} (${p.itemId})`;
+        errors.push(`${label}: ${e?.message ?? "error"}`);
+        this.log.warn(`[ext-bulk] upsert thất bại ${p.itemId}: ${e?.message}`);
+      }
+    }
+
+    this.log.log(`[ext-bulk] Hoàn tất: ${saved}/${products.length} saved, ${errors.length} errors, campaign=${campaign?.id ?? "none"}`);
+    return { saved, total: products.length, errors, campaignId: campaign?.id ?? null };
   }
 
   // Tạo AT tracking link cho 1 product URL đơn lẻ (dùng từ admin form).
@@ -1069,16 +1118,18 @@ export class PlatformSyncService {
   }
 
   // Tìm AT campaign phù hợp với source slug (theo tên/merchant) + trả về campaignType từ DB
+  // preferTracking=true: ưu tiên campaign loại "tracking" (Smartlink) — dùng cho flash sale URL wrapping
   private async findCampaignForSource(
     sourceSlug: string,
     atCampaignIdOverride?: string,
+    preferTracking = false,
   ): Promise<{ campaign: AccessTradeCampaign | null; campaignType: "product" | "tracking" }> {
     this.log.log(`[${sourceSlug}] Lấy danh sách AT campaign (DB-first 4h TTL)...`);
     const { campaigns, typeMap } = await this.atCampaignSvc.getCampaigns()
     this.log.log(`[${sourceSlug}] Tổng ${campaigns.length} AT campaign approved`);
     if (campaigns.length === 0) return { campaign: null, campaignType: "product" };
 
-    // Explicit override từ config
+    // Explicit override từ config — dùng trực tiếp, không ưu tiên theo loại
     if (atCampaignIdOverride) {
       const found = campaigns.find((c) => c.id === atCampaignIdOverride);
       if (found) return { campaign: found, campaignType: (typeMap.get(found.id) ?? "product") as "product" | "tracking" };
@@ -1086,14 +1137,28 @@ export class PlatformSyncService {
 
     // Auto-match: slug hoặc tên slug (dấu gạch ngang → khoảng trắng)
     const slugVariants = [sourceSlug, sourceSlug.replace(/-/g, " ")].map((s) => s.toLowerCase());
-    const matched = campaigns.find((c) => {
+    const allMatched = campaigns.filter((c) => {
       const lower = `${c.name} ${c.merchant}`.toLowerCase();
       return slugVariants.some((v) => lower.includes(v));
     });
 
+    if (allMatched.length === 0) return { campaign: null, campaignType: "product" };
+
+    // Nếu preferTracking: ưu tiên campaign có campaignType="tracking" (Smartlink)
+    // vì /product_link/create chỉ hoạt động đúng với tracking campaign
+    if (preferTracking) {
+      const trackingCampaign = allMatched.find((c) => (typeMap.get(c.id) ?? "") === "tracking");
+      if (trackingCampaign) {
+        this.log.log(`[${sourceSlug}] Dùng tracking campaign "${trackingCampaign.name}" (id=${trackingCampaign.id})`);
+        return { campaign: trackingCampaign, campaignType: "tracking" };
+      }
+      this.log.warn(`[${sourceSlug}] Không tìm thấy tracking campaign — dùng campaign đầu tiên "${allMatched[0].name}" (loại=${typeMap.get(allMatched[0].id) ?? "?"})`);
+    }
+
+    const matched = allMatched[0];
     return {
-      campaign: matched ?? null,
-      campaignType: (matched ? (typeMap.get(matched.id) ?? "product") : "product") as "product" | "tracking",
+      campaign: matched,
+      campaignType: (typeMap.get(matched.id) ?? "product") as "product" | "tracking",
     };
   }
 
@@ -1104,8 +1169,7 @@ export class PlatformSyncService {
     campaignType: "product" | "tracking",
   ): AffiliateStrategy {
     if (config.hasDirectAffiliate) return "direct";
-    // Shopee/Lazada mặc định dùng direct affiliate API của riêng họ
-    if ((sourceSlug === "shopee" || sourceSlug === "lazada") && !config.atCampaignId) return "direct";
+    if (sourceSlug === "lazada" && !config.atCampaignId) return "direct";
     return "at_wrap";
   }
 
@@ -1335,7 +1399,7 @@ export class PlatformSyncService {
     }
 
     // ─── Keyword search: chỉ cho niches không có category ID xác nhận ───
-    const keywords = niche.shopee?.keyword_seeds?.slice(0, 1) ?? [niche.name];
+    const keywords = [niche.name];
 
     let kwBlockedCount = 0;
     for (const keyword of keywords) {
@@ -1454,24 +1518,10 @@ export class PlatformSyncService {
 
 
   async loadActiveNiches(): Promise<NicheConfig[]> {
-    const [rows, shopeeSource] = await Promise.all([
-      this.prisma.category.findMany({
-        where: { status: "active", syncEnabled: true },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      }),
-      this.prisma.syncSource.findFirst({ where: { slug: "shopee", enabled: true } }),
-    ]);
-
-    const shopeeKeywords: Record<string, string[]> =
-      shopeeSource
-        ? ((JSON.parse(shopeeSource.config as string) as Record<string, unknown>).keywords as Record<string, string[]> ?? {})
-        : {};
-
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      status: r.status,
-      shopee: { keyword_seeds: shopeeKeywords[r.id] ?? [] },
-    }));
+    const rows = await this.prisma.category.findMany({
+      where: { status: "active", syncEnabled: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map((r) => ({ id: r.id, name: r.name, status: r.status }));
   }
 }

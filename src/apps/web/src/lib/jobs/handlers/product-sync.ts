@@ -36,9 +36,9 @@ export async function productSyncHandler(config: JobConfig): Promise<JobResult> 
 
   const triggerBody = await triggerRes.json() as { ok: boolean; inProgress?: boolean; startedAt?: string }
 
-  // Already running — return without error so UI shows it gracefully
+  // Already running — treat as failed so UI status reflects "bị block" chứ không phải success
   if (!triggerBody.ok && triggerBody.inProgress) {
-    return { itemsTotal: 0, itemsSuccess: 0, itemsFailed: 0, summary: "Sync đang chạy, vui lòng đợi" }
+    return { itemsTotal: 0, itemsSuccess: 0, itemsFailed: 1, summary: "Sync đang chạy, vui lòng đợi" }
   }
 
   const triggerTime = triggerBody.startedAt ? new Date(triggerBody.startedAt).getTime() : Date.now()

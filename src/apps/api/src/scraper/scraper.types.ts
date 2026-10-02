@@ -1,5 +1,5 @@
 export interface ScraperSourceConfig {
-  type: "scraper"
+  type: "product-scraper"
   /**
    * Extraction strategy:
    * - "html-selectors"  : CSS selectors on raw HTML (works for simple SSR pages)
@@ -7,7 +7,7 @@ export interface ScraperSourceConfig {
    * - "jsonld-itemlist" : parse JSON-LD <script type="application/ld+json"> with @type=ItemList
    *                       (reliable for sites embedding product schema.org markup)
    */
-  strategy?: "html-selectors" | "nextjs-data" | "jsonld-itemlist"
+  strategy?: "html-selectors" | "nextjs-data" | "jsonld-itemlist" | "haravan-json" | "url-list" | "playwright-dom"
   /** Base delay between page requests (ms). Default: 2000 */
   delayMs?: number
   /** Extra request headers (e.g. Referer, Cookie) */
@@ -82,6 +82,78 @@ export interface ScraperSourceConfig {
    * Example: "kingfoodmart" → matches AT campaign where merchant ≈ "KingFoodMart"
    */
   atMerchantSlug?: string
+
+  // ── playwright-dom strategy ───────────────────────────────────────────────
+  /**
+   * Config cho strategy "playwright-dom" — headless Chromium để bypass WAF/CSR.
+   * Pagination dùng chung `pagination` field (type "offset-param" hoặc "page-param").
+   */
+  playwrightConfig?: {
+    /**
+     * CSS selector để wait trước khi extract — dùng biết trang đã render xong.
+     * Bắt buộc khi không dùng nextjsDataPath; bỏ trống khi dùng nextjsDataPath.
+     */
+    waitForSelector?: string
+    /**
+     * CSS selector của product card container.
+     * Bắt buộc khi không dùng nextjsDataPath; bỏ trống khi dùng nextjsDataPath.
+     */
+    cardSelector?: string
+    /**
+     * Dot-path đến mảng sản phẩm trong `window.__NEXT_DATA__`.
+     * Khi set, strategy extract từ __NEXT_DATA__ thay vì DOM selector.
+     * Ví dụ: "props.pageProps.products"
+     */
+    nextjsDataPath?: string
+    /**
+     * Dot-path đến object pagination trong `window.__NEXT_DATA__`.
+     * Cần có field `count` (tổng sản phẩm) và `viewSize` (per page).
+     * Ví dụ: "props.pageProps.info"
+     */
+    nextjsPaginationPath?: string
+    /**
+     * Field mapping khi dùng nextjsDataPath — dot-path trong mỗi product object.
+     * Ví dụ: { externalId: "id", name: "title", price: "priceData.prices.0.value", imageUrl: "image" }
+     */
+    nextjsFieldMap?: Pick<NextjsFieldMap, "externalId" | "name" | "price" | "imageUrl"> & { url?: string }
+    /** CSS selector của link trong card — href là product URL. Default: "a[href]" */
+    linkSelector?: string
+    /**
+     * Regex (1 capture group) để extract externalId từ product URL.
+     * Ví dụ: "([A-Z0-9]{4,8})\\.html$" → "B75806" từ ".../B75806.html"
+     * Nếu bỏ trống: lấy segment cuối URL trước dấu "."
+     */
+    externalIdPattern?: string
+    /** CSS selector của tên sản phẩm. Default: "[class*='title'], h3, h2, p" */
+    nameSelector?: string
+    /** CSS selector của giá. Default: parse số + "₫" từ innerText của card */
+    priceSelector?: string
+    /** CSS selector của ảnh. Default: "img" */
+    imageSelector?: string
+    /** Thêm milliseconds chờ sau khi trang load (để JS render xong). Default: 0 */
+    waitMs?: number
+    /** Chạy headless (default: true) */
+    headless?: boolean
+  }
+
+  // ── url-list strategy ──────────────────────────────────────────────────────
+  /**
+   * Danh sách URL sản phẩm cố định — dùng với strategy "url-list".
+   * Mỗi entry có thể override nicheSlug và externalId riêng.
+   *
+   * Cần cập nhật thủ công khi:
+   *   - url    : sản phẩm bị discontinued, slug URL thay đổi, hoặc thêm sản phẩm mới
+   *   - externalId : khi SKU/ID sản phẩm thay đổi (tự parse từ URL nếu bỏ trống)
+   *   - nicheSlug  : khi danh mục sản phẩm thay đổi (mặc định = categories[0].nicheSlug)
+   */
+  urlList?: Array<{
+    /** URL trang chi tiết sản phẩm */
+    url: string
+    /** Override ngách sản phẩm — mặc định dùng categories[0].nicheSlug */
+    nicheSlug?: string
+    /** External ID cho upsert — tự parse từ segment cuối URL nếu bỏ trống */
+    externalId?: string
+  }>
 }
 
 /** Field mapping for nextjs-data strategy — all values are dot-paths within each product object */

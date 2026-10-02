@@ -37,7 +37,8 @@ const defaultSettings = {
   twoFA: false,
   cacheEnabled: true,
   footerCategoryLimit: 0,
-  trendingCount: 20,
+  trendingCount: 10,
+  featuredCount: 10,
 }
 
 async function readSettings(): Promise<Record<string, unknown>> {

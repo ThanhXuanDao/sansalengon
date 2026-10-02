@@ -5,6 +5,13 @@ import { verifySessionToken } from "@/lib/auth"
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // DISABLE_ADMIN=true → public-only deploy: block all admin routes + API
+  if (process.env.DISABLE_ADMIN === "true") {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+      return new NextResponse(null, { status: 404 })
+    }
+  }
+
   const response = NextResponse.next({
     request: {
       headers: new Headers({

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const storeJson = storeSetting ? JSON.parse(storeSetting.value) as Record<string, unknown> : {}
   const trendingCount = (typeof storeJson.trendingCount === "number" && storeJson.trendingCount > 0)
     ? storeJson.trendingCount
-    : 20
+    : 10
 
   async function queryWindow(hours: number) {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000)

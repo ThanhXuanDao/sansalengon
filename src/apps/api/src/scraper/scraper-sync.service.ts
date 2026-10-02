@@ -172,7 +172,7 @@ export class ScraperSyncService {
     let affiliateMap = prebuiltAffiliateMap
 
     if (!affiliateMap) {
-      // Tạo AT tracking link cho từng sản phẩm (CPS strategy)
+      // Tạo AT tracking link — batch 20 URLs/request (qua wrapUrls)
       this.log.log(`[${slug}] Tạo AT tracking link cho ${products.length} sản phẩm...`)
       affiliateMap = await this.atCampaignSvc.wrapUrls(
         campaign.id,
@@ -354,15 +354,15 @@ export class ScraperSyncService {
         const product = await this.prisma.product.upsert({
           where: { source_externalId: { source: p.sourceSlug, externalId: p.externalId } },
           update: {
+            name: p.name,
             categoryId: p.nicheSlug,
             price: p.price,
             originalPrice: p.originalPrice ?? null,
             productUrl: p.url,
             affiliateUrl,
             lastSyncedAt: new Date(),
-            isSoldOut: false,
             discountPct,
-            isFeatured: discountPct != null && discountPct >= 40,
+            ...(p.inStock !== undefined && { isSoldOut: !p.inStock }),
             ...(sourceLogoUrl && { sourceLogoUrl }),
             ...(brandId && { brandId }),
             ...(atCampaignId && { atCampaignId }),

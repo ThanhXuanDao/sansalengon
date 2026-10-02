@@ -3,8 +3,6 @@ import { ConfigModule } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 
 // Affiliate API clients
-import { ShopeeAffiliateClient } from "./affiliate/shopee/client";
-import { ShopeeRateLimitGuard } from "./affiliate/shopee/rate-limit-guard";
 import { AccessTradePublisherClient } from "./affiliate/accesstrade/client";
 import { AccessTradeRateLimitGuard } from "./affiliate/accesstrade/rate-limit-guard";
 
@@ -47,10 +45,6 @@ const ObsStubs = [
   controllers: [SyncController],
   providers: [
     ...ObsStubs,
-
-    // Shopee
-    ShopeeRateLimitGuard,
-    ShopeeAffiliateClient,
 
     // AccessTrade
     AccessTradeRateLimitGuard,

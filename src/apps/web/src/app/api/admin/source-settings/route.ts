@@ -6,12 +6,10 @@ import { csrfGuard } from "@/lib/csrf"
 const SETTINGS_KEY = "source_settings"
 
 interface SourceSettings {
-  shopeeMode: "affiliate" | "at"  // "affiliate" = Shopee Affiliate API, "at" = qua AT tracking
-  lazadaMode: "affiliate" | "at"  // "affiliate" = Lazada Affiliate API, "at" = qua AT tracking
+  lazadaMode: "affiliate" | "at"
 }
 
 const defaultSourceSettings: SourceSettings = {
-  shopeeMode: "affiliate",
   lazadaMode: "affiliate",
 }
 
@@ -48,7 +46,6 @@ export async function PUT(request: NextRequest) {
 
   const current = await readSettings()
   const merged: SourceSettings = {
-    shopeeMode: body.shopeeMode !== undefined ? (body.shopeeMode === "at" ? "at" : "affiliate") : current.shopeeMode,
     lazadaMode: body.lazadaMode !== undefined ? (body.lazadaMode === "at" ? "at" : "affiliate") : current.lazadaMode,
   }
 

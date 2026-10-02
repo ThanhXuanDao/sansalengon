@@ -646,6 +646,15 @@ export default function SyncSourcesPage() {
 
   useEffect(() => { void load() }, [load])
 
+  // Poll every 8s while any source shows "running" — covers the case where page
+  // was refreshed mid-sync or the DB status wasn't cleared yet.
+  useEffect(() => {
+    const hasRunning = sources.some((s) => s.lastRunStatus === "running")
+    if (!hasRunning) return
+    const id = setInterval(() => { void load() }, 8_000)
+    return () => clearInterval(id)
+  }, [sources, load])
+
   function patchSource(id: string, patch: Partial<SyncSource>) {
     setSources((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s))
   }

@@ -14,6 +14,8 @@ export async function fetchProducts(
   numberTo?: number,
   q?: string,
   sourceSlugs?: string[],
+  isFeatured?: boolean,
+  isSoldOut?: boolean,
 ): Promise<ProductsResponse> {
   const params = new URLSearchParams()
   if (q) params.set("q", q)
@@ -24,6 +26,8 @@ export async function fetchProducts(
   if (take) params.set("take", String(take))
   if (numberFrom) params.set("numberFrom", String(numberFrom))
   if (numberTo) params.set("numberTo", String(numberTo))
+  if (isFeatured !== undefined) params.set("isFeatured", String(isFeatured))
+  if (isSoldOut !== undefined) params.set("isSoldOut", String(isSoldOut))
 
   const res = await fetch(`/api/products?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch products")

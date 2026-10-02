@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common"
 import { PrismaClient } from "@prisma/client"
 import { AccessTradePublisherClient } from "../affiliate/accesstrade/client"
 import type { AccessTradeCampaign } from "../affiliate/accesstrade/types"
+import { AppLogService } from "./app-log.service"
 
 const AT_TTL_MS = 4 * 60 * 60 * 1000 // 4 giờ
 
@@ -24,7 +25,10 @@ export class AtCampaignService {
   private readonly log = new Logger(AtCampaignService.name)
   private readonly prisma = new PrismaClient()
 
-  constructor(private readonly accesstrade: AccessTradePublisherClient) {}
+  constructor(
+    private readonly accesstrade: AccessTradePublisherClient,
+    private readonly appLog: AppLogService,
+  ) {}
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -52,7 +56,22 @@ export class AtCampaignService {
       this.log.log(`AT campaigns: tải ${apiCampaigns.length} từ AT API`)
     } catch (e: any) {
       this.log.warn(`AT API lỗi: ${e.message} — dùng DB`)
-      return this.readFromDB()
+      void this.appLog.scope("api-sync").warn(
+        `AT API không reachable: ${e.message}`,
+        "at-campaign",
+        { reason, error: e.message, errorCode: (e as any)?.cause?.code ?? null },
+        "system",
+      ).catch(() => {})
+      const fallback = await this.readFromDB()
+      if (fallback.campaigns.length === 0) {
+        void this.appLog.scope("api-sync").error(
+          `AT API lỗi và DB trống — mọi sync sẽ fail "no campaign"`,
+          "at-campaign",
+          { reason, error: e.message },
+          "system",
+        ).catch(() => {})
+      }
+      return fallback
     }
 
     if (apiCampaigns.length > 0) {
@@ -80,20 +99,34 @@ export class AtCampaignService {
     }
   }
 
-  // Wrap nhiều URL — dedup, serial, fallback về raw URL nếu lỗi
+  // Lấy affiliateLink từ banner đầu tiên của campaign (dùng cho lead-campaign khi createTrackingLink thất bại)
+  async getBannerAffiliateLink(campaignId: string): Promise<string | null> {
+    try {
+      const banners = await this.accesstrade.getBanners(campaignId)
+      const link = banners.find((b) => b.affiliateLink)?.affiliateLink ?? null
+      if (link) this.log.log(`[getBannerAffiliateLink] campaign=${campaignId} → ${link}`)
+      return link
+    } catch (e: any) {
+      this.log.warn(`[getBannerAffiliateLink] campaign=${campaignId} — ${e?.message ?? e}`)
+      return null
+    }
+  }
+
+  // Wrap nhiều URL — batch 20 URLs/request, fallback về raw URL nếu lỗi
   async wrapUrls(
     campaignId: string,
     urls: string[],
     subIds?: { sub1?: string; sub2?: string },
   ): Promise<Map<string, string>> {
-    const result = new Map<string, string>()
-    const seen = new Set<string>()
-    for (const url of urls) {
-      if (seen.has(url)) continue
-      seen.add(url)
-      result.set(url, await this.wrapUrl(campaignId, url, subIds))
+    if (urls.length === 0) return new Map()
+    try {
+      return await this.accesstrade.createBatchTrackingLinks({ campaignId, urls, subIds })
+    } catch (e: any) {
+      this.log.warn(`[wrapUrls] campaign=${campaignId} — fallback tất cả: ${e?.message ?? e}`)
+      const result = new Map<string, string>()
+      for (const url of urls) result.set(url, url)
+      return result
     }
-    return result
   }
 
   // Tìm campaign khớp với source slug hoặc atMerchantSlug

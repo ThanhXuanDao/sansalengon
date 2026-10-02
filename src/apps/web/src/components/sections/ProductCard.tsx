@@ -144,13 +144,9 @@ export default function ProductCard({
         <span className="font-bold text-white text-xs leading-none tracking-wide">{sourceLabel(product.source)}</span>
       </div>
       {product.discountPct && product.discountPct > 0 && !isSoldOut && (
-        <div className="absolute top-0 right-0 z-30 w-[50px] h-[50px] pointer-events-none blob-badge-animate" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/blob-bg.webp" alt="" className="absolute inset-0 w-full h-full object-contain" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-sans font-extrabold text-white text-[8px] leading-none">Giảm</span>
-            <span className="font-sans font-extrabold text-white text-sm leading-tight">{product.discountPct}%</span>
-          </div>
+        <div className="absolute top-0 right-0 z-30 w-[50px] h-[50px] pointer-events-none blob-badge-animate flex flex-col items-center justify-center" aria-hidden="true">
+          <span className="font-sans font-extrabold text-white text-[8px] leading-none">Giảm</span>
+          <span className="font-sans font-extrabold text-white text-sm leading-tight">{product.discountPct}%</span>
         </div>
       )}
 

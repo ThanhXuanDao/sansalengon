@@ -111,6 +111,7 @@ export default function AdminCouponsPage() {
 
   // Filters
   const [search, setSearch]               = useState("")
+  const [appliedSearch, setAppliedSearch] = useState("")
   const [platform, setPlatform]           = useState("all")
   const [status, setStatus]               = useState("all")
   const [discountType, setDiscountType]   = useState("all")
@@ -153,7 +154,7 @@ export default function AdminCouponsPage() {
         skip: String(skip),
         sort,
       })
-      if (search)                  p.set("q", search)
+      if (appliedSearch)           p.set("q", appliedSearch)
       if (platform !== "all")      p.set("platform", platform)
       if (status !== "all")        p.set("status", status)
       if (discountType !== "all")  p.set("discountType", discountType)
@@ -169,7 +170,7 @@ export default function AdminCouponsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, search, platform, status, discountType, sort])
+  }, [page, pageSize, appliedSearch, platform, status, discountType, sort])
 
   useEffect(() => { load() }, [load])
 
@@ -313,7 +314,8 @@ export default function AdminCouponsPage() {
       <AdminFilterBar
         search={{
           value: search,
-          onChange: (v) => { setSearch(v); setPage(1) },
+          onChange: (v) => setSearch(v),
+          onSearch: () => { setAppliedSearch(search); setPage(1) },
           placeholder: "Merchant, mã code, mô tả...",
           id: "coupons-search",
         }}
@@ -350,7 +352,7 @@ export default function AdminCouponsPage() {
           </>
         }
         actions={
-          <Button variant="secondary" icon={Search} onClick={() => { setPage(1); load() }}>
+          <Button variant="secondary" icon={Search} onClick={() => { setAppliedSearch(search); setPage(1) }}>
             Tìm
           </Button>
         }

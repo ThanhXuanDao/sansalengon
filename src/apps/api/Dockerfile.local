@@ -1,19 +1,36 @@
-FROM node:20-alpine
+FROM node:20-slim
 
-RUN apk add --no-cache openssl
+# openssl cho Prisma, ca-certificates cho HTTPS, gnupg + wget cho Google Chrome
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    gnupg \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome (real Chrome binary — same TLS fingerprint as users)
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+       > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install dependencies
+# Install npm dependencies (cached riêng để không rebuild khi đổi source)
 COPY src/apps/api/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install --ignore-scripts
 
-# Generate Prisma client using web app's schema
+# Install Playwright browser drivers + system deps (dùng Chrome binary riêng, chỉ cần deps)
+RUN npx playwright install-deps chromium
+
+# Generate Prisma client
 COPY src/apps/web/prisma/schema.prisma ./prisma/schema.prisma
 RUN npx prisma generate
 
-# Copy api source (tsconfig.json, src/, etc.)
+# Copy api source
 COPY src/apps/api/ ./
 
 # Config file

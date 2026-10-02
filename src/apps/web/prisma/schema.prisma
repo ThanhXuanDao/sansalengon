@@ -349,7 +349,6 @@ model AtCampaign {
   brandId        String?
   brand          Brand?   @relation(fields: [brandId], references: [id])
 
-  nicheMatches   AtCampaignNicheMatch[]
   banners        AtCampaignBanner[]
 
   @@index([brandId])
@@ -368,18 +367,6 @@ model AtCampaignBanner {
   campaign      AtCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
-}
-
-model AtCampaignNicheMatch {
-  id         String     @id @default(cuid())
-  campaignId String
-  nicheId    String
-  matchedAt  DateTime   @default(now())
-
-  campaign   AtCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, nicheId])
-  @@index([nicheId])
 }
 
 // ── Website scraper source configs ───────────────────────────

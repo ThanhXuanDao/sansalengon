@@ -156,29 +156,16 @@ function parseShopeeItemData(
 
 /**
  * Fetch qua Shopee item API (/api/v4/item/get).
- *
- * Ưu tiên:
- *   1. SHOPEE_PROXY_URL — proxy forward toàn bộ request (bypass anti-bot)
- *   2. SHOPEE_COOKIES   — session cookie từ browser đã đăng nhập Shopee
- *   3. Không có gì      — gọi thẳng, dễ bị 403
- *
- * Trả về raw item object hoặc throw với .status nếu bị block.
+ * Gọi thẳng — nếu bị 403 caller sẽ fallback sang OG meta tags.
  */
 async function fetchShopeeItemApi(shopId: string, itemId: string): Promise<Record<string, unknown>> {
-  const proxyBase = process.env.SHOPEE_PROXY_URL?.replace(/\/$/, "")
-  const apiUrl = proxyBase
-    ? `${proxyBase}?itemid=${itemId}&shopid=${shopId}`
-    : `https://shopee.vn/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`
-
-  const cookies = process.env.SHOPEE_COOKIES ?? ""
-
+  const apiUrl = `https://shopee.vn/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`
   const res = await fetch(apiUrl, {
     headers: {
       "User-Agent": BROWSER_UA,
       "Referer": "https://shopee.vn/",
       "Accept": "application/json, text/plain, */*",
       "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-      ...(cookies ? { Cookie: cookies } : {}),
     },
     signal: AbortSignal.timeout(15_000),
   })
@@ -251,8 +238,6 @@ async function fetchShopeeItemFromOg(shopId: string, itemId: string): Promise<Fe
  * Chiến lược:
  *   1. Resolve URL → lấy shopId + itemId
  *   2. Thử Shopee item API (đầy đủ: name, price, images, rating, category)
- *      - Dùng SHOPEE_COOKIES nếu có (bypass 403)
- *      - Dùng SHOPEE_PROXY_URL nếu có
  *   3. Nếu API trả 403 → fallback OG meta tags (chỉ có name + image, price=0)
  */
 export async function fetchShopeeProductInfo(affiliateUrl: string): Promise<FetchedProductInfo> {

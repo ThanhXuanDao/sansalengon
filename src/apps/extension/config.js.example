@@ -1,0 +1,6 @@
+// TEMPLATE — copy thành config.js hoặc chạy: node scripts/gen-extension-config.mjs
+// File config.js thật bị gitignore (chứa API_INTERNAL_SECRET)
+self.AFFILIATE_CONFIG = {
+  "apiUrl": "http://localhost:4000",
+  "apiKey": ""
+};

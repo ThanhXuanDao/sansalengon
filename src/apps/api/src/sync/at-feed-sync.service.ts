@@ -162,7 +162,6 @@ export class ATFeedSyncService {
     return { fetched, priceChanges, newDeals, skipped }
   }
 
-  // Auto-match AT campaigns cho niche theo tên/id — kết quả persist vào DB
   private async resolveCampaignIds(niche: NicheConfig): Promise<string[]> {
     const { campaigns } = await this.atCampaignSvc.getCampaigns()
     if (campaigns.length === 0) return []
@@ -176,27 +175,9 @@ export class ATFeedSyncService {
 
     if (matched.length > 0) {
       this.log.log(`[${niche.name}] Matched ${matched.length} campaign(s): ${matched.map((c) => c.name).join(", ")}`)
-      await this.upsertNicheMatchesToDB(niche.id, matched.map((c) => c.id))
     }
 
     return matched.map((c) => c.id)
-  }
-
-  private async upsertNicheMatchesToDB(nicheId: string, campaignIds: string[]): Promise<void> {
-    if (campaignIds.length === 0) return
-    try {
-      await this.prisma.$transaction(
-        campaignIds.map((campaignId) =>
-          this.prisma.atCampaignNicheMatch.upsert({
-            where: { campaignId_nicheId: { campaignId, nicheId } },
-            update: { matchedAt: new Date() },
-            create: { id: `${campaignId}_${nicheId}`, campaignId, nicheId },
-          }),
-        ),
-      )
-    } catch (e: any) {
-      this.log.warn(`Không upsert được niche matches: ${e.message}`)
-    }
   }
 
   async fetchOffersForCampaigns(
@@ -282,12 +263,12 @@ export class ATFeedSyncService {
     return this.prisma.product.upsert({
       where: { source_externalId: { source: offer.source, externalId: offer.externalId } },
       update: {
+        name: offer.name,
         categoryId,
         price: offer.currentPrice,
         originalPrice: offer.originalPrice ?? null,
         affiliateUrl: offer.affiliateUrl,
         lastSyncedAt: new Date(),
-        isSoldOut: false,
       },
       create: {
         source: offer.source,

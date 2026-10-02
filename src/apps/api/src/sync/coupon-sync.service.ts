@@ -119,8 +119,6 @@ export class CouponSyncService {
     }
 
     if (sources === "all" || sources === "platforms") {
-      byPlatform.shopee = await this.syncShopeeVouchers().catch(() => 0);
-      await sleep(3000);
       byPlatform.tiki = await this.syncTikiVouchers().catch(() => 0);
       await sleep(3000);
       byPlatform.lazada = await this.syncLazadaVouchers().catch(() => 0);
@@ -223,42 +221,6 @@ export class CouponSyncService {
     }
   }
 
-  // ── Shopee ─────────────────────────────────────────────────
-  private async syncShopeeVouchers(): Promise<number> {
-    const accessKey = this.cfg.get<string>("SHOPEE_AFFILIATE_API_KEY");
-    if (!accessKey) {
-      this.log.debug("SHOPEE_AFFILIATE_API_KEY not set — skipping Shopee sync");
-      return 0;
-    }
-    try {
-      const res = await fetch("https://affiliate.shopee.vn/api/v1/vouchers?limit=50", {
-        headers: { Authorization: `Bearer ${accessKey}`, "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) {
-        this.log.warn(`Shopee affiliate API ${res.status}`);
-        await this.slog.warn(`Shopee affiliate API lỗi ${res.status}`, SRC, { status: res.status });
-        return 0;
-      }
-      const body = await res.json();
-      const items: any[] = body?.data ?? (Array.isArray(body) ? body : []);
-      let count = 0;
-      for (const item of items) {
-        const v = this.parseShopeeVoucher(item);
-        if (!v) continue;
-        await this.upsertCoupon(this.buildCouponId("shopee", v), v, "shopee");
-        count++;
-      }
-      this.log.log(`[Shopee] ${count} vouchers synced`);
-      await this.slog.info(`Đồng bộ voucher Shopee hoàn tất`, SRC, { count });
-      return count;
-    } catch (e: any) {
-      this.log.warn(`Shopee sync failed: ${e.message}`);
-      await this.slog.error(`Shopee voucher sync thất bại`, SRC, { error: e.message });
-      return 0;
-    }
-  }
-
   // ── Tiki ───────────────────────────────────────────────────
   private async syncTikiVouchers(): Promise<number> {
     const accessKey = this.cfg.get<string>("TIKI_AFFILIATE_API_KEY");
@@ -343,20 +305,6 @@ export class CouponSyncService {
   }
 
   // ── Parsers (unchanged) ────────────────────────────────────
-
-  private parseShopeeVoucher(item: any): RawVoucher | null {
-    try {
-      const code = item.promotionCode ?? item.code ?? null;
-      const description = item.name ?? item.description ?? item.title ?? "";
-      if (!description) return null;
-      const discountValue = Number(item.discountAmount ?? item.discountRate ?? 0);
-      const discountType: "percent" | "fixed" = item.discountType === "FIXED_AMOUNT" || item.discountType === "fixed" ? "fixed" : "percent";
-      const affiliateUrl = item.deeplink ?? item.affiliateLink ?? item.url ?? "https://shopee.vn";
-      const imageUrl = item.bannerImage ?? item.imageUrl ?? item.image ?? item.banner ?? null;
-      const terms = item.usageCondition ?? item.condition ?? item.terms ?? item.termAndCondition ?? null;
-      return { nicheId: null, platform: "shopee", merchant: item.shopName ?? "Shopee", code: code ? String(code).toUpperCase().trim() : null, description: String(description).slice(0, 500), terms: terms ? String(terms).slice(0, 1000) : null, imageUrl: imageUrl ? String(imageUrl) : null, discountValue: Math.abs(discountValue), discountType, minOrderValue: item.minimumOrderPrice ?? item.minSpend ?? null, maxDiscount: item.maxDiscount ?? null, affiliateUrl: String(affiliateUrl), expiresAt: item.endTime ? new Date(Number(item.endTime) * 1000) : null };
-    } catch { return null; }
-  }
 
   private parseTikiVoucher(item: any): RawVoucher | null {
     try {

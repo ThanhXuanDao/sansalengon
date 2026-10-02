@@ -4,6 +4,7 @@ import { Search } from "lucide-react"
 interface SearchConfig {
   value: string
   onChange: (v: string) => void
+  onSearch?: () => void
   placeholder?: string
   id?: string
 }
@@ -36,6 +37,7 @@ export function AdminFilterBar({ search, filters, actions, className = "" }: Adm
               type="text"
               value={search.value}
               onChange={(e) => search.onChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") search.onSearch?.() }}
               placeholder={search.placeholder ?? "Tìm kiếm..."}
               className="w-full border border-[#e5e1d8] bg-white pl-8 pr-3 py-2 font-mono text-[13px] text-[#1a1c1b] placeholder:text-[#906f69] focus:outline-none focus:border-[#b51c00] focus:ring-1 focus:ring-[#b51c00]"
             />

@@ -5,14 +5,19 @@ import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { getProductNumberMap, resolveNumberRangeToIds } from "@/lib/products-numbering"
 import { rateLimit } from "@/lib/rate-limit"
-import Fuse from "fuse.js"
+import { matchesQueryWords, normalizeText } from "@/lib/text"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const featured = searchParams.get("featured") === "true"
   if (featured) {
+    const storeSetting = await prisma.appSetting.findUnique({ where: { key: "store_settings" } })
+    const storeJson = storeSetting ? JSON.parse(storeSetting.value) as Record<string, unknown> : {}
+    const featuredCount = (typeof storeJson.featuredCount === "number" && storeJson.featuredCount > 0)
+      ? storeJson.featuredCount
+      : 10
     const [products, numberMap] = await Promise.all([
-      prisma.product.findMany({ where: { isFeatured: true }, include: { category: true } }),
+      prisma.product.findMany({ where: { isFeatured: true }, take: featuredCount, include: { category: true } }),
       getProductNumberMap(),
     ])
     const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
@@ -81,6 +86,14 @@ export async function GET(request: NextRequest) {
   const numberTo = searchParams.get("numberTo") ? Number(searchParams.get("numberTo")) : undefined
   const hasNumberFilter = numberFrom !== undefined && numberTo !== undefined
 
+  // Admin-only filter params (require auth)
+  const isFeaturedParam = searchParams.get("isFeatured")
+  const isSoldOutParam = searchParams.get("isSoldOut")
+  const hasAdminParams = isFeaturedParam !== null || isSoldOutParam !== null
+  if (hasAdminParams && !(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const categoryWhere: Record<string, unknown> =
     categorySlugs.length === 1
       ? { categoryId: categorySlugs[0] }
@@ -91,8 +104,16 @@ export async function GET(request: NextRequest) {
   if (sourceSlugs.length === 1) categoryWhere.source = sourceSlugs[0]
   else if (sourceSlugs.length > 1) categoryWhere.source = { in: sourceSlugs }
 
-  // Always hide sold-out products on the public API (non-admin path)
-  categoryWhere.isSoldOut = false
+  if (hasAdminParams) {
+    // Admin request: apply explicit filters, don't force isSoldOut
+    if (isFeaturedParam === "true") categoryWhere.isFeatured = true
+    else if (isFeaturedParam === "false") categoryWhere.isFeatured = false
+    if (isSoldOutParam === "true") categoryWhere.isSoldOut = true
+    else if (isSoldOutParam === "false") categoryWhere.isSoldOut = false
+  } else {
+    // Public API: always hide sold-out products
+    categoryWhere.isSoldOut = false
+  }
 
   let orderBy: Prisma.ProductOrderByWithRelationInput[]
   if (sort === "discount_desc") orderBy = [{ discountPct: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }]
@@ -120,19 +141,11 @@ export async function GET(request: NextRequest) {
       orderBy,
     })
 
-    const fuse = new Fuse(allCandidateProducts, {
-      keys: [
-        { name: "name", weight: 0.6 },
-        { name: "category.name", weight: 0.3 },
-        { name: "imageAlt", weight: 0.1 },
-      ],
-      threshold: 0.45,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
+    const queryWords = normalizeText(q.trim()).split(/\s+/).filter(Boolean)
+    const matchedProducts = allCandidateProducts.filter((p) => {
+      const searchText = [p.name, p.category?.name ?? "", p.imageAlt ?? ""].join(" ")
+      return matchesQueryWords(searchText, queryWords)
     })
-
-    const searchResults = fuse.search(q.trim())
-    const matchedProducts = searchResults.map((res) => res.item)
     const total = matchedProducts.length
     const offset = skip ?? 0
     const limit = take !== undefined ? take : total

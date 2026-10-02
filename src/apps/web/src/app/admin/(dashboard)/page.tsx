@@ -181,48 +181,50 @@ export default function AdminDashboard() {
       </div>
 
       {/* Top products */}
-      <section className="bg-white border border-[#e5e1e9] overflow-hidden flex flex-col grow">
-        <div className="p-4 border-b border-[#e5e1e9] bg-[#f4f4f1] flex justify-between items-center">
+      <section className="bg-white border border-[#e5e1e9] flex flex-col">
+        <div className="p-4 border-b border-[#e5e1e9] bg-[#f4f4f1] flex justify-between items-center shrink-0">
           <h3 className="font-sans text-base font-bold text-[#1a1c1b]">Sản phẩm nổi bật</h3>
           <span className="text-xs text-[#5c403a]">Top theo lượt nhấp</span>
         </div>
-        {loading ? (
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-10 bg-[#f4f4f1] animate-pulse rounded" />
-            ))}
-          </div>
-        ) : topProducts.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#e5e1e9] text-xs text-[#5c403a] uppercase">
-                <th className="text-left p-3 font-semibold">Sản phẩm</th>
-                <th className="text-left p-3 font-semibold hidden sm:table-cell">Danh mục</th>
-                <th className="text-right p-3 font-semibold">Lượt nhấp</th>
-                <th className="text-right p-3 font-semibold">Hoa hồng</th>
-                <th className="text-right p-3 font-semibold">Doanh thu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProducts.map((p, i) => (
-                <tr key={p.id} className={`border-b border-dashed border-[#e5e1e9] hover:bg-[#FAFAF7] transition-colors ${i % 2 === 1 ? "bg-[#f9f9f6]" : ""}`}>
-                  <td className="p-3 font-medium text-[#1a1c1b] max-w-[200px] truncate">
-                    <span className="text-xs text-[#5c403a] mr-2">{i + 1}.</span>
-                    {p.name}
-                  </td>
-                  <td className="p-3 text-[#5c403a] hidden sm:table-cell">{p.category}</td>
-                  <td className="p-3 text-right tabular-nums">{p.clicks.toLocaleString("vi-VN")}</td>
-                  <td className="p-3 text-right tabular-nums text-[#b51c00]">{formatPrice(p.commission)}</td>
-                  <td className="p-3 text-right tabular-nums font-bold">{formatPrice(p.revenue)}</td>
-                </tr>
+        <div className="overflow-y-auto max-h-[480px] scrollbar-hide">
+          {loading ? (
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-10 bg-[#f4f4f1] animate-pulse rounded" />
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="py-12 text-center text-sm text-[#5c403a]">
-            Chưa có dữ liệu — sẽ hiển thị sau khi sản phẩm nhận được lượt nhấp
-          </div>
-        )}
+            </div>
+          ) : topProducts.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="border-b border-[#e5e1e9] text-xs text-[#5c403a] uppercase">
+                  <th className="text-left p-3 font-semibold">Sản phẩm</th>
+                  <th className="text-left p-3 font-semibold hidden sm:table-cell">Danh mục</th>
+                  <th className="text-right p-3 font-semibold">Lượt nhấp</th>
+                  <th className="text-right p-3 font-semibold">Hoa hồng</th>
+                  <th className="text-right p-3 font-semibold">Doanh thu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topProducts.map((p, i) => (
+                  <tr key={p.id} className={`border-b border-dashed border-[#e5e1e9] hover:bg-[#FAFAF7] transition-colors ${i % 2 === 1 ? "bg-[#f9f9f6]" : ""}`}>
+                    <td className="p-3 font-medium text-[#1a1c1b] max-w-[200px] truncate">
+                      <span className="text-xs text-[#5c403a] mr-2">{i + 1}.</span>
+                      {p.name}
+                    </td>
+                    <td className="p-3 text-[#5c403a] hidden sm:table-cell">{p.category}</td>
+                    <td className="p-3 text-right tabular-nums">{p.clicks.toLocaleString("vi-VN")}</td>
+                    <td className="p-3 text-right tabular-nums text-[#b51c00]">{formatPrice(p.commission)}</td>
+                    <td className="p-3 text-right tabular-nums font-bold">{formatPrice(p.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-12 text-center text-sm text-[#5c403a]">
+              Chưa có dữ liệu — sẽ hiển thị sau khi sản phẩm nhận được lượt nhấp
+            </div>
+          )}
+        </div>
       </section>
 
     </div>

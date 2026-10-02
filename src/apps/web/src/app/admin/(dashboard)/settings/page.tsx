@@ -40,7 +40,8 @@ const defaultSettings = {
   twoFA: false,
   cacheEnabled: true,
   footerCategoryLimit: 0,
-  trendingCount: 20,
+  trendingCount: 10,
+  featuredCount: 10,
 }
 
 type Settings = typeof defaultSettings
@@ -411,13 +412,24 @@ export default function AdminSettings() {
                   Hiển thị
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <FieldRow label="Số sản phẩm &quot;Đang xem nhiều&quot;" hint="Số lượng sản phẩm hiển thị trong section Trending. Mặc định 20.">
+                  <FieldRow label="Số sản phẩm &quot;Đang xem nhiều&quot;" hint="Số lượng sản phẩm hiển thị trong section Trending. Mặc định 10.">
                     <input
                       type="number"
                       min={1}
                       max={100}
                       value={settings.trendingCount}
-                      onChange={(e) => update("trendingCount", Math.max(1, parseInt(e.target.value) || 20))}
+                      onChange={(e) => update("trendingCount", Math.max(1, parseInt(e.target.value) || 10))}
+                      className={inputCls}
+                      placeholder="20"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Số sản phẩm &quot;Đề xuất hôm nay&quot;" hint="Số lượng sản phẩm hiển thị trong section Đề xuất hôm nay. Mặc định 10.">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={settings.featuredCount}
+                      onChange={(e) => update("featuredCount", Math.max(1, parseInt(e.target.value) || 10))}
                       className={inputCls}
                       placeholder="20"
                     />

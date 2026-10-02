@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
+import { matchesQueryWords, normalizeText } from "@/lib/text"
 
 // GET — list all (active + inactive) for admin
 export async function GET(request: NextRequest) {
@@ -19,17 +20,9 @@ export async function GET(request: NextRequest) {
   const sort         = searchParams.get("sort") || "newest"
 
   const where: Record<string, unknown> = {}
-
-  if (q) {
-    where.OR = [
-      { merchant:    { contains: q, mode: "insensitive" } },
-      { code:        { contains: q, mode: "insensitive" } },
-      { description: { contains: q, mode: "insensitive" } },
-    ]
-  }
-  if (platform)              where.platform     = platform
-  if (status === "active")   where.isActive     = true
-  if (status === "inactive") where.isActive     = false
+  if (platform)               where.platform     = platform
+  if (status === "active")    where.isActive     = true
+  if (status === "inactive")  where.isActive     = false
   if (discountType !== "all") where.discountType = discountType
 
   const orderBy =
@@ -37,10 +30,21 @@ export async function GET(request: NextRequest) {
     sort === "expires" ? [{ expiresAt: "asc"  as const }]     :
                          [{ isActive: "desc" as const }, { createdAt: "desc" as const }]
 
-  const [data, total] = await Promise.all([
-    prisma.coupon.findMany({ where, orderBy, take, skip }),
-    prisma.coupon.count({ where }),
-  ])
+  // Fetch without text filter, apply normalized JS filter for accent-insensitive search
+  const all = await prisma.coupon.findMany({ where, orderBy })
+  const filtered = q
+    ? (() => {
+        const qw = normalizeText(q).split(/\s+/).filter(Boolean)
+        return all.filter((c) =>
+          matchesQueryWords(c.merchant, qw) ||
+          matchesQueryWords(c.code ?? "", qw) ||
+          matchesQueryWords(c.description, qw)
+        )
+      })()
+    : all
+
+  const total = filtered.length
+  const data  = filtered.slice(skip, skip + take)
 
   return NextResponse.json({ data, total })
 }
