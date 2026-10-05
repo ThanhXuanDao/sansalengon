@@ -1,11 +1,12 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Product {
@@ -408,6 +409,25 @@ model NicheIntegration {
 
   @@unique([nicheId, platform])
   @@index([nicheId])
+}
+
+// ── Banner quảng cáo affiliate ───────────────────────────────
+model Banner {
+  id             String    @id @default(cuid())
+  title          String                          // tên nội bộ để phân biệt
+  imageUrl       String                          // external image URL (không lưu về server)
+  destinationUrl String                          // URL đích gốc
+  affiliateUrl   String?                         // URL đã wrap affiliate (dùng để public click)
+  linkMode       String    @default("platform")   // "platform" | "at" | "direct"
+  atCampaignId   String?                         // AT campaign ID khi linkMode="at"
+  position       Int       @default(0)           // thứ tự hiển thị (nhỏ → trước)
+  isActive       Boolean   @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([isActive, position])
 }
 
 // ── Quản lý trang tĩnh (CMS) ────────────────────────────────

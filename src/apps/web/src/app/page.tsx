@@ -15,6 +15,9 @@ import FeaturedSection from "@/components/sections/FeaturedSection"
 const TrendingWidget = dynamic(() => import("@/components/sections/TrendingWidget"), {
   ssr: false,
 })
+const BannerSlider = dynamic(() => import("@/components/sections/BannerSlider"), {
+  ssr: false,
+})
 const ProductGrid = dynamic(() => import("@/components/sections/ProductGrid"), {
   loading: () => <div className="h-96 skeleton-shimmer" />,
 })
@@ -47,8 +50,13 @@ function HomeContent() {
   return (
     <>
 <Navbar onSearch={setQ} searchQuery={q} />
-      <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} />
-      <TrendingWidget onBuyProduct={handleBuyProduct} />
+      {/* <Hero featuredProducts={topRatedProducts} onBuyProduct={handleBuyProduct} isFeaturedLoading={isTopRatedLoading} storeName={settings?.siteName} tagline={settings?.tagline} /> */}
+      {/* <TrendingWidget onBuyProduct={handleBuyProduct} /> */}
+      <div className="w-full bg-white pt-[102px] md:pt-[134px]">
+        <div className="max-w-[1320px] mx-auto px-3 py-3 md:py-4">
+          <BannerSlider />
+        </div>
+      </div>
       <FeaturedSection products={topRatedProducts} isLoading={isTopRatedLoading} onBuyProduct={handleBuyProduct} />
       <div className="w-full bg-white">
       <main id="skip-target" className="flex-grow w-full max-w-[1320px] mx-auto px-3 pt-6 pb-12">

@@ -21,7 +21,9 @@
   // ── URL matchers ─────────────────────────────────────────────────────────────
 
   function isBulkApi(url) {
-    return url.includes('recommend/recommend_v2') || url.includes('search/search_items');
+    return url.includes('recommend/recommend_v2') ||
+           url.includes('search/search_items') ||
+           url.includes('flash_sale/flash_sale_batch_get_items');
   }
 
   function isSingleApi(url) {
@@ -119,6 +121,51 @@
     }
   }
 
+  function parseFlashSaleItems(body) {
+    try {
+      var data = JSON.parse(body);
+      var items = (data && data.data && data.data.items) || [];
+      var products = [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item || !item.itemid || !item.name) continue;
+        if (item.is_soldout) continue; // bỏ qua hết hàng
+
+        var price = Math.round((item.price || 0) / PRICE_DIV);
+        var origPrice = Math.round((item.price_before_discount || 0) / PRICE_DIV);
+        var hist = item.historical_sold || 0;
+        var sold = hist >= 1000
+          ? 'Đã bán ' + Math.floor(hist / 1000) + 'k+'
+          : hist > 0 ? 'Đã bán ' + hist : '';
+        var image = item.image ? IMG_BASE + item.image : '';
+        var images = (item.images || []).filter(Boolean).map(function (h) { return IMG_BASE + h; });
+        var discount = item.raw_discount || (origPrice > price ? Math.round((1 - price / origPrice) * 100) : null);
+
+        products.push({
+          itemId: String(item.itemid),
+          shopId: String(item.shopid || ''),
+          name: item.name,
+          price: price,
+          originalPrice: origPrice > price ? origPrice : null,
+          discountPct: discount,
+          sold: sold,
+          sellerType: item.is_official_shop ? 'MALL' : item.shopee_verified ? 'PREFERRED' : '',
+          image: image,
+          images: images,
+          url: 'https://shopee.vn/product/' + (item.shopid || '') + '/' + item.itemid,
+          rating: (item.item_rating && item.item_rating.rating_star) || null,
+          isFlashSale: true,
+          flashSaleStock: item.flash_sale_stock || null,
+        });
+      }
+      console.log(LOG, 'flash_sale_batch_get_items parsed:', products.length, 'products');
+      return products;
+    } catch (e) {
+      console.warn(LOG, 'parseFlashSaleItems error:', e && e.message);
+      return [];
+    }
+  }
+
   function parseSingleItem(body) {
     try {
       var data = JSON.parse(body);
@@ -194,6 +241,8 @@
         response.clone().text().then(function (body) {
           var products = url.includes('recommend_v2')
             ? parseRecommendV2(body)
+            : url.includes('flash_sale_batch_get_items')
+            ? parseFlashSaleItems(body)
             : parseSearchItems(body);
           emitBulk(products, url);
         }).catch(function () {});
@@ -229,6 +278,8 @@
           if (needsBulk) {
             var products = url.includes('recommend_v2')
               ? parseRecommendV2(this.responseText)
+              : url.includes('flash_sale_batch_get_items')
+              ? parseFlashSaleItems(this.responseText)
               : parseSearchItems(this.responseText);
             emitBulk(products, url);
           } else if (needsSingle) {

@@ -1012,27 +1012,28 @@ export class PlatformSyncService {
         const inferredNiche = inferNicheFromProductName(p.name, SHOPEE_DEFAULT_NICHE_KEYWORDS);
         const categoryId = inferredNiche && nicheIds.has(inferredNiche) ? inferredNiche : defaultNicheId;
 
-        await this.upsertProduct(
-          {
-            externalId,
-            source: "shopee",
-            name: p.name.slice(0, 255),
-            imageUrl: p.image,
-            shopUrl: p.url,
-            affiliateUrl,
-            currentPrice: p.price,
-            originalPrice: p.originalPrice ?? null,
-            discountPct: p.discountPct ?? undefined,
-            commissionRate: 0,
-            rating: p.rating ?? null,
-            categoryId,
-            atCampaignId: campaign?.id,
-          },
+        const fetchedProduct: FetchedProduct = {
+          externalId,
+          source: "shopee",
+          name: p.name.slice(0, 255),
+          imageUrl: p.image,
+          shopUrl: p.url,
+          affiliateUrl,
+          currentPrice: p.price,
+          originalPrice: p.originalPrice ?? null,
+          discountPct: p.discountPct ?? undefined,
+          commissionRate: 0,
+          rating: p.rating ?? null,
           categoryId,
-          null,
-          null,
-          campaign?.id ?? null,
-        );
+          atCampaignId: campaign?.id,
+        };
+        await this.upsertProduct(fetchedProduct, categoryId, null, null, campaign?.id ?? null);
+        if (p.isFlashSale) {
+          await this.prisma.product.updateMany({
+            where: { source: "shopee", externalId },
+            data: { isFeatured: true },
+          });
+        }
         saved++;
       } catch (e: any) {
         const label = `${p.name.slice(0, 30)} (${p.itemId})`;
