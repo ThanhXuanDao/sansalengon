@@ -34,6 +34,8 @@ export interface ExtensionProduct {
   images: string[]
   url: string            // shopee.vn product URL
   rating: number | null  // item_rating.rating_star (0–5)
+  isFlashSale?: boolean  // true khi capture từ flash_sale_batch_get_items
+  flashSaleStock?: number | null  // số lượng flash sale còn lại
 }
 
 export type SyncSourceType = "platform-sync" | "product-scraper" | "graphql-sync" | "coupon-scraper" | "offer-sync" | "lead-campaign"

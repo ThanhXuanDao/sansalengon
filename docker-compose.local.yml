@@ -1,40 +1,20 @@
 # Docker Compose cho LOCAL DEVELOPMENT / TEST
 # Dùng: docker compose -f docker-compose.local.yml up --build
-# Không dùng cho production (không có nginx, không có SSL)
+# Database: Supabase (production DB)
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: affiliate
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: affiliate
-    ports:
-      - "5433:5432"   # 5433 để tránh xung đột nếu máy đã có postgres local
-    volumes:
-      - pgdata_local:/var/lib/postgresql/data
-      - ./src/apps/web/prisma/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U affiliate"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: .
       dockerfile: src/apps/api/Dockerfile.local
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file: .env.local
     environment:
-      DATABASE_URL: postgresql://affiliate:secret@postgres:5432/affiliate
+      DATABASE_URL: postgresql://postgres.xcdvskkygvlqfezwacud:Sansalengon@804088@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+      DIRECT_URL: postgresql://postgres.xcdvskkygvlqfezwacud:Sansalengon@804088@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
       NODE_ENV: production
       PORT: 4000
-      WEB_URL: http://web:3000   # CORS — web container
+      WEB_URL: http://web:3000
     ports:
       - "4000:4000"
 
@@ -44,23 +24,17 @@ services:
       dockerfile: Dockerfile.local
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
-      api:
-        condition: service_started
+      - api
     env_file: .env.local
     environment:
-      DATABASE_URL: postgresql://affiliate:secret@postgres:5432/affiliate
+      DATABASE_URL: postgresql://postgres.xcdvskkygvlqfezwacud:Sansalengon@804088@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+      DIRECT_URL: postgresql://postgres.xcdvskkygvlqfezwacud:Sansalengon@804088@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       WEB_URL: http://localhost:3000
       NODE_ENV: production
       PORT: 3000
-      # Trong Docker, web container gọi api qua tên service (không phải localhost)
       API_URL: http://api:4000
     ports:
       - "3000:3000"
     volumes:
       - ./src/apps/web/public:/app/public
-
-volumes:
-  pgdata_local:

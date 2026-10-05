@@ -1,12 +1,49 @@
-/refs
-/src/apps/api/node_modules
-/src/apps/api/dist
-/src/apps/web/.next
-/src/apps/web/node_modules
-/src/node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 
-# Docker local env — chứa secrets, không commit
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Environment files — KHÔNG BAO GIỜ commit
+.env
 .env.local
+.env.*.local
+.env.production
+.env.supabase
 
-# Extension config — generated từ .env.local bởi scripts/gen-extension-config.mjs
-src/apps/extension/config.js
+# Prisma
+src/apps/web/prisma/migrations/
+*.sql
+
+# Docker volumes
+pgdata_local/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Vercel
+.vercel/
+
+# Prisma generated (regenerated at build time)
+src/apps/web/node_modules/
+src/apps/api/node_modules/
+src/apps/api/dist/
