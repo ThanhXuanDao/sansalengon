@@ -21,5 +21,7 @@ export async function GET(request: NextRequest) {
 
   const data = filtered.map(({ config: _, ...rest }) => rest)
 
-  return NextResponse.json({ data })
+  return NextResponse.json({ data }, {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
+  })
 }

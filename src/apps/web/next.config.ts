@@ -3,7 +3,10 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   // Cần cho Docker build (Dockerfile.local dùng .next/standalone)
   output: process.env.DOCKER_BUILD === "1" ? "standalone" : undefined,
+  poweredByHeader: false,
   images: {
+    minimumCacheTTL: 86400, // 24h — product images rarely change
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       // Shopee
       { protocol: "https", hostname: "*.img.susercontent.com" },
@@ -26,14 +29,19 @@ const nextConfig: NextConfig = {
       // Con Cưng
       { protocol: "https", hostname: "*.concung.com" },
       { protocol: "https", hostname: "concung.com" },
-      // Dev / placeholder
-      { protocol: "https", hostname: "picsum.photos" },
+      // External assets
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
   async headers() {
     return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
       {
         source: "/:path*",
         headers: [

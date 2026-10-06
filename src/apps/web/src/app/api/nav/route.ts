@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getNavPagesDb } from "@/lib/static-pages-db"
 
-export const dynamic = "force-dynamic"
-
 async function isCacheEnabled(): Promise<boolean> {
   try {
     const row = await prisma.appSetting.findUnique({ where: { key: "store_settings" } })

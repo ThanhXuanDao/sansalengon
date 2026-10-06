@@ -4,24 +4,29 @@ import type { Prisma } from "@prisma/client"
 import { checkAuth } from "@/lib/auth"
 import { csrfGuard } from "@/lib/csrf"
 import { getProductNumberMap, resolveNumberRangeToIds } from "@/lib/products-numbering"
+import { getSiteSettings } from "@/lib/get-site-settings"
 import { rateLimit } from "@/lib/rate-limit"
 import { matchesQueryWords, normalizeText } from "@/lib/text"
+
+const PUBLIC_CACHE = "public, s-maxage=30, stale-while-revalidate=15"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const featured = searchParams.get("featured") === "true"
   if (featured) {
-    const storeSetting = await prisma.appSetting.findUnique({ where: { key: "store_settings" } })
-    const storeJson = storeSetting ? JSON.parse(storeSetting.value) as Record<string, unknown> : {}
-    const featuredCount = (typeof storeJson.featuredCount === "number" && storeJson.featuredCount > 0)
-      ? storeJson.featuredCount
+    const s = await getSiteSettings()
+    const storeExtra = s as unknown as Record<string, unknown>
+    const featuredCount = (typeof storeExtra.featuredCount === "number" && storeExtra.featuredCount > 0)
+      ? storeExtra.featuredCount
       : 10
     const [products, numberMap] = await Promise.all([
       prisma.product.findMany({ where: { isFeatured: true }, take: featuredCount, include: { category: true } }),
       getProductNumberMap(),
     ])
     const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
-    return NextResponse.json({ data, total: products.length })
+    return NextResponse.json({ data, total: products.length }, {
+      headers: { "Cache-Control": PUBLIC_CACHE },
+    })
   }
 
   const topDiscount = searchParams.get("topDiscount") === "true"
@@ -37,7 +42,9 @@ export async function GET(request: NextRequest) {
       getProductNumberMap(),
     ])
     const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
-    return NextResponse.json({ data, total: data.length })
+    return NextResponse.json({ data, total: data.length }, {
+      headers: { "Cache-Control": PUBLIC_CACHE },
+    })
   }
 
   const mostClicked = searchParams.get("mostClicked") === "true"
@@ -50,7 +57,9 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
     if (clickCounts.length === 0) {
-      return NextResponse.json({ data: [], total: 0 })
+      return NextResponse.json({ data: [], total: 0 }, {
+        headers: { "Cache-Control": PUBLIC_CACHE },
+      })
     }
     const productIds = clickCounts.map((c) => c.productId)
     const [products, numberMap] = await Promise.all([
@@ -65,7 +74,9 @@ export async function GET(request: NextRequest) {
       .map((id) => productMap.get(id))
       .filter(Boolean)
       .map((p) => ({ ...p!, number: numberMap.get(p!.id) ?? 0 }))
-    return NextResponse.json({ data, total: data.length })
+    return NextResponse.json({ data, total: data.length }, {
+      headers: { "Cache-Control": PUBLIC_CACHE },
+    })
   }
 
   const q = searchParams.get("q")
@@ -156,7 +167,8 @@ export async function GET(request: NextRequest) {
       number: numberMap.get(p.id) ?? 0,
     }))
 
-    return NextResponse.json({ data, total })
+    const opts = hasAdminParams ? {} : { headers: { "Cache-Control": PUBLIC_CACHE } }
+    return NextResponse.json({ data, total }, opts)
   }
 
   let where: Record<string, unknown> = { ...categoryWhere }
@@ -178,7 +190,8 @@ export async function GET(request: NextRequest) {
       ...p,
       number: numberMap.get(p.id) ?? 0,
     }))
-    return NextResponse.json({ data, total })
+    const opts = hasAdminParams ? {} : { headers: { "Cache-Control": PUBLIC_CACHE } }
+    return NextResponse.json({ data, total }, opts)
   }
 
   const [numberMap, products, total] = await Promise.all([
@@ -198,7 +211,8 @@ export async function GET(request: NextRequest) {
     number: numberMap.get(p.id) ?? 0,
   }))
 
-  return NextResponse.json({ data, total })
+  const opts = hasAdminParams ? {} : { headers: { "Cache-Control": PUBLIC_CACHE } }
+  return NextResponse.json({ data, total }, opts)
 }
 
 export async function POST(request: NextRequest) {

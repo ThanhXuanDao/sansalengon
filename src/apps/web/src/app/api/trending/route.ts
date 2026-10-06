@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-export const revalidate = 0 // always fresh
+export const revalidate = 60
 
 // GET /api/trending?window=1h|24h — products being clicked right now
 // Tries 1h window first; if fewer than 3 results, falls back to 24h

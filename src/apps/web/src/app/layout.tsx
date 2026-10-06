@@ -66,9 +66,6 @@ export default async function RootLayout({
   return (
     <html lang="vi" className={beVietnamPro.variable}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://picsum.photos" />
-        <link rel="dns-prefetch" href="https://picsum.photos" />
         <meta name="color-scheme" content="light" />
         <meta name="theme-color" content="#FAFAF7" />
         {s.favicon && <link rel="icon" href={s.favicon} />}
@@ -76,7 +73,7 @@ export default async function RootLayout({
           {JSON.stringify({
             prerender: [{
               where: { href_matches: "/*" },
-              eagerness: "moderate"
+              eagerness: "conservative"
             }]
           })}
         </script>
@@ -105,7 +102,7 @@ export default async function RootLayout({
         {/* GTM + GA4 — client component checks pathname to skip on /admin */}
         <AnalyticsScripts gtmId={s.gtmId || undefined} ga4Id={s.ga4Id || undefined} />
 
-        <Script id="schema-breadcrumb" type="application/ld+json" strategy="beforeInteractive">
+        <Script id="schema-breadcrumb" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
@@ -116,7 +113,7 @@ export default async function RootLayout({
             ],
           })}
         </Script>
-        <Script id="schema-structured-data" type="application/ld+json" strategy="beforeInteractive">
+        <Script id="schema-structured-data" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebSite",

@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 
 const SETTINGS_KEY = "store_settings"
@@ -62,7 +63,9 @@ const defaults: SiteSettings = {
   showErrors: false,
 }
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+// cache() deduplicates calls within a single request — generateMetadata + layout
+// both call getSiteSettings but only 1 DB query fires per page render.
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
     const row = await prisma.appSetting.findUnique({ where: { key: SETTINGS_KEY } })
     if (!row) return { ...defaults }
@@ -70,4 +73,4 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   } catch {
     return { ...defaults }
   }
-}
+})

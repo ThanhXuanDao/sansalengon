@@ -30,5 +30,7 @@ export async function GET() {
     },
   })
 
-  return NextResponse.json({ data: banners })
+  return NextResponse.json({ data: banners }, {
+    headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=30" },
+  })
 }
