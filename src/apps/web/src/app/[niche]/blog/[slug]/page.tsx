@@ -21,15 +21,8 @@ interface Props {
   params: Promise<{ niche: string; slug: string }>
 }
 
-export async function generateStaticParams() {
-  try {
-    const { getAllPostsDb } = await import("@/lib/blog-db")
-    const posts = await getAllPostsDb()
-    return posts.map((p) => ({ niche: p.niche, slug: p.slug }))
-  } catch {
-    return []
-  }
-}
+export const revalidate = 3600
+export const dynamicParams = true
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const NICHES = await getActiveNiches()

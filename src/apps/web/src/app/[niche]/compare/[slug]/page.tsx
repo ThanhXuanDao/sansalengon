@@ -17,25 +17,7 @@ const Footer = dynamic(() => import("@/components/layout/Footer"))
 const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.com").replace(/\/$/, "")
 
 export const revalidate = 1800
-
-export async function generateStaticParams() {
-  try {
-    const [products, niches] = await Promise.all([
-      prisma.product.findMany({
-        select: { id: true, categoryId: true, category: { select: { id: true } } },
-      }),
-      getActiveNiches(),
-    ])
-    const params: { niche: string; slug: string }[] = []
-    for (const p of products) {
-      const niche = niches.find((n) => n.categorySlug === p.category.id)
-      if (niche) params.push({ niche: niche.id, slug: p.id })
-    }
-    return params
-  } catch {
-    return []
-  }
-}
+export const dynamicParams = true
 
 export async function generateMetadata(
   { params }: { params: Promise<{ niche: string; slug: string }> },
