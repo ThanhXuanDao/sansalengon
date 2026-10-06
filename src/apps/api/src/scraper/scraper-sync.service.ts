@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, Prisma } from "@prisma/client"
 import type { Trigger } from "../shared/app-log.service"
 import { AppLogService } from "../shared/app-log.service"
 import { AtCampaignService } from "../shared/at-campaign.service"
@@ -322,6 +322,10 @@ export class ScraperSyncService {
   }
 
   // ── DB upsert: nơi DUY NHẤT ghi sản phẩm vào DB ────────────────────────────
+  //
+  // Dùng batch INSERT ... ON CONFLICT DO UPDATE để tối thiểu round-trips tới Supabase.
+  // 120 sản phẩm = 3 queries (findMany + 1 INSERT batch + createMany price history)
+  // thay vì 120+ queries tuần tự trước đó.
 
   private async upsertProducts(
     products: ScrapedProduct[],
@@ -332,81 +336,88 @@ export class ScraperSyncService {
   ): Promise<{ saved: number; skipped: number }> {
     const valid = products.filter((p) => p.name && p.price > 0 && p.url)
     const invalidCount = products.length - valid.length
+    if (valid.length === 0) return { saved: 0, skipped: invalidCount }
 
-    // Load giá hiện tại trong DB để phát hiện thay đổi — single query trước loop
+    // Load giá hiện tại để phát hiện thay đổi — 1 query
     const existing = await this.prisma.product.findMany({
       where: { OR: valid.map((p) => ({ source: p.sourceSlug, externalId: p.externalId })) },
-      select: { id: true, source: true, externalId: true, price: true },
+      select: { source: true, externalId: true, price: true },
     })
     const lastPriceMap = new Map(existing.map((p) => [`${p.source}:${p.externalId}`, p.price]))
+    const validMap = new Map(valid.map((p) => [`${p.sourceSlug}:${p.externalId}`, p]))
 
-    let saved = 0
+    const now = new Date()
+    const CHUNK = 100
+    const allUpserted: { id: string; source: string; externalId: string }[] = []
     let skipped = invalidCount
-    const priceHistoryBatch: { productId: string; price: number }[] = []
 
-    for (const p of valid) {
-      const affiliateUrl = affiliateMap?.get(p.url) ?? p.url
-      const discountPct = (p.originalPrice && p.originalPrice > p.price)
-        ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
-        : null
-
+    for (let i = 0; i < valid.length; i += CHUNK) {
+      const chunk = valid.slice(i, i + CHUNK)
       try {
-        const product = await this.prisma.product.upsert({
-          where: { source_externalId: { source: p.sourceSlug, externalId: p.externalId } },
-          update: {
-            name: p.name,
-            categoryId: p.nicheSlug,
-            price: p.price,
-            originalPrice: p.originalPrice ?? null,
-            productUrl: p.url,
-            affiliateUrl,
-            lastSyncedAt: new Date(),
-            discountPct,
-            ...(p.inStock !== undefined && { isSoldOut: !p.inStock }),
-            ...(sourceLogoUrl && { sourceLogoUrl }),
-            ...(brandId && { brandId }),
-            ...(atCampaignId && { atCampaignId }),
-          },
-          create: {
-            source: p.sourceSlug,
-            externalId: p.externalId,
-            name: p.name,
-            imageUrl: p.imageUrl,
-            imageAlt: p.name,
-            productUrl: p.url,
-            affiliateUrl,
-            price: p.price,
-            originalPrice: p.originalPrice ?? null,
-            commission: 0,
-            rating: 0,
-            categoryId: p.nicheSlug,
-            sourceLogoUrl,
-            discountPct,
-            isFeatured: discountPct != null && discountPct >= 40,
-            ...(brandId && { brandId }),
-            ...(atCampaignId && { atCampaignId }),
-          },
-          select: { id: true },
+        const rows = chunk.map((p) => {
+          const affiliateUrl = affiliateMap?.get(p.url) ?? p.url
+          const discountPct = (p.originalPrice && p.originalPrice > p.price)
+            ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
+            : null
+          const isSoldOut = p.inStock !== undefined ? !p.inStock : false
+          return Prisma.sql`(
+            ${p.sourceSlug}, ${p.externalId}, ${p.name.slice(0, 255)},
+            ${p.imageUrl}, ${p.name.slice(0, 255)}, ${p.url}, ${affiliateUrl},
+            ${p.price}, ${p.originalPrice ?? null}, ${0}, ${0},
+            ${p.nicheSlug}, ${sourceLogoUrl}, ${discountPct},
+            ${discountPct != null && discountPct >= 40}, ${isSoldOut},
+            ${brandId}, ${atCampaignId}, ${now}
+          )`
         })
 
-        const lastPrice = lastPriceMap.get(`${p.sourceSlug}:${p.externalId}`)
-        if (lastPrice !== p.price) {
-          priceHistoryBatch.push({ productId: product.id, price: p.price })
-        }
-
-        saved++
+        // 1 round-trip cho toàn bộ chunk — ON CONFLICT DO UPDATE thay thế loop upsert
+        const upserted = await this.prisma.$queryRaw<{ id: string; source: string; externalId: string }[]>`
+          INSERT INTO "Product" (
+            source, "externalId", name, "imageUrl", "imageAlt", "productUrl", "affiliateUrl",
+            price, "originalPrice", commission, rating, "categoryId", "sourceLogoUrl",
+            "discountPct", "isFeatured", "isSoldOut", "brandId", "atCampaignId", "createdAt"
+          )
+          VALUES ${Prisma.join(rows)}
+          ON CONFLICT (source, "externalId") DO UPDATE SET
+            name            = EXCLUDED.name,
+            "categoryId"    = EXCLUDED."categoryId",
+            price           = EXCLUDED.price,
+            "originalPrice" = EXCLUDED."originalPrice",
+            "productUrl"    = EXCLUDED."productUrl",
+            "affiliateUrl"  = EXCLUDED."affiliateUrl",
+            "lastSyncedAt"  = NOW(),
+            "discountPct"   = EXCLUDED."discountPct",
+            "isSoldOut"     = EXCLUDED."isSoldOut",
+            "sourceLogoUrl" = COALESCE(EXCLUDED."sourceLogoUrl", "Product"."sourceLogoUrl"),
+            "brandId"       = COALESCE(EXCLUDED."brandId",       "Product"."brandId"),
+            "atCampaignId"  = COALESCE(EXCLUDED."atCampaignId",  "Product"."atCampaignId")
+          RETURNING id, source, "externalId"
+        `
+        allUpserted.push(...upserted)
       } catch (e: any) {
-        this.log.warn(`[Scraper] Upsert failed (${p.sourceSlug}/${p.externalId}): ${e.message}`)
-        skipped++
+        this.log.warn(`[Scraper] Batch upsert chunk ${Math.floor(i / CHUNK) + 1} thất bại: ${e.message}`)
+        skipped += chunk.length
       }
     }
+
+    // Batch price history — 1 query
+    const priceHistoryBatch = allUpserted
+      .filter((u) => {
+        const lastPrice = lastPriceMap.get(`${u.source}:${u.externalId}`)
+        const newPrice = validMap.get(`${u.source}:${u.externalId}`)?.price
+        return newPrice !== undefined && lastPrice !== newPrice
+      })
+      .map((u) => ({
+        productId: u.id,
+        price: validMap.get(`${u.source}:${u.externalId}`)!.price,
+      }))
 
     if (priceHistoryBatch.length > 0) {
       await this.prisma.priceHistory.createMany({ data: priceHistoryBatch })
       this.log.log(`[Scraper] PriceHistory: ${priceHistoryBatch.length} thay đổi giá ghi nhận`)
     }
 
-    return { saved, skipped }
+    return { saved: allUpserted.length, skipped }
   }
 
   // ── AT campaign loader: DB-first 4h TTL ─────────────────────────────────────

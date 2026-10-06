@@ -968,6 +968,21 @@ async function main() {
     console.log(`  ✓ AppSetting: ${setting.key} = ${setting.value}`)
   }
 
+  // Enable Row Level Security on all tables — service role bypasses RLS automatically,
+  // so this has no effect on Prisma queries but blocks anon/authenticated roles.
+  const RLS_TABLES = [
+    "Product", "PriceHistory", "Platform", "PlatformProduct", "ProductMatch",
+    "Niche", "ClickLog", "AppSetting", "ProductEmbedding", "Feedback", "Coupon",
+    "BroadcastLog", "AppLog", "RateLimit", "SyncJob", "SyncJobRun",
+    "BlogPost", "Brand", "AtCampaign", "AtCampaignBanner", "SyncSource",
+    "NicheIntegration", "Banner", "StaticPage",
+  ]
+  console.log(`Enabling RLS on ${RLS_TABLES.length} tables...`)
+  for (const table of RLS_TABLES) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`)
+    console.log(`  ✓ RLS enabled: ${table}`)
+  }
+
   console.log("Seed done.")
 }
 

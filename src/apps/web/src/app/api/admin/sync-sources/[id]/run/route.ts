@@ -8,6 +8,39 @@ import { couponSyncPlatformHandler } from "@/lib/jobs/handlers/coupon-sync-platf
 import { leadSyncHandler } from "@/lib/jobs/handlers/lead-sync"
 import { getSyncHandlerType } from "@/lib/sync-source-utils"
 
+// Reset a stuck "running" source back to "failed"
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const csrf = await csrfGuard(request)
+  if (csrf) return csrf
+
+  const { id } = await params
+
+  const source = await prisma.syncSource.findUnique({ where: { id } })
+  if (!source) return NextResponse.json({ error: "Không tìm thấy nguồn" }, { status: 404 })
+  if (source.lastRunStatus !== "running") {
+    return NextResponse.json({ error: "Nguồn không ở trạng thái đang chạy" }, { status: 400 })
+  }
+
+  await prisma.syncSource.update({
+    where: { id },
+    data: { lastRunStatus: "failed" },
+  })
+
+  // Also close any stuck SyncJobRun for this source
+  await prisma.syncJobRun.updateMany({
+    where: { status: "running", source: source.slug },
+    data: { status: "failed", finishedAt: new Date(), summary: "Dừng thủ công bởi admin" },
+  })
+
+  return NextResponse.json({ ok: true })
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

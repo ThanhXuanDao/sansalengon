@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   const topProductDetails = topProductIds.length > 0
     ? await prisma.product.findMany({
         where: { id: { in: topProductIds } },
-        include: { category: true },
+        include: { category: { select: { id: true, name: true } } },
       })
     : []
 

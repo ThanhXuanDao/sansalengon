@@ -36,6 +36,11 @@ model Product {
   @@unique([source, externalId], map: "Product_source_externalId_key")
   @@index([brandId])
   @@index([atCampaignId])
+  @@index([isSoldOut, createdAt(sort: Desc)])
+  @@index([isSoldOut, discountPct(sort: Desc, nulls: Last)])
+  @@index([categoryId, isSoldOut])
+  @@index([source, isSoldOut])
+  @@index([isFeatured])
   clicks           ClickLog[]
   priceHistory     PriceHistory[]
   platformProducts PlatformProduct[]
@@ -282,6 +287,8 @@ model SyncJobRun {
 
   @@index([jobId, startedAt(sort: Desc)])
   @@index([startedAt(sort: Desc)])
+  @@index([jobId, status, source])
+  @@index([status, source])
 }
 
 // ── Blog posts ──────────────────────────────────────────────

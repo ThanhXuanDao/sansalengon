@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   Plus, Pencil, Trash2, Loader2, X, Globe, ToggleLeft, ToggleRight,
-  Play, Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight,
+  Play, Square, Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight,
   CalendarClock, History,
 } from "lucide-react"
 import AdminPageShell from "@/components/admin/AdminPageShell"
@@ -82,13 +82,25 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)} ngày trước`
 }
 
-function StatusBadge({ status }: { status: string | null }) {
+const STUCK_THRESHOLD_MS = 30 * 60 * 1000 // 30 phút
+
+function StatusBadge({ status, lastRunAt }: { status: string | null; lastRunAt?: string | null }) {
   if (!status) return <span className="font-mono text-[11px] text-[#906f69]">Chưa chạy</span>
-  if (status === "running") return (
-    <span className="flex items-center gap-1 font-mono text-[11px] text-[#1a4a7c]">
-      <Loader2 className="size-3 animate-spin" /> Đang chạy...
-    </span>
-  )
+  if (status === "running") {
+    const isStuck = lastRunAt
+      ? Date.now() - new Date(lastRunAt).getTime() > STUCK_THRESHOLD_MS
+      : false
+    if (isStuck) return (
+      <span className="flex items-center gap-1 font-mono text-[11px] text-[#7c5a00]">
+        <AlertCircle className="size-3" /> Có thể bị treo
+      </span>
+    )
+    return (
+      <span className="flex items-center gap-1 font-mono text-[11px] text-[#1a4a7c]">
+        <Loader2 className="size-3 animate-spin" /> Đang chạy...
+      </span>
+    )
+  }
   if (status === "success") return (
     <span className="flex items-center gap-1 font-mono text-[11px] text-[#1a6b3c]">
       <CheckCircle2 className="size-3" /> Thành công
@@ -425,6 +437,7 @@ function SourceRow({
   const [expanded, setExpanded] = useState(false)
   const [panel, setPanel] = useState<"schedule" | "history">("schedule")
   const [running, setRunning] = useState(false)
+  const [stopping, setStopping] = useState(false)
   const [runSummary, setRunSummary] = useState<string | null>(null)
   const { success: toastSuccess, error: toastError } = useToast()
 
@@ -458,6 +471,25 @@ function SourceRow({
     } finally {
       setRunning(false)
     }
+  }
+
+  async function handleStop() {
+    setStopping(true)
+    await ensureCsrfToken()
+    try {
+      const res = await fetch(`/api/admin/sync-sources/${source.id}/run`, {
+        method: "DELETE",
+        headers: { "x-csrf-token": getCsrfToken() },
+      })
+      if (!res.ok) {
+        const d = await res.json() as { error?: string }
+        toastError(d.error ?? "Lỗi dừng job")
+      } else {
+        toastSuccess(`Đã dừng "${source.name}"`)
+        onRunDone({ lastRunStatus: "failed" })
+      }
+    } catch { toastError("Lỗi kết nối") }
+    finally { setStopping(false) }
   }
 
   function togglePanel(p: "schedule" | "history") {
@@ -517,7 +549,10 @@ function SourceRow({
         </td>
         {/* Lần chạy cuối */}
         <td className="py-3 px-4 align-middle">
-          <StatusBadge status={running ? "running" : (source.lastRunStatus ?? null)} />
+          <StatusBadge
+            status={running ? "running" : (source.lastRunStatus ?? null)}
+            lastRunAt={running ? new Date().toISOString() : source.lastRunAt}
+          />
           {source.lastRunAt && !running && (
             <p className="font-mono text-[10px] text-[#906f69] mt-0.5">{timeAgo(source.lastRunAt)}</p>
           )}
@@ -535,9 +570,28 @@ function SourceRow({
         {/* Thao tác */}
         <td className="py-3 px-4 align-middle">
           <div className="flex items-center gap-1 justify-end">
+            {source.lastRunStatus === "running" && !running && (() => {
+              const isStuck = source.lastRunAt
+                ? Date.now() - new Date(source.lastRunAt).getTime() > STUCK_THRESHOLD_MS
+                : true
+              return (
+                <button
+                  onClick={handleStop}
+                  disabled={stopping}
+                  title={isStuck ? "Job bị treo — bấm để dừng" : "Dừng job đang chạy"}
+                  className={`p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${
+                    isStuck
+                      ? "bg-[#fdf5e0] hover:bg-[#ffdad6] text-[#ba1a1a] ring-1 ring-[#f0d080]"
+                      : "hover:bg-[#ffdad6] text-[#ba1a1a]"
+                  }`}
+                >
+                  {stopping ? <Loader2 className="size-3.5 animate-spin" /> : <Square className="size-3.5 fill-current" />}
+                </button>
+              )
+            })()}
             <button
               onClick={handleRun}
-              disabled={running || !source.enabled}
+              disabled={running || !source.enabled || source.lastRunStatus === "running"}
               title="Chạy ngay"
               className="p-1.5 rounded hover:bg-[#d4f4e0] text-[#1a6b3c] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >

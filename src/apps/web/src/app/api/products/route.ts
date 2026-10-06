@@ -6,7 +6,7 @@ import { csrfGuard } from "@/lib/csrf"
 import { getProductNumberMap, resolveNumberRangeToIds } from "@/lib/products-numbering"
 import { getSiteSettings } from "@/lib/get-site-settings"
 import { rateLimit } from "@/lib/rate-limit"
-import { matchesQueryWords, normalizeText } from "@/lib/text"
+import { normalizeText } from "@/lib/text"
 
 const PUBLIC_CACHE = "public, s-maxage=30, stale-while-revalidate=15"
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       ? storeExtra.featuredCount
       : 10
     const [products, numberMap] = await Promise.all([
-      prisma.product.findMany({ where: { isFeatured: true }, take: featuredCount, include: { category: true } }),
+      prisma.product.findMany({ where: { isFeatured: true }, take: featuredCount, include: { category: { select: { id: true, name: true } } } }),
       getProductNumberMap(),
     ])
     const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         where: { discountPct: { gt: 0 }, isSoldOut: false },
         orderBy: { discountPct: "desc" },
         take: limit,
-        include: { category: true },
+        include: { category: { select: { id: true, name: true } } },
       }),
       getProductNumberMap(),
     ])
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const [products, numberMap] = await Promise.all([
       prisma.product.findMany({
         where: { id: { in: productIds } },
-        include: { category: true },
+        include: { category: { select: { id: true, name: true } } },
       }),
       getProductNumberMap(),
     ])
@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
   const numberMapPromise = getProductNumberMap()
 
   if (q && q.trim()) {
+    const queryWords = normalizeText(q.trim()).split(/\s+/).filter(Boolean)
     let baseWhere: Record<string, unknown> = { ...categoryWhere }
     const numberMap = await numberMapPromise
     if (hasNumberFilter) {
@@ -146,27 +147,28 @@ export async function GET(request: NextRequest) {
       baseWhere = { ...baseWhere, id: { in: idsInRange } }
     }
 
-    const allCandidateProducts = await prisma.product.findMany({
-      where: baseWhere,
-      include: { category: true, _count: { select: { clicks: true } } },
-      orderBy,
-    })
-
-    const queryWords = normalizeText(q.trim()).split(/\s+/).filter(Boolean)
-    const matchedProducts = allCandidateProducts.filter((p) => {
-      const searchText = [p.name, p.category?.name ?? "", p.imageAlt ?? ""].join(" ")
-      return matchesQueryWords(searchText, queryWords)
-    })
-    const total = matchedProducts.length
-    const offset = skip ?? 0
-    const limit = take !== undefined ? take : total
-    const paginated = matchedProducts.slice(offset, offset + limit)
-
-    const data = paginated.map((p) => ({
-      ...p,
-      number: numberMap.get(p.id) ?? 0,
+    // DB-level ILIKE per word (AND logic) — tránh load toàn bộ bảng vào memory
+    const wordConditions = queryWords.map((word) => ({
+      OR: [
+        { name: { contains: word, mode: "insensitive" as const } },
+        { imageAlt: { contains: word, mode: "insensitive" as const } },
+        { category: { name: { contains: word, mode: "insensitive" as const } } },
+      ],
     }))
+    const searchWhere = { AND: [baseWhere, ...wordConditions] }
 
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where: searchWhere,
+        include: { category: { select: { id: true, name: true } } },
+        orderBy,
+        skip,
+        take,
+      }),
+      prisma.product.count({ where: searchWhere }),
+    ])
+
+    const data = products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
     const opts = hasAdminParams ? {} : { headers: { "Cache-Control": PUBLIC_CACHE } }
     return NextResponse.json({ data, total }, opts)
   }
@@ -179,7 +181,7 @@ export async function GET(request: NextRequest) {
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
-        include: { category: true, _count: { select: { clicks: true } } },
+        include: { category: { select: { id: true, name: true } } },
         orderBy,
         skip,
         take,
@@ -198,7 +200,7 @@ export async function GET(request: NextRequest) {
     numberMapPromise,
     prisma.product.findMany({
       where,
-      include: { category: true, _count: { select: { clicks: true } } },
+      include: { category: { select: { id: true, name: true } } },
       orderBy,
       skip,
       take,

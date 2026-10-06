@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   const [products, clickCounts] = await Promise.all([
     prisma.product.findMany({
       where: { isSoldOut: false, discountPct: { gte: 20 }, ...categoryFilter },
-      include: { category: true },
+      include: { category: { select: { id: true, name: true } } },
       orderBy: { discountPct: "desc" },
       take: 20,
     }),
