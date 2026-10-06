@@ -21,6 +21,7 @@ interface ProductCardProps {
   onBuy?: (productId: string) => void
   viewCount?: number // click count in recent window — shows 🔥 badge if > 0
   couponCount?: number // số voucher active của source này
+  priority?: boolean  // true cho ảnh above-the-fold để tránh lazy load
 }
 
 
@@ -93,6 +94,7 @@ export default function ProductCard({
   onBuy,
   viewCount,
   couponCount = 0,
+  priority = false,
 }: ProductCardProps) {
   const formatPrice = useFormatPrice()
   const niche = useNicheByCategory(product.category?.id ?? "")
@@ -152,7 +154,7 @@ export default function ProductCard({
 
       <div>
         <div
-          className="relative w-full mb-3 overflow-hidden aspect-[4/3] cursor-pointer"
+          className="relative w-full mb-3 overflow-hidden aspect-square bg-white cursor-pointer"
           onClick={!isSoldOut ? handleBuy : undefined}
           onKeyDown={(e) => { if (!isSoldOut && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleBuy(); } }}
           role="link"
@@ -171,11 +173,10 @@ export default function ProductCard({
               src={product.imageUrl}
               alt={product.imageAlt}
               fill
-              loading="lazy"
-              fetchPriority="low"
-              unoptimized
-              className={`object-cover pointer-events-none ${isSoldOut ? "opacity-50" : ""}`}
-              sizes="(max-width: 768px) 50vw, 25vw"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "low"}
+              className={`object-contain pointer-events-none ${isSoldOut ? "opacity-50" : ""}`}
+              sizes="(max-width: 639px) 50vw, (max-width: 767px) 33vw, (max-width: 1279px) 25vw, 264px"
               onError={() => setImgError(true)}
             />
           )}

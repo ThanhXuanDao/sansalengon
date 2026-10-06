@@ -129,9 +129,9 @@ export default function ProductGrid({
             ))
           : allProducts.length === 0
             ? <EmptyState onReset={onResetCategory} />
-            : allProducts.map((product) => (
+            : allProducts.map((product, i) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} />
+                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} priority={i < 4} />
                 </motion.div>
               ))}
       </motion.div>

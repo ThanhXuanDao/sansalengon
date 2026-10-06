@@ -15,7 +15,7 @@ export async function GET(
   })
 
   if (!product) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 })
+    return NextResponse.json({ platforms: [], cheapestPrice: 0, savings: 0 })
   }
 
   const platformProducts = await prisma.platformProduct.findMany({

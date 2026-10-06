@@ -7,7 +7,7 @@ import { getPostsByNicheDb } from "@/lib/blog-db"
 import { getNicheSeoFromCache } from "@/lib/seo-generator"
 import NichePageClient from "./NichePageClient"
 
-const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
+const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.com").replace(/\/$/, "")
 
 export const revalidate = 1800 // ISR: rebuild mỗi 30 phút
 

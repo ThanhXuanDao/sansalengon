@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
       // Con Cưng
       { protocol: "https", hostname: "*.concung.com" },
       { protocol: "https", hostname: "concung.com" },
+      // Vascara / HM Vietnam CDN
+      { protocol: "https", hostname: "*.hstatic.net" },
       // External assets
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "images.unsplash.com" },

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react"
 import ContentPageShell from "@/components/layout/ContentPageShell"
+import ObfuscatedEmail from "@/components/ui/ObfuscatedEmail"
 
 interface FormState {
   success: boolean
@@ -155,12 +156,11 @@ export default function ContactPage() {
 
       <div className="mt-10 pt-6 border-t border-dashed border-[site-sand] text-center space-y-1">
         <p className="font-sans text-[14px] text-[site-brown]">Hoặc gửi email tới</p>
-        <a
-          href="mailto:hello@sansalengon.vn"
+        <ObfuscatedEmail
+          user="hello"
+          domain="sansalengon.com"
           className="font-mono text-[14px] text-primary underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          hello@sansalengon.vn
-        </a>
+        />
       </div>
     </ContentPageShell>
   )

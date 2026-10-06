@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `Blog ${niche.name} — Mẹo mua sắm & Review sản phẩm | SanSaleNgon`,
     description: `Bài viết chuyên sâu về ${niche.name.toLowerCase()} — review thực tế, mẹo mua sắm thông minh và deal tốt nhất trên Shopee.`,
     alternates: {
-      canonical: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn"}/${nicheId}/blog`,
+      canonical: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.com"}/${nicheId}/blog`,
     },
   }
 }

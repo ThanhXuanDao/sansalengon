@@ -68,7 +68,6 @@ function DealsWidget({ deals }: { deals: TopDealData[] }) {
                 height={84}
                 className="object-cover w-full h-full"
                 loading="lazy"
-                unoptimized
               />
               {deal.discountPct && deal.discountPct > 0 && (
                 <span className="absolute bottom-0 left-0 right-0 text-center text-[13px] font-bold bg-secondary text-white leading-5">

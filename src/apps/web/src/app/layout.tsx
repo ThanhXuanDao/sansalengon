@@ -17,8 +17,8 @@ const beVietnamPro = Be_Vietnam_Pro({
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSiteSettings()
   const siteName = s.siteName || "Săn Sale Ngon"
-  const title = s.metaTitle || `${siteName} — Mua Thông Minh, Tiết Kiệm Thật`
-  const description = s.metaDesc || s.tagline || "Sản phẩm Shopee affiliate được tuyển chọn kỹ — giá tốt nhất, cập nhật tự động mỗi 4 giờ."
+  const title = s.metaTitle || `${siteName} — Giảm Giá Ngay Hàng Ngàn Sản Phẩm`
+  const description = s.metaDesc || s.tagline || "Săn deal giảm giá ngay hôm nay! Hàng ngàn sản phẩm đang giảm sâu từ Shopee, Lazada, Tiki — cập nhật tự động mỗi ngày. Mua thông minh, tiết kiệm thật với Săn Sale Ngon."
   const ogImage = s.ogImage || "/og-image.jpg"
   const [robotsIndex, robotsFollow] = (s.robotsDefault || "index,follow").split(",")
 
@@ -50,9 +50,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     authors: [{ name: siteName, url: s.siteUrl }],
     applicationName: siteName,
-    alternates: {
-      canonical: s.siteUrl,
-    },
   }
 }
 
@@ -69,14 +66,8 @@ export default async function RootLayout({
         <meta name="color-scheme" content="light" />
         <meta name="theme-color" content="#FAFAF7" />
         {s.favicon && <link rel="icon" href={s.favicon} />}
-        <script type="speculationrules">
-          {JSON.stringify({
-            prerender: [{
-              where: { href_matches: "/*" },
-              eagerness: "conservative"
-            }]
-          })}
-        </script>
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
       </head>
       <body className="min-h-screen flex flex-col" translate="no">
         {s.maintenanceMode ? (
@@ -102,14 +93,20 @@ export default async function RootLayout({
         {/* GTM + GA4 — client component checks pathname to skip on /admin */}
         <AnalyticsScripts gtmId={s.gtmId || undefined} ga4Id={s.ga4Id || undefined} />
 
+        <Script id="speculation-rules" type="speculationrules" strategy="afterInteractive">
+          {JSON.stringify({
+            prerender: [{ where: { href_matches: "/*" }, eagerness: "conservative" }],
+          })}
+        </Script>
+
         <Script id="schema-breadcrumb" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             name: `${s.siteName || "Săn Sale Ngon"} Breadcrumb`,
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Trang chủ", item: s.siteUrl || "https://sansalengon.vn" },
-              { "@type": "ListItem", position: 2, name: "Sản phẩm", item: `${s.siteUrl || "https://sansalengon.vn"}/#products` },
+              { "@type": "ListItem", position: 1, name: "Trang chủ", item: s.siteUrl || "https://sansalengon.com" },
+              { "@type": "ListItem", position: 2, name: "Sản phẩm", item: `${s.siteUrl || "https://sansalengon.com"}/#products` },
             ],
           })}
         </Script>
@@ -118,13 +115,13 @@ export default async function RootLayout({
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: s.siteName || "Săn Sale Ngon",
-            url: s.siteUrl || "https://sansalengon.vn",
+            url: s.siteUrl || "https://sansalengon.com",
             description: s.tagline || "Sản phẩm Shopee affiliate được tuyển chọn kỹ.",
             potentialAction: {
               "@type": "SearchAction",
               target: {
                 "@type": "EntryPoint",
-                urlTemplate: `${s.siteUrl || "https://sansalengon.vn"}/search?q={search_term_string}`,
+                urlTemplate: `${s.siteUrl || "https://sansalengon.com"}/search?q={search_term_string}`,
               },
               "query-input": "required name=search_term_string",
             },

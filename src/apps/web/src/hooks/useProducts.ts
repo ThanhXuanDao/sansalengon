@@ -3,7 +3,7 @@ import { fetchProducts } from "@/lib/services/products"
 import { useMemo } from "react"
 import type { Product } from "@/types"
 
-const PAGE_SIZE = 24
+const PAGE_SIZE = 16
 
 interface UseProductsOptions {
   categorySlugs?: string[]

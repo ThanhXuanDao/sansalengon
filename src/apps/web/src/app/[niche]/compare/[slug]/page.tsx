@@ -14,7 +14,7 @@ import PriceCompareChart from "@/components/compare/PriceCompareChart"
 const Navbar = dynamic(() => import("@/components/layout/Navbar"))
 const Footer = dynamic(() => import("@/components/layout/Footer"))
 
-const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
+const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.com").replace(/\/$/, "")
 
 export const revalidate = 1800
 

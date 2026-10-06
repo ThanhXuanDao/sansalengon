@@ -1,16 +1,26 @@
 import { Suspense } from "react"
+import type { Metadata } from "next"
 import { QueryClient, HydrationBoundary, dehydrate } from "@tanstack/react-query"
 import { prisma } from "@/lib/prisma"
 import { getSiteSettings } from "@/lib/get-site-settings"
 import { getProductNumberMap } from "@/lib/products-numbering"
 import HomeContent from "./HomeContent"
 
-const PAGE_SIZE = 24
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSiteSettings()
+  return {
+    alternates: {
+      canonical: s.siteUrl || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    },
+  }
+}
+
+const PAGE_SIZE = 16
 
 async function prefetchServerData(queryClient: QueryClient) {
   const s = await getSiteSettings()
   const storeExtra = s as unknown as Record<string, unknown>
-  const featuredCount = typeof storeExtra.featuredCount === "number" ? storeExtra.featuredCount : 10
+  const featuredCount = typeof storeExtra.featuredCount === "number" ? storeExtra.featuredCount : 5
 
   await Promise.all([
     // categories — used by filter bar
@@ -54,6 +64,21 @@ async function prefetchServerData(queryClient: QueryClient) {
         ])
         return products.map((p) => ({ ...p, number: numberMap.get(p.id) ?? 0 }))
       },
+    }),
+
+    // banners — preloaded so BannerSlider can SSR without client fetch
+    queryClient.prefetchQuery({
+      queryKey: ["banners"],
+      queryFn: () =>
+        prisma.banner.findMany({
+          where: {
+            isActive: true,
+            OR: [{ startDate: null }, { startDate: { lte: new Date() } }],
+            AND: [{ OR: [{ endDate: null }, { endDate: { gte: new Date() } }] }],
+          },
+          orderBy: { position: "asc" },
+          select: { id: true, title: true, imageUrl: true, affiliateUrl: true, destinationUrl: true },
+        }),
     }),
 
     // first page of products — eliminates the blank-screen wait on initial load

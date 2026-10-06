@@ -54,8 +54,8 @@ export default function AdminHelpPage() {
       <div className="bg-white border border-[#e5e1d8] p-6 text-center clip-bevel-lg">
         <h3 className="font-sans text-[18px] font-bold text-[#1a1c1b]">Still need help?</h3>
         <p className="font-sans text-[14px] text-[#5c403a] mt-1">Contact us for personalized support.</p>
-        <a href="mailto:support@sansalengon.vn" className="inline-flex items-center gap-2 mt-4 font-mono text-[13px] tracking-[0.05em] text-[#b51c00] hover:underline">
-          support@sansalengon.vn
+        <a href="mailto:support@sansalengon.com" className="inline-flex items-center gap-2 mt-4 font-mono text-[13px] tracking-[0.05em] text-[#b51c00] hover:underline">
+          support@sansalengon.com
           <ExternalLink className="size-4" />
         </a>
       </div>

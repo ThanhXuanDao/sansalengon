@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import Image from "next/image"
+import { useQuery } from "@tanstack/react-query"
 
 interface BannerData {
   id: string
@@ -20,23 +21,16 @@ interface BannerSliderProps {
 const AUTO_SLIDE_INTERVAL = 4000
 
 export default function BannerSlider({ interval = AUTO_SLIDE_INTERVAL, className = "" }: BannerSliderProps) {
-  const [banners, setBanners] = useState<BannerData[]>([])
+  const { data, isSuccess } = useQuery<BannerData[]>({
+    queryKey: ["banners"],
+    queryFn: () => fetch("/api/banners").then((r) => r.json()).then((d) => d.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const banners = data ?? []
   const [active, setActive] = useState(0)
-  const [loaded, setLoaded] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pausedRef = useRef(false)
-
-  useEffect(() => {
-    fetch("/api/banners")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data.data) && data.data.length > 0) {
-          setBanners(data.data)
-        }
-        setLoaded(true)
-      })
-      .catch(() => setLoaded(true))
-  }, [])
 
   const startTimer = useCallback(() => {
     if (!interval || banners.length <= 1) return
@@ -71,7 +65,7 @@ export default function BannerSlider({ interval = AUTO_SLIDE_INTERVAL, className
     if (url) window.open(url, "_blank", "noopener,noreferrer")
   }
 
-  if (!loaded || banners.length === 0) return null
+  if (!isSuccess || banners.length === 0) return null
 
   return (
     <div className={`w-full ${className}`}>
@@ -92,7 +86,7 @@ export default function BannerSlider({ interval = AUTO_SLIDE_INTERVAL, className
               alt={b.title}
               fill
               className="object-contain"
-              sizes="(max-width: 768px) 100vw, 1200px"
+              sizes="(max-width: 768px) 100vw, 1320px"
               priority={i === 0}
             />
           </button>

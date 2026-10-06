@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Mail, MapPin, Phone, Share2, Play, Send } from "lucide-react"
 import { useSettings } from "@/hooks/useSettings"
+import ObfuscatedEmail from "@/components/ui/ObfuscatedEmail"
 
 interface NicheItem { id: string; name: string; emoji: string }
 interface NavLink { id: string; slug: string; title: string }
@@ -184,9 +185,7 @@ export default function Footer() {
               </div>
               <div className="flex items-start gap-2.5 text-sm text-white/60">
                 <Mail className="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                <a href="mailto:hello@sansalengon.vn" className="hover:text-primary transition-colors break-all">
-                  hello@sansalengon.vn
-                </a>
+                <ObfuscatedEmail user="hello" domain="sansalengon.com" className="hover:text-primary transition-colors break-all" />
               </div>
               <div className="flex items-start gap-2.5 text-sm text-white/60">
                 <MapPin className="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />

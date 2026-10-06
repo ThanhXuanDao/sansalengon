@@ -50,9 +50,9 @@ export default function FeaturedSection({ products = [], isLoading, onBuyProduct
         >
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={`s-feat-${i}`} />)
-            : products.map((product) => (
+            : products.map((product, i) => (
                 <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} />
+                  <ProductCard product={product} onBuy={onBuyProduct} couponCount={couponCounts[product.source] ?? 0} priority={i < 5} />
                 </motion.div>
               ))}
         </motion.div>

@@ -211,7 +211,7 @@ export default function AdminSettings() {
                     <input type="text" value={settings.siteName} onChange={(e) => update("siteName", e.target.value)} className={inputCls} placeholder="Săn Sale Ngon" />
                   </FieldRow>
                   <FieldRow label="URL Site" hint="URL đầy đủ của trang web (bao gồm https://)">
-                    <input type="url" value={settings.siteUrl} onChange={(e) => update("siteUrl", e.target.value)} className={inputCls} placeholder="https://sansalengon.vn" />
+                    <input type="url" value={settings.siteUrl} onChange={(e) => update("siteUrl", e.target.value)} className={inputCls} placeholder="https://sansalengon.com" />
                   </FieldRow>
                   <FieldRow label="Mô tả ngắn (Tagline)" hint="Hiển thị ở Hero section và footer">
                     <textarea rows={2} value={settings.tagline} onChange={(e) => update("tagline", e.target.value)} className={`${inputCls} resize-none`} placeholder="Tuyển chọn deal Shopee affiliate — cập nhật tự động." />

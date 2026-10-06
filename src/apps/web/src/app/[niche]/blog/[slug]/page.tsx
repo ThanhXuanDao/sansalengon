@@ -15,7 +15,7 @@ import MobileArticleBar from "@/components/blog/MobileArticleBar"
 const Navbar = dynamic(() => import("@/components/layout/Navbar"))
 const Footer = dynamic(() => import("@/components/layout/Footer"))
 
-const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.vn").replace(/\/$/, "")
+const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://sansalengon.com").replace(/\/$/, "")
 
 interface Props {
   params: Promise<{ niche: string; slug: string }>
