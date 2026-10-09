@@ -834,6 +834,13 @@ const SYNC_SOURCES = [
 ]
 
 async function main() {
+  // Skip seed nếu DB đã có đủ data — tránh delay 60-90s mỗi lần container restart
+  const existingCount = await prisma.category.count()
+  if (existingCount >= NICHES.length) {
+    console.log(`Seed skipped — ${existingCount} niches already in DB.`)
+    return
+  }
+
   console.log(`Seeding ${NICHES.length} niches...`)
   for (const niche of NICHES) {
     const { shopeeKeywords, atKeywords, ...rest } = niche
